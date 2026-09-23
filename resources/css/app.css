@@ -1,0 +1,6 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Alpine: hide elements until Alpine has initialised, so modals do not flash. */
+[x-cloak] { display: none !important; }

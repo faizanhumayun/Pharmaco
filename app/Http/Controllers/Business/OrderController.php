@@ -178,6 +178,10 @@ class OrderController extends Controller
         $company = $order->company;
 
         return view('business.orders.receive', [
+            // A shop selling to the public must know its own price; a
+            // distributor quotes per customer and can fill it in later.
+            'sellRequired' => $business->business_type === \App\Enums\BusinessType::Pharmacy,
+            'sellLabel' => $business->business_type === \App\Enums\BusinessType::Pharmacy ? 'Retail' : 'Trade',
             'business' => $business,
             // What this supplier is owed on the ledger today, so an overpayment
             // can say whether it is settling earlier bills or running ahead.
@@ -197,22 +201,72 @@ class OrderController extends Controller
         ReceiveOrder $action,
     ): RedirectResponse {
         try {
-            $order = $action->handle($order, $request->receiptData(), $request->user());
+            /*
+             * Before receiving, because receiving is what writes the price
+             * history: every figure has to be on the product by then or the
+             * row records a price that was already out of date.
+             */
+            $data = $request->receiptData();
+
+            app(\App\Domain\Products\Actions\ApplyDeliveryPrices::class)->handle(
+                $business,
+                collect($data['extras'] ?? [])
+                    ->filter(fn ($row) => ! empty($row['company_product_id']))
+                    ->keyBy('company_product_id')
+                    ->map(fn ($row) => ['mrp' => $row['mrp'] ?? null, 'trade' => $row['trade'] ?? null])
+                    ->all(),
+                $request->user(),
+            );
+
+            $order = $action->handle($order, $data, $request->user());
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['status' => $e->getMessage()]);
         }
 
-        $exceptions = $order->deliveryExceptions()->count();
+        $order = $order->fresh()->loadLines()->load('receiptLines', 'purchaseLine.dailyEntry');
 
-        $message = $exceptions === 0
-            ? "{$order->reference} received in full."
-            : "{$order->reference} received, with {$exceptions} ".Str::plural('difference', $exceptions).' against the order.';
+        /*
+         * What actually happened, in the order it matters.
+         *
+         * The goods are the first thing: they are in the godown and the count
+         * knows it, whatever state the day is in. Saying only that the invoice
+         * "posts when the day is posted" left people believing stock was
+         * waiting too — it never was, and a delivery you cannot sell from
+         * until somebody posts a day would be a serious thing to imply.
+         */
+        $packs = $order->receiptLines->sum('packs');
 
-        if ($line = $order->fresh()->purchaseLine) {
+        $message = sprintf(
+            '%s received — %s %s into stock now.',
+            $order->reference,
+            number_format($packs),
+            Str::plural($business->unit()->one(), $packs),
+        );
+
+        // A delivery with no order form has nothing to differ from, so the
+        // count of "differences" would be the whole delivery.
+        $exceptions = $order->lines->isEmpty() ? 0 : $order->deliveryExceptions()->count();
+
+        if ($exceptions > 0) {
             $message .= sprintf(
-                ' The invoice went onto the daily entry for %s — it posts when that day is posted.',
-                $line->dailyEntry->business_date->format('j M Y'),
+                ' %d %s against the order.',
+                $exceptions,
+                Str::plural('difference', $exceptions),
             );
+        }
+
+        if ($line = $order->purchaseLine) {
+            $entry = $line->dailyEntry;
+
+            $message .= $entry?->isEditable()
+                ? sprintf(
+                    ' The invoice is on the entry for %s and reaches the books when that day is posted.',
+                    $entry->business_date->format('j M Y'),
+                )
+                : sprintf(
+                    ' The invoice is on the books, on the entry for %s.',
+                    $entry?->business_date->format('j M Y'),
+                );
         }
 
         return redirect()
@@ -277,7 +331,7 @@ class OrderController extends Controller
                 'strength' => $p->strength,
                 'pack_size' => $p->pack_size,
                 'case_size' => $p->case_size,
-                'rate' => ($p->purchase_rate ?? $p->trade_price)?->toDecimal(),
+                'rate' => $p->purchase_rate?->toDecimal(),
                 'trade_price' => $p->trade_price?->toDecimal(),
                 'mrp' => $p->mrp?->toDecimal(),
             ])->values(),

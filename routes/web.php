@@ -6,10 +6,12 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OpeningBalanceController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\Business\AuditController;
+use App\Http\Controllers\Business\CollectionController;
 use App\Http\Controllers\Business\CompanyController;
 use App\Http\Controllers\Business\DailyClosingController;
 use App\Http\Controllers\Business\DailyEntryController;
 use App\Http\Controllers\Business\DashboardController as BusinessDashboardController;
+use App\Http\Controllers\Business\DirectDeliveryController;
 use App\Http\Controllers\Business\ExpenseCategoryController;
 use App\Http\Controllers\Business\HistoryController;
 use App\Http\Controllers\Business\PosController;
@@ -172,6 +174,15 @@ Route::middleware(['auth', 'business'])
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
         Route::post('products/{product}/stock', [ProductController::class, 'adjustStock'])
             ->name('products.adjust-stock');
+
+        // A delivery that arrived without an order form having been raised.
+        Route::get('stock/receive', [DirectDeliveryController::class, 'create'])->name('stock.receive');
+        Route::post('stock/receive', [DirectDeliveryController::class, 'store'])->name('stock.receive.store');
+        Route::post('stock/receive/product', [DirectDeliveryController::class, 'storeProduct'])->name('stock.receive.product');
+
+        // What the market owes, and cash brought back against it.
+        Route::get('collections', [CollectionController::class, 'index'])->name('collections.index');
+        Route::post('collections', [CollectionController::class, 'store'])->name('collections.store');
 
         Route::get('pharmacies', [PharmacyController::class, 'index'])->name('pharmacies.index');
         Route::post('pharmacies', [PharmacyController::class, 'store'])->name('pharmacies.store');

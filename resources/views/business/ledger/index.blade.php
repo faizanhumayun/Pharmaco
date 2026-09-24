@@ -169,6 +169,38 @@
             </div>
         </x-panel>
 
+        @if ($opened && $children)
+            <x-panel id="sub" class="mb-6" :title="$opened->name . ' — its own ledgers'"
+                     :description="number_format($children->total()) . ' accounts under ' . $opened->code . ', each with its own balance.'">
+                <table class="w-full divide-y divide-gray-200 text-sm">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Code</th>
+                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Account</th>
+                            <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        @foreach ($children as $child)
+                            <tr>
+                                <td class="whitespace-nowrap px-4 py-2 text-xs text-gray-500 sm:px-6">{{ $child->code }}</td>
+                                <td class="px-4 py-2">
+                                    <a href="{{ route('businesses.ledger.account', [$business, $child->code]) }}"
+                                       class="font-medium text-gray-900 hover:text-emerald-700">{{ $child->name }}</a>
+                                </td>
+                                <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums sm:px-6
+                                           {{ ($balances[$child->code] ?? \App\Support\Money::zero())->isNegative() ? 'text-red-700' : 'text-gray-900' }}">
+                                    {{ ($balances[$child->code] ?? \App\Support\Money::zero())->format() }}
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+
+                <div class="border-t border-gray-200 px-4 py-2 sm:px-6">{{ $children->links() }}</div>
+            </x-panel>
+        @endif
+
         @foreach ($types as $type)
             @php($group = $accounts->get($type->value, collect()))
             @continue($group->isEmpty())
@@ -190,11 +222,14 @@
                                     <td class="px-4 py-2">
                                         <a href="{{ route('businesses.ledger.account', [$business, $account->code]) }}"
                                            class="font-medium text-gray-900 hover:text-emerald-700">{{ $account->name }}</a>
-                                        @unless ($account->is_postable)
-                                            <x-badge classes="ml-2 bg-gray-100 text-gray-600 ring-gray-500/20">
-                                                {{ $account->children->isNotEmpty() ? 'has sub-accounts' : 'not in use' }}
-                                            </x-badge>
-                                        @endunless
+                                        @if ($account->children_count > 0)
+                                            <a href="{{ request()->fullUrlWithQuery(['under' => $account->code, 'page' => null]) }}#sub"
+                                               class="ml-2 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-800">
+                                                {{ number_format($account->children_count) }} sub-accounts
+                                            </a>
+                                        @elseif (! $account->is_postable)
+                                            <x-badge classes="ml-2 bg-gray-100 text-gray-600 ring-gray-500/20">not in use</x-badge>
+                                        @endif
                                         @if ($account->description)
                                             <p class="mt-0.5 text-xs text-gray-500">{{ $account->description }}</p>
                                         @endif

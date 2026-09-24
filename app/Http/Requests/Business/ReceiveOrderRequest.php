@@ -23,6 +23,9 @@ class ReceiveOrderRequest extends FormRequest
 
             'extras' => ['nullable', 'array', 'max:100'],
             'extras.*.company_product_id' => ['nullable', 'integer'],
+            // The catalogue figures a delivery confirms.
+            'extras.*.mrp' => ['nullable', 'string', 'max:30'],
+            'extras.*.trade' => ['nullable', 'string', 'max:30'],
             'extras.*.brand_name' => ['nullable', 'string', 'max:200'],
             'extras.*.label' => ['nullable', 'string', 'max:300'],
             'extras.*.generic_name' => ['nullable', 'string', 'max:255'],

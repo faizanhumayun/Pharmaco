@@ -17,13 +17,14 @@ class StoreBusinessRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:160'],
-            // Pharmacy mode is visible in the UI as "Coming Soon" and is rejected
-            // here as well, so a crafted request cannot create one.
+            // Only the kinds the app supports, whatever a crafted request asks for.
             'business_type' => ['required', Rule::in(array_map(
                 fn (BusinessType $t) => $t->value,
                 BusinessType::available()
             ))],
-            'stock_unit' => ['required', Rule::enum(\App\Enums\StockUnit::class)],
+            // Optional: left out, a business counts the way its kind usually does.
+            'stock_unit' => ['nullable', Rule::enum(\App\Enums\StockUnit::class)],
+            'receipt_format' => ['nullable', Rule::enum(\App\Enums\ReceiptFormat::class)],
             'currency' => ['required', 'string', 'size:3'],
             'timezone' => ['required', 'string', 'max:64', 'timezone'],
             'address' => ['nullable', 'string', 'max:255'],
@@ -37,7 +38,7 @@ class StoreBusinessRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'business_type.in' => 'Only distributor businesses can be created at the moment. Pharmacy support is coming soon.',
+            'business_type.in' => 'Choose one of the kinds of business listed.',
         ];
     }
 }

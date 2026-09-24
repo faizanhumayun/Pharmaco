@@ -17,7 +17,38 @@
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         <x-flash />
 
+        {{-- Sold past the count. The counter is allowed to do it — the medicine
+             was on the shelf even if the books said otherwise — so this is where
+             it surfaces afterwards, rather than being lost in the day. --}}
+        @if ($belowZero->isNotEmpty() && ! $filters['short'])
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+                <p class="text-sm text-amber-900">
+                    <span class="font-semibold">{{ $belowZero->count() }} {{ Str::plural('product', $belowZero->count()) }}</span>
+                    {{ $belowZero->count() === 1 ? 'has' : 'have' }} been sold past the count, so the books hold
+                    less than none of {{ $belowZero->count() === 1 ? 'it' : 'them' }}. Enter the missing purchase,
+                    or correct the count.
+                </p>
+                <a href="{{ route('businesses.products.index', [$business, 'short' => 1]) }}"
+                   class="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700">
+                    Show them
+                </a>
+            </div>
+        @endif
+
+        @if ($filters['short'])
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
+                <p class="text-sm text-amber-900">
+                    Showing only what was sold past the count.
+                </p>
+                <a href="{{ route('businesses.products.index', $business) }}"
+                   class="text-sm font-medium text-amber-900 underline hover:text-amber-950">Show everything</a>
+            </div>
+        @endif
+
         <form method="GET" class="mb-6 flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+            @if ($filters['short'])
+                <input type="hidden" name="short" value="1">
+            @endif
             <div class="min-w-[16rem] flex-1">
                 <x-input-label for="q" value="Search" />
                 <x-text-input id="q" name="q" type="search" :value="$filters['q']"
@@ -75,7 +106,7 @@
                             @foreach ([
                                 ['Product', 'left'], ['Generic', 'left'], ['Pack', 'left'], ['Company', 'left'],
                                 ['MRP', 'right'], ['Trade price', 'right'], ['Our rate', 'right'],
-                                ['Margin', 'right'], ['Case', 'right'], ['On hand', 'right'], ['Priced', 'right'],
+                                ['Margin', 'right'], ['Case', 'right'], ['In stock', 'right'], ['Priced', 'right'],
                             ] as [$heading, $align])
                                 <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">
                                     {{ $heading }}
@@ -116,7 +147,8 @@
                                 </td>
                                 <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-600">{{ $product->case_size ?? '—' }}</td>
                                 @php($held = (int) ($onHand[$product->id] ?? 0))
-                                <td class="px-3 py-2 text-right font-mono tabular-nums {{ $held > 0 ? 'font-semibold text-gray-900' : 'text-gray-400' }}">
+                                <td class="px-3 py-2 text-right font-mono tabular-nums {{ $held > 0 ? 'font-semibold text-gray-900' : ($held < 0 ? 'font-semibold text-red-700' : 'text-gray-400') }}"
+                                    @if ($held < 0) title="Sold past the count — enter the missing purchase, or correct the count" @endif>
                                     {{ $held === 0 ? '—' : number_format($held) }}
                                 </td>
                                 <td class="px-3 py-2 text-right text-xs text-gray-500">{{ $product->priced_on?->format('j M y') ?? '—' }}</td>

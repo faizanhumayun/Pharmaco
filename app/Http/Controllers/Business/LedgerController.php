@@ -33,15 +33,38 @@ class LedgerController extends Controller
 
         // Explicit business scoping even inside the workspace: the balance
         // service and these queries never rely on the global scope alone.
+        /*
+         * The chart itself, not every ledger under it. A business with three
+         * hundred customers has three hundred sub-accounts, and listing them
+         * all makes the one page that shows the position the slowest in the
+         * app. Each control account says how many it has; opening one lists
+         * them, a page at a time.
+         */
         $accounts = Account::forBusiness($business)
-            ->with('children')
+            ->withCount('children')
+            ->whereNull('parent_id')
             ->orderBy('sort_order')
             ->get();
+
+        // The sub-accounts of one control account, when asked for.
+        $opened = $request->filled('under')
+            ? Account::forBusiness($business)->where('code', $request->string('under')->toString())->first()
+            : null;
+
+        $children = $opened
+            ? Account::forBusiness($business)
+                ->where('parent_id', $opened->id)
+                ->orderBy('code')
+                ->paginate(50)
+                ->withQueryString()
+            : null;
 
         return view('business.ledger.index', [
             'business' => $business,
             'asAt' => $asAt,
             'accounts' => $accounts->groupBy(fn (Account $a) => $a->type->value),
+            'opened' => $opened,
+            'children' => $children,
             'balances' => $balances->all($business, $asAt),
             'position' => $balances->position($business, $asAt),
             'trial' => $balances->trialBalance($business, $asAt),

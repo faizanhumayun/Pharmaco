@@ -30,8 +30,18 @@ class ProductController extends Controller
 
         $companies = Company::forBusiness($business)->orderBy('name')->get();
 
+        /*
+         * Sold past the count. A counter may sell what is on the shelf even
+         * when the books hold none of it, so this is the owner's working list:
+         * every product the books now say there is less than none of, which is
+         * either a delivery never entered or a count that needs redoing.
+         */
+        $onHand = $stock->onHandByProduct($business);
+        $belowZero = $onHand->filter(fn ($packs) => (int) $packs < 0)->keys();
+
         $products = CompanyProduct::forBusiness($business)
             ->with('company')
+            ->when($request->boolean('short'), fn ($q) => $q->whereIn('id', $belowZero->all()))
             ->search($request->query('q'))
             ->when($request->query('company'), fn ($q, $id) => $q->where('company_id', $id))
             ->when($request->query('form'), fn ($q, $form) => $q->where('dosage_form', $form))
@@ -49,6 +59,7 @@ class ProductController extends Controller
                 'company' => $request->query('company'),
                 'form' => $request->query('form'),
                 'inactive' => $request->boolean('inactive'),
+                'short' => $request->boolean('short'),
             ],
             'forms' => CompanyProduct::forBusiness($business)
                 ->whereNotNull('dosage_form')
@@ -57,7 +68,8 @@ class ProductController extends Controller
                 ->pluck('dosage_form'),
             'total' => CompanyProduct::forBusiness($business)->count(),
             // One query for the page, rather than one per row.
-            'onHand' => $stock->onHandByProduct($business),
+            'onHand' => $onHand,
+            'belowZero' => $belowZero,
         ]);
     }
 
@@ -115,9 +127,10 @@ class ProductController extends Controller
         }
 
         return back()->with('status', sprintf(
-            '%s %s packs. Stock is now %d.',
+            '%s %s %s. Stock is now %d.',
             $validated['packs'] > 0 ? 'Added' : 'Removed',
             number_format(abs((int) $validated['packs'])),
+            $business->unit()->many(),
             app(StockLedger::class)->onHand($business, $product),
         ));
     }

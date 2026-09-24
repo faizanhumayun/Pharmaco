@@ -7,7 +7,8 @@
                     <x-badge :classes="$business->status->badgeClasses()">{{ $business->status->label() }}</x-badge>
                 </div>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ $business->business_type->label() }} · {{ $business->currency }} · {{ $business->timezone }}
+                    {{ $business->business_type->label() }} · {{ $business->currency }} · {{ $business->timezone }} ·
+                    counted in {{ $business->unit()->many() }}
                 </p>
             </div>
             <div class="flex gap-2">

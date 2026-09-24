@@ -54,6 +54,111 @@
             <x-stat label="Balance owed" :value="$balance->format()" hint="From this company's ledger" />
         </div>
 
+        {{-- Their goods, not just their bills. A supplier is two things: what
+             you owe them, and what of theirs is sitting in the godown. --}}
+        <div class="mb-6 grid gap-6 xl:grid-cols-3">
+            <div class="xl:col-span-2">
+                <x-panel title="Their goods in stock">
+                    <div class="flex flex-wrap gap-x-8 gap-y-2 border-b border-gray-100 px-4 py-3 sm:px-6">
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Held</p>
+                            <p class="font-mono text-lg font-semibold tabular-nums text-gray-900">
+                                {{ number_format($stock['packs']) }}
+                                <span class="text-xs font-normal text-gray-500">{{ $business->unit()->many() }}</span>
+                            </p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Worth at cost</p>
+                            <p class="font-mono text-lg font-semibold tabular-nums text-gray-900">{{ $stock['value']->format() }}</p>
+                        </div>
+                        <div>
+                            <p class="text-xs uppercase tracking-wide text-gray-400">Products</p>
+                            <p class="font-mono text-lg font-semibold tabular-nums text-gray-900">{{ number_format($stock['products']) }}</p>
+                            <p class="text-xs text-gray-500">{{ $stock['out'] }} out of stock</p>
+                        </div>
+                        @if ($stock['below'] > 0)
+                            <div>
+                                <p class="text-xs uppercase tracking-wide text-red-600">Sold past the count</p>
+                                <p class="font-mono text-lg font-semibold tabular-nums text-red-700">{{ $stock['below'] }}</p>
+                                <a href="{{ route('businesses.products.index', [$business, 'short' => 1]) }}"
+                                   class="text-xs font-medium text-red-700 underline">Put right</a>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    @foreach (['Product', Str::ucfirst($business->unit()->many()), 'At cost', 'Worth'] as $h)
+                                        <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ $loop->first ? 'text-left sm:px-6' : 'text-right' }} {{ $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
+                                    @endforeach
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100">
+                                @forelse ($stock['rows'] as $row)
+                                    <tr>
+                                        <td class="px-4 py-2 text-gray-900 sm:px-6">{{ $row['product']->label() }}</td>
+                                        <td class="px-4 py-2 text-right font-mono tabular-nums {{ $row['packs'] < 0 ? 'font-semibold text-red-700' : ($row['packs'] === 0 ? 'text-gray-400' : 'text-gray-900') }}">
+                                            {{ number_format($row['packs']) }}
+                                        </td>
+                                        <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-600">
+                                            {{ ($row['product']->purchase_rate ?? $row['product']->trade_price)?->format() ?? '—' }}
+                                        </td>
+                                        <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6">{{ $row['value']->format() }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="4" class="px-6 py-8 text-center text-sm text-gray-500">
+                                            No products in the catalogue for this company yet.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+
+                    @if ($stock['products'] > $stock['rows']->count())
+                        <div class="border-t border-gray-100 px-4 py-3 text-sm sm:px-6">
+                            <a href="{{ route('businesses.products.index', ['business' => $business, 'company' => $company->id]) }}"
+                               class="font-medium text-emerald-700 hover:text-emerald-800">
+                                All {{ number_format($stock['products']) }} of their products →
+                            </a>
+                        </div>
+                    @endif
+                </x-panel>
+            </div>
+
+            <div class="xl:col-span-1">
+                <x-panel title="What is owed against it">
+                    <dl class="divide-y divide-gray-100 text-sm">
+                        @foreach ([
+                            'Stock of theirs held' => $stock['value'],
+                            'Owed to them' => $balance,
+                        ] as $label => $figure)
+                            <div class="flex items-baseline justify-between px-4 py-3 sm:px-6">
+                                <dt class="text-gray-600">{{ $label }}</dt>
+                                <dd class="font-mono tabular-nums text-gray-900">{{ $figure->format() }}</dd>
+                            </div>
+                        @endforeach
+                        {{-- Not a rule, a reading: stock worth less than the bill for
+                             it usually means the goods have been sold and the money
+                             has not gone back yet. --}}
+                        <div class="flex items-baseline justify-between bg-gray-50 px-4 py-3 sm:px-6">
+                            <dt class="font-medium text-gray-700">Difference</dt>
+                            <dd class="font-mono font-semibold tabular-nums {{ $stock['value']->minus($balance)->isNegative() ? 'text-amber-800' : 'text-gray-900' }}">
+                                {{ $stock['value']->minus($balance)->format() }}
+                            </dd>
+                        </div>
+                    </dl>
+                    <p class="px-4 py-3 text-xs leading-relaxed text-gray-500 sm:px-6">
+                        Stock is valued at what it cost. A negative difference means you owe
+                        more than you are still holding of theirs — the goods have moved on.
+                    </p>
+                </x-panel>
+            </div>
+        </div>
+
         <x-panel :title="'Statement — balance owed ' . $balance->format()">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">

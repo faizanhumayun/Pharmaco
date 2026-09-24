@@ -59,15 +59,22 @@ class CorrectOpeningBalance
          */
         $debitTheAccount = $amount->isPositive() === $account->type()->increasesOnDebit();
 
+        // Once a control account has sub-accounts it stops taking postings of
+        // its own, so a correction goes where the day-to-day summary figures
+        // go: the account's own "Unallocated" ledger. Without this, a business
+        // that has named even one company can never correct what it started
+        // out owing.
+        $target = $this->postableCode($business, $account);
+
         // The other side always goes to Opening Balance Equity: a cutover
         // correction restates the starting position, it is not trading.
         $lines = $debitTheAccount
             ? [
-                PostingLine::debit($account, $size),
+                PostingLine::debit($target, $size),
                 PostingLine::credit(AccountCode::OpeningBalanceEquity, $size),
             ]
             : [
-                PostingLine::credit($account, $size),
+                PostingLine::credit($target, $size),
                 PostingLine::debit(AccountCode::OpeningBalanceEquity, $size),
             ];
 
@@ -82,6 +89,31 @@ class CorrectOpeningBalance
             reason: $reason,
             originalDate: $opening->opening_date,
         ));
+    }
+
+    /**
+     * Where the correction may actually post: the account itself, or its
+     * "Unallocated" ledger once it has sub-accounts.
+     */
+    private function postableCode(\App\Models\Business $business, AccountCode $account): string
+    {
+        $ledger = \App\Models\Account::query()->forBusiness($business)->code($account)->firstOrFail();
+
+        if ($ledger->is_postable) {
+            return $account->value;
+        }
+
+        $unallocated = \App\Models\Account::query()->forBusiness($business)
+            ->where('code', $account->value . '-000')
+            ->first();
+
+        if ($unallocated === null || ! $unallocated->is_postable) {
+            throw new LedgerException(
+                $account->label() . ' is split across sub-accounts with no unallocated ledger to correct into.'
+            );
+        }
+
+        return $unallocated->code;
     }
 
     /**

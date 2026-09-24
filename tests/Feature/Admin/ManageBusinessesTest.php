@@ -5,6 +5,7 @@ use Illuminate\Support\Facades\DB;
 use App\Enums\BusinessRole;
 use App\Enums\BusinessStatus;
 use App\Enums\BusinessType;
+use App\Enums\StockUnit;
 use App\Models\Business;
 use App\Models\User;
 
@@ -57,11 +58,29 @@ it('gives businesses with the same name distinct slugs', function () {
     expect(Business::pluck('slug')->all())->toBe(['same-name-pharma', 'same-name-pharma-2']);
 });
 
-it('refuses to create a pharmacy, which is only a "coming soon" label', function () {
+it('creates a pharmacy, counting in loose items unless told otherwise', function () {
     $this->actingAs(platformAdmin())
         ->post(route('admin.businesses.store'), [
             'name' => 'A Pharmacy',
             'business_type' => 'pharmacy',
+            'currency' => 'PKR',
+            'timezone' => 'Asia/Karachi',
+        ])
+        ->assertRedirect();
+
+    $pharmacy = Business::firstOrFail();
+
+    // A pharmacy breaks packs open and sells what the patient needs, so its
+    // quantities are single items; a distributor's are whole packs.
+    expect($pharmacy->business_type)->toBe(BusinessType::Pharmacy)
+        ->and($pharmacy->unit())->toBe(StockUnit::Item);
+});
+
+it('refuses a kind of business that does not exist', function () {
+    $this->actingAs(platformAdmin())
+        ->post(route('admin.businesses.store'), [
+            'name' => 'A Hospital',
+            'business_type' => 'hospital',
             'currency' => 'PKR',
             'timezone' => 'Asia/Karachi',
         ])

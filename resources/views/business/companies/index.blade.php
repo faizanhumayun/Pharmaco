@@ -22,7 +22,7 @@
         {{-- Summary and filters on one line. --}}
         <div class="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
             <p class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="text-base font-semibold text-gray-900">{{ $companies->count() }} {{ Str::plural('company', $companies->count()) }}</span>
+                <span class="text-base font-semibold text-gray-900">{{ number_format($companies->total()) }} {{ Str::plural('company', $companies->total()) }}</span>
                 <span class="text-gray-500">· owed</span>
                 <span class="font-semibold tabular-nums text-gray-900">Rs. {{ $shownOwed->format() }}</span>
                 @if ($shownOwed->toDecimal() !== $total->toDecimal())
@@ -149,6 +149,8 @@
                     need not match.
                 </p>
         </x-panel>
+
+        <div class="mt-4">{{ $companies->links() }}</div>
     </div>
 
     @can('configure', $business)

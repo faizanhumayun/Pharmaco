@@ -28,6 +28,8 @@ use RuntimeException;
  */
 class CommitProductImport
 {
+    public function __construct(private readonly RecordProductPrice $prices) {}
+
     /** Fields a later list may refresh on a product it has seen before. */
     private const DESCRIPTIVE = [
         'code', 'brand_name', 'generic_name', 'strength', 'dosage_form', 'pack_size', 'pack_type',
@@ -208,17 +210,7 @@ class CommitProductImport
 
     private function recordPrice(CompanyProductImport $import, CompanyProduct $product, User $by): void
     {
-        CompanyProductPrice::create([
-            'business_id' => $import->business_id,
-            'company_id' => $import->company_id,
-            'company_product_id' => $product->id,
-            'company_product_import_id' => $import->id,
-            'business_date' => $import->business_date,
-            'mrp' => $product->mrp,
-            'trade_price' => $product->trade_price,
-            'purchase_rate' => $product->purchase_rate,
-            'case_size' => $product->case_size,
-            'recorded_by' => $by->id,
-        ]);
+        // One place writes a price down, whichever way the price arrived.
+        $this->prices->handle($product, $by, $import);
     }
 }

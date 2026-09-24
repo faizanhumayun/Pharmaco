@@ -38,6 +38,12 @@ class OrderReceiptLine extends Model
         return $this->belongsTo(Order::class);
     }
 
+    /** The catalogue product this line is counted against, when it names one. */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(CompanyProduct::class, 'company_product_id');
+    }
+
     public function orderLine(): BelongsTo
     {
         return $this->belongsTo(OrderLine::class);

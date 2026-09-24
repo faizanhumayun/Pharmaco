@@ -46,7 +46,7 @@ class AuthServiceProvider extends ServiceProvider
             return in_array($ability, self::PLATFORM_ABILITIES, true) ? true : null;
         });
 
-        // Pharmacy mode is routed and visible as "Coming Soon", never executable.
+        // Kept as the one place that says which kinds of business may be set up.
         Gate::define('use-business-type', fn (User $user, BusinessType $type) => $type->isAvailable());
     }
 

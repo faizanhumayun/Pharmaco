@@ -160,9 +160,14 @@ class BalanceService
             return true;
         }
 
-        $childTotal = Money::sum(
-            $parent->children->map(fn (Account $child) => $this->asAt($business, $child->code, $date))
-        );
+        /*
+         * Every child in one query. Asking per child is a query each, which a
+         * business with a few companies never notices and one with hundreds of
+         * customers cannot survive — the page that proves the totals agree was
+         * the slowest page in the app.
+         */
+        $childTotal = $this->rawFor($business, $parent->children->pluck('id')->all(), null, $date)
+            ->times($this->signFor($business, $code));
 
         // The rolled-up balance equals the sum of the children exactly when the
         // parent carries no direct postings of its own — which is the thing

@@ -21,6 +21,7 @@ class Business extends Model
 
     protected $fillable = [
         'name', 'slug', 'business_type', 'status', 'currency', 'timezone', 'stock_unit',
+        'receipt_format',
         'address', 'phone', 'email', 'ntn', 'notes', 'created_by',
     ];
 
@@ -34,6 +35,7 @@ class Business extends Model
         return [
             'business_type' => BusinessType::class,
             'stock_unit' => StockUnit::class,
+            'receipt_format' => \App\Enums\ReceiptFormat::class,
             'status' => BusinessStatus::class,
             'opening_date' => 'date',
             'locked_through_date' => 'date',
@@ -187,6 +189,12 @@ class Business extends Model
     public function unit(): StockUnit
     {
         return $this->stock_unit ?? StockUnit::defaultFor($this->business_type);
+    }
+
+    /** What a bill prints on here — the choice made, or the usual one. */
+    public function receiptFormat(): \App\Enums\ReceiptFormat
+    {
+        return $this->receipt_format ?? \App\Enums\ReceiptFormat::defaultFor($this->business_type);
     }
 
     /** "Today" always means today in the business's own timezone, not the server's. */

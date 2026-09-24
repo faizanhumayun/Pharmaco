@@ -6,6 +6,8 @@ use App\Domain\Companies\Actions\CreateCompany;
 use App\Domain\Companies\CompanyPurchases;
 use App\Domain\Ledger\BalanceService;
 use App\Enums\AccountCode;
+use App\Domain\Stock\StockLedger;
+use App\Models\CompanyProduct;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Company;
@@ -39,14 +41,21 @@ class CompanyController extends Controller
         // One query for the page rather than one per company.
         $totals = $purchases->totals($business);
 
-        $total = $balances->asAt($business, AccountCode::CompanyPayables);
-        $sum = Money::sum($companies->map(
-            fn (Company $c) => $c->account ? $balances->asAt($business, $c->account->code) : Money::zero()
-        ));
+        // One query for every company's balance, not one query each.
+        $ledgerTotals = LedgerEntry::query()
+            ->where('business_id', $business->id)
+            ->whereIn('account_id', $companies->pluck('account_id')->filter())
+            ->selectRaw('account_id, COALESCE(SUM(credit), 0) - COALESCE(SUM(debit), 0) as balance')
+            ->groupBy('account_id')
+            ->pluck('balance', 'account_id');
 
         $owed = $companies->mapWithKeys(fn (Company $c) => [
-            $c->id => $c->account ? $balances->asAt($business, $c->account->code) : Money::zero(),
+            $c->id => Money::of($ledgerTotals[$c->account_id] ?? 0),
         ]);
+
+        $total = $balances->asAt($business, AccountCode::CompanyPayables);
+        $sum = Money::sum($owed);
+
 
         // Only those still owed something, when that is what is being looked for.
         if ($request->boolean('owing')) {
@@ -63,6 +72,18 @@ class CompanyController extends Controller
             default => $companies,
         };
 
+        $shownOwed = Money::sum($companies->map(fn (Company $c) => $owed[$c->id]));
+
+        // A page at a time, once the list outgrows a screen.
+        $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+        $companies = new \Illuminate\Pagination\LengthAwarePaginator(
+            $companies->forPage($page, 50)->values(),
+            $companies->count(),
+            50,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+
         return view('business.companies.index', [
             'business' => $business,
             'companies' => $companies,
@@ -70,9 +91,9 @@ class CompanyController extends Controller
             'status' => $status,
             'owing' => $request->boolean('owing'),
             'sort' => $sort,
-            'shownOwed' => Money::sum($companies->map(fn (Company $c) => $owed[$c->id])),
+            'shownOwed' => $shownOwed,
             'balances' => $companies->mapWithKeys(fn (Company $c) => [
-                $c->id => $c->account ? $balances->asAt($business, $c->account->code) : Money::zero(),
+                $c->id => $owed[$c->id],
             ]),
             'purchases' => $companies->mapWithKeys(fn (Company $c) => [
                 $c->id => $totals->get($c->id, CompanyPurchases::none()),
@@ -108,7 +129,50 @@ class CompanyController extends Controller
             ->with('status', "{$company->name} added with its own ledger ({$company->account->code}).");
     }
 
-    public function show(Business $business, Company $company, BalanceService $balances): View
+    /**
+     * What is held of this company's goods, and what it is worth.
+     *
+     * The company page grew up as the money side — what was bought and what is
+     * owed — and said nothing about the goods themselves, which is half of what
+     * a supplier relationship is. Stock is read once for the business and
+     * narrowed here rather than asked product by product.
+     *
+     * @return array<string, mixed>
+     */
+    private function stockOf(Business $business, Company $company, StockLedger $stock): array
+    {
+        $products = CompanyProduct::forBusiness($business)
+            ->where('company_id', $company->id)
+            ->where('is_active', true)
+            ->orderBy('brand_name')
+            ->get();
+
+        $onHand = $stock->onHandByProduct($business);
+
+        $rows = $products->map(function (CompanyProduct $product) use ($onHand) {
+            $packs = (int) ($onHand[$product->id] ?? 0);
+            $cost = $product->purchase_rate ?? Money::zero();
+
+            return [
+                'product' => $product,
+                'packs' => $packs,
+                // Negative stock is worth nothing, not a negative asset: the
+                // goods are simply not there. It is flagged instead.
+                'value' => $packs > 0 ? $cost->times($packs) : Money::zero(),
+            ];
+        });
+
+        return [
+            'rows' => $rows->sortByDesc(fn ($row) => (float) $row['value']->toDecimal())->take(12)->values(),
+            'products' => $products->count(),
+            'packs' => $rows->sum(fn ($row) => max(0, $row['packs'])),
+            'value' => Money::sum($rows->pluck('value')),
+            'out' => $rows->filter(fn ($row) => $row['packs'] === 0)->count(),
+            'below' => $rows->filter(fn ($row) => $row['packs'] < 0)->count(),
+        ];
+    }
+
+    public function show(Business $business, Company $company, BalanceService $balances, StockLedger $stock): View
     {
         $this->authorize('configure', $business);
 
@@ -140,6 +204,7 @@ class CompanyController extends Controller
             'business' => $business,
             'company' => $company,
             'rows' => $rows,
+            'stock' => $this->stockOf($business, $company, $stock),
             'balance' => $company->account
                 ? $balances->asAt($business, $company->account->code)
                 : Money::zero(),

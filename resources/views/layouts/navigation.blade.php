@@ -38,11 +38,6 @@
                         @endforeach
                     @endif
 
-                    <span class="inline-flex items-center border-b-2 border-transparent px-1 pt-1 text-sm font-medium text-gray-300"
-                          title="Pharmacy support is not built yet">
-                        Pharmacy
-                        <span class="ms-2 rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-700">Soon</span>
-                    </span>
                 </div>
             </div>
 

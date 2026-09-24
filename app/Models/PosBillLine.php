@@ -15,13 +15,14 @@ class PosBillLine extends Model
 
     protected $fillable = [
         'business_id', 'pos_bill_id', 'company_product_id', 'name',
-        'quantity', 'unit_price', 'unit_cost', 'line_total',
+        'quantity', 'short_by', 'unit_price', 'unit_cost', 'line_total',
     ];
 
     protected function casts(): array
     {
         return [
             'quantity' => 'integer',
+            'short_by' => 'integer',
             'unit_price' => MoneyCast::class,
             'unit_cost' => MoneyCast::class,
             'line_total' => MoneyCast::class,
@@ -41,5 +42,11 @@ class PosBillLine extends Model
     public function cost(): Money
     {
         return $this->unit_cost->times($this->quantity);
+    }
+
+    /** Sold beyond what the books held — the count needs looking at. */
+    public function soldShort(): bool
+    {
+        return $this->short_by > 0;
     }
 }

@@ -28,6 +28,7 @@ class ReceiveOrder
     public function __construct(
         private readonly RecordDeliveryPurchase $purchase,
         private readonly RecordStockMovements $movements,
+        private readonly \App\Domain\Products\Actions\RecordProductPrice $prices,
     ) {}
 
     /** @param array<string, mixed> $data */
@@ -119,6 +120,9 @@ class ReceiveOrder
             // the order was raised.
             $written = $this->movements->forDelivery($order->fresh(), $by);
 
+            // And what the company actually charged for them.
+            $this->repriceFrom($order->fresh()->load('receiptLines.product'), $by);
+
             /*
              * The delivery, in the trail.
              *
@@ -161,6 +165,50 @@ class ReceiveOrder
      * @param  array<int, array<string, mixed>>  $rows
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Brings the catalogue into line with what was invoiced.
+     *
+     * The rate on a delivery is what the goods cost — that is not an opinion,
+     * it is the bill. Leaving the catalogue on last month's figure meant every
+     * margin, every stock valuation and the counter's own price floor went on
+     * using a number the company had stopped charging, and the product's price
+     * history showed nothing had happened.
+     *
+     * The move is recorded against this delivery, so the history says which
+     * one moved it and a wrong rate can be traced and corrected rather than
+     * silently becoming the truth.
+     */
+    private function repriceFrom(Order $order, User $by): void
+    {
+        foreach ($order->receiptLines as $line) {
+            $product = $line->product;
+
+            if ($product === null || $line->rate === null || ! $line->rate->isPositive()) {
+                continue;
+            }
+
+            if ($product->purchase_rate === null || ! $product->purchase_rate->equals($line->rate)) {
+                $product->forceFill([
+                    'purchase_rate' => $line->rate->toDecimal(),
+                    'priced_on' => ($order->received_at ?? $order->business_date)->toDateString(),
+                ])->save();
+            }
+
+            /*
+             * Recorded for every delivered product, not only the ones whose
+             * cost moved: the selling prices entered with the delivery are
+             * already on the product by now, and this is the one row that
+             * carries all three. Identical figures record nothing.
+             */
+            $this->prices->handle(
+                $product->fresh(),
+                $by,
+                date: $order->received_at ?? $order->business_date,
+                source: $order,
+            );
+        }
+    }
+
     private function extras(Order $order, array $rows): array
     {
         if ($rows === []) {

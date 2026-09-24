@@ -44,9 +44,12 @@ it('renders the login screen without a registration link', function () {
         ->assertDontSee('Register');
 });
 
-it('shows pharmacy mode as coming soon rather than offering it', function () {
+it('offers both kinds of business, and asks how each counts its stock', function () {
     $this->actingAs(platformAdmin())
         ->get(route('admin.businesses.create'))
         ->assertOk()
-        ->assertSee('coming soon', escape: false);
+        ->assertSee('Pharmacy')
+        ->assertSee('Pharmaceutical Distributor')
+        ->assertSee('How stock is counted')
+        ->assertDontSee('coming soon', escape: false);
 });

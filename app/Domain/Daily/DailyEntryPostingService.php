@@ -8,6 +8,7 @@ use App\Domain\Ledger\PostingLine;
 use App\Domain\Ledger\PostingSpec;
 use App\Enums\AccountCode;
 use App\Enums\TransactionType;
+use App\Models\CollectionLine;
 use App\Models\DailyEntry;
 use App\Models\ExpenseLine;
 use App\Models\PurchaseLine;
@@ -176,8 +177,18 @@ class DailyEntryPostingService
             'Cost of goods sold — net sales less gross profit');
 
         // --- Market --------------------------------------------------------
-        $add(TransactionType::Collection, $entry->collection_cash,
-            AccountCode::Cash, $receivables);
+        /*
+         * Recovery, customer by customer where the day names them. Without
+         * this a collection can only credit the unallocated ledger, and every
+         * named customer's balance rises forever however much they pay.
+         */
+        foreach ($this->collectionAllocations($entry, $receivables) as $allocation) {
+            $add(
+                TransactionType::Collection, $allocation['amount'],
+                AccountCode::Cash, $allocation['account'],
+                'Collected — '.$allocation['label'],
+            );
+        }
 
         // A receivable can clear without cash. Without these two the balance
         // never comes down and the account carries a stub forever.
@@ -264,6 +275,33 @@ class DailyEntryPostingService
      *
      * @return array<int, array{label: string, account: AccountCode|string, covered: Money, pending: Money, excess: Money}>
      */
+    /**
+     * Splits the day's recovery across the customers who paid.
+     *
+     * Falls back to the single typed figure when the day names nobody, so a
+     * day entered as plain totals still posts exactly as it always did.
+     *
+     * @return array<int, array{label: string, account: AccountCode|string, amount: Money}>
+     */
+    private function collectionAllocations(DailyEntry $entry, AccountCode|string $receivables): array
+    {
+        $lines = $entry->collectionLines()->with('pharmacy.account')->get();
+
+        if ($lines->isEmpty()) {
+            return [[
+                'label' => 'market',
+                'account' => $receivables,
+                'amount' => $entry->collection_cash,
+            ]];
+        }
+
+        return $lines->map(fn (CollectionLine $line) => [
+            'label' => $line->label(),
+            'account' => $line->pharmacy?->account?->code ?? $receivables,
+            'amount' => $line->amount,
+        ])->all();
+    }
+
     private function saleAllocations(DailyEntry $entry, AccountCode|string $receivables): array
     {
         $lines = $entry->saleLines()->with('pharmacy.account')->get();

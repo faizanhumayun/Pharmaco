@@ -23,6 +23,8 @@ use RuntimeException;
  */
 class RecordDeliveryPurchase
 {
+    public function __construct(private readonly \App\Domain\Daily\DayWriter $day) {}
+
     /** @param array<string, mixed> $data */
     public function handle(Order $order, array $data, User $by): ?PurchaseLine
     {
@@ -32,17 +34,20 @@ class RecordDeliveryPurchase
 
         $existing = PurchaseLine::where('order_id', $order->id)->first();
 
-        // Nothing to record. An earlier line for this order is removed, so
+        // Nothing about the bill has changed, so the day is left alone. Worth
+        // checking first: amending a posted day reverses and re-posts all of
+        // it, and doing that for an unchanged invoice is noise in the ledger.
+        if ($existing !== null
+            && $existing->invoice_no === $invoice
+            && $existing->amount->equals($amount)
+            && $existing->paid->equals($paid)) {
+            return $existing;
+        }
+
+        // Nothing to record. An earlier line for this order is dropped, so
         // correcting a delivery down to nothing does not leave the invoice
         // behind on the day.
-        if ($amount->isZero() && $paid->isZero()) {
-            if ($existing !== null) {
-                $this->guardEditable($existing);
-                $entry = $existing->dailyEntry;
-                $existing->delete();
-                $this->refreshTotals($entry);
-            }
-
+        if ($amount->isZero() && $paid->isZero() && $existing === null) {
             return null;
         }
 
@@ -57,46 +62,36 @@ class RecordDeliveryPurchase
          * it here would have been stricter than the ledger it feeds.
          */
 
-        if ($existing !== null) {
-            // Correcting the goods but not the bill. No money is moving, so the
-            // state of the day is beside the point and the invoice is left
-            // exactly as it is — which is what lets a delivery on a posted but
-            // still-open day have its quantities fixed.
-            if ($existing->invoice_no === $invoice
-                && $existing->amount->equals($amount)
-                && $existing->paid->equals($paid)) {
-                return $existing;
+        /*
+         * Through the day writer, which is what everything else adding to a
+         * day goes through. A draft is saved, a posted day is amended — its
+         * postings reversed and written again with the invoice on them — and a
+         * closed day is refused. Before this, an invoice simply could not be
+         * recorded once the day had posted, which on a counter that posts the
+         * day at the first sale meant almost always.
+         */
+        $entry = $this->day->write($order->business, $order->business->today(), function (array $data) use ($order, $invoice, $amount, $paid) {
+            $rows = array_values(array_filter(
+                $data['purchases'] ?? [],
+                fn ($row) => (int) ($row['order_id'] ?? 0) !== $order->id,
+            ));
+
+            if (! ($amount->isZero() && $paid->isZero())) {
+                $rows[] = [
+                    'company' => $order->company->name,
+                    'order_id' => $order->id,
+                    'invoice_no' => $invoice ?? '',
+                    'amount' => $amount->toDecimal(),
+                    'paid' => $paid->toDecimal(),
+                ];
             }
 
-            $this->guardEditable($existing);
+            $data['purchases'] = $rows;
 
-            $existing->forceFill([
-                'company_id' => $order->company_id,
-                'company_name' => $order->company->name,
-                'invoice_no' => $invoice,
-                'amount' => $amount,
-                'paid' => $paid,
-            ])->save();
+            return $data;
+        }, $by);
 
-            $this->refreshTotals($existing->dailyEntry);
-
-            return $existing->fresh();
-        }
-
-        $entry = $this->entryFor($order, $by);
-
-        $line = $entry->purchaseLines()->create([
-            'company_id' => $order->company_id,
-            'company_name' => $order->company->name,
-            'order_id' => $order->id,
-            'invoice_no' => $invoice,
-            'amount' => $amount->toDecimal(),
-            'paid' => $paid->toDecimal(),
-        ]);
-
-        $this->refreshTotals($entry);
-
-        return $line;
+        return $entry->purchaseLines()->where('order_id', $order->id)->first();
     }
 
     /**

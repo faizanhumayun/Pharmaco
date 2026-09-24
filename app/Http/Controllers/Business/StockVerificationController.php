@@ -33,7 +33,30 @@ class StockVerificationController extends Controller
 
         $period = $received->period($business, $request->query('period'));
         $deliveries = $received->deliveries($business, $period['from']);
-        $onHand = $received->onHand($business, $stock, $period['from']);
+        $held = $received->onHand($business, $stock, $period['from']);
+
+        /*
+         * What is held, a page at a time. The totals below stay whole-business
+         * figures — a page of a list is not a smaller business — but sending
+         * every product at once is what made this page slow to open.
+         */
+        $search = trim((string) $request->string('q'));
+
+        $matching = $search === ''
+            ? $held
+            : $held->filter(fn (array $row) => str_contains(
+                mb_strtolower($row['product']->label() . ' ' . $row['product']->generic_name . ' ' . $row['product']->code),
+                mb_strtolower($search)
+            ))->values();
+
+        $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
+        $onHand = new \Illuminate\Pagination\LengthAwarePaginator(
+            $matching->forPage($page, 50)->values(),
+            $matching->count(),
+            50,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
 
         return view('business.stock.index', [
             'business' => $business,
@@ -53,8 +76,10 @@ class StockVerificationController extends Controller
 
             // What is held, product by product.
             'onHand' => $onHand,
-            'packsHeld' => $onHand->sum('packs'),
-            'heldValue' => Money::sum($onHand->pluck('value')->filter()),
+            'search' => $search,
+            'productsHeld' => $held->count(),
+            'packsHeld' => $held->sum('packs'),
+            'heldValue' => Money::sum($held->pluck('value')->filter()),
         ]);
     }
 

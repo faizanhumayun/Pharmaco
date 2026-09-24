@@ -78,6 +78,35 @@ class DailyEntry extends Model
         return $this->hasMany(PurchaseLine::class);
     }
 
+    /**
+     * Of the day's recovery, what settled bills raised on this same day.
+     *
+     * Goods can go out unpaid in the morning and be paid for by evening — the
+     * van comes back. Calling that "earlier credit" would be plainly untrue,
+     * and every collection records which bills it paid, so the day does not
+     * have to guess.
+     */
+    public function collectedOnSameDay(): Money
+    {
+        return Money::sum(
+            $this->collectionLines
+                ->flatMap->allocations
+                ->filter(fn ($a) => $a->bill?->business_date->isSameDay($this->business_date))
+                ->pluck('amount')
+        );
+    }
+
+    /** The rest: older bills, and money left sitting on account. */
+    public function collectedOnEarlier(): Money
+    {
+        return $this->collection_cash->minus($this->collectedOnSameDay());
+    }
+
+    public function collectionLines(): HasMany
+    {
+        return $this->hasMany(CollectionLine::class);
+    }
+
     public function saleLines(): HasMany
     {
         return $this->hasMany(SaleLine::class);

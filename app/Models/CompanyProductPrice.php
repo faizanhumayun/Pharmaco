@@ -22,6 +22,7 @@ class CompanyProductPrice extends Model
     protected $fillable = [
         'business_id', 'company_id', 'company_product_id', 'company_product_import_id',
         'business_date', 'mrp', 'trade_price', 'purchase_rate', 'case_size', 'recorded_by',
+        'source_type', 'source_id',
     ];
 
     protected function casts(): array
@@ -49,6 +50,12 @@ class CompanyProductPrice extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(CompanyProduct::class, 'company_product_id');
+    }
+
+    /** What moved this price, when a price list was not what moved it. */
+    public function source(): \Illuminate\Database\Eloquent\Relations\MorphTo
+    {
+        return $this->morphTo();
     }
 
     public function import(): BelongsTo

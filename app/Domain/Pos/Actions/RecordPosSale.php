@@ -3,6 +3,7 @@
 namespace App\Domain\Pos\Actions;
 
 use App\Domain\Daily\DayWriter;
+use App\Domain\Stock\StockLedger;
 use App\Enums\StockMovementType;
 use App\Exceptions\LedgerException;
 use App\Models\Business;
@@ -27,7 +28,10 @@ use Illuminate\Support\Facades\DB;
  */
 class RecordPosSale
 {
-    public function __construct(private readonly DayWriter $day) {}
+    public function __construct(
+        private readonly DayWriter $day,
+        private readonly StockLedger $stock,
+    ) {}
 
     /**
      * @param  array<int, array{product_id: int, quantity: int, unit_price: string}>  $items
@@ -57,6 +61,12 @@ class RecordPosSale
             ->keyBy('id');
 
         return DB::transaction(function () use ($business, $items, $products, $received, $customer, $note, $by, $date, $discount) {
+            // What the books said was on the shelf when this bill was rung up.
+            // Read here, inside the transaction and before any movement is
+            // written, so a line's shortfall is measured against the stock the
+            // counter was actually looking at.
+            $onHand = $this->stock->onHandByProduct($business);
+
             $lines = [];
             $total = Money::zero();
             $cost = Money::zero();
@@ -74,8 +84,31 @@ class RecordPosSale
                     throw new LedgerException("{$product->brand_name}: a sale of nothing is not a sale.");
                 }
 
-                $unitPrice = Money::of($item['unit_price'] ?? $product->mrp ?? 0);
-                $unitCost = $product->purchase_rate ?? $product->trade_price ?? Money::zero();
+                // Sold beyond what the books hold. The sale stands; the
+                // shortfall is recorded so the count can be put right.
+                $shortBy = max(0, $quantity - (int) ($onHand[$product->id] ?? 0));
+
+                $unitPrice = Money::of($item['unit_price'] ?? $product->trade_price ?? $product->mrp ?? 0);
+
+                // Only what was paid for the goods counts as their cost. The
+                // trade price is what they are sold for, so standing it in here
+                // would report a margin of nothing on every such line.
+                $unitCost = $product->purchase_rate ?? Money::zero();
+
+                /*
+                 * Never below what it cost. A price typed at the counter is the
+                 * one figure on a bill that nothing else checks — the total
+                 * follows it, the margin follows it, and a mistyped rate turns
+                 * into a loss that only shows up as a thinner month.
+                 *
+                 * Refused here rather than only in the till, because a rule the
+                 * browser keeps is not a rule.
+                 */
+                if ($unitCost->isPositive() && $unitPrice->lessThan($unitCost)) {
+                    throw new LedgerException(
+                        "{$product->brand_name}: Rs. {$unitPrice->format()} is below its purchase price of Rs. {$unitCost->format()}."
+                    );
+                }
                 $lineTotal = $unitPrice->times($quantity);
 
                 $lines[] = [
@@ -83,6 +116,7 @@ class RecordPosSale
                     'company_product_id' => $product->id,
                     'name' => $product->label(),
                     'quantity' => $quantity,
+                    'short_by' => $shortBy,
                     'unit_price' => $unitPrice->toDecimal(),
                     'unit_cost' => $unitCost->toDecimal(),
                     'line_total' => $lineTotal->toDecimal(),

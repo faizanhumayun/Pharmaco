@@ -94,6 +94,9 @@
                  'note' => $r?->note ?? '',
                  'checked' => $r !== null,
                  'changed' => $r !== null && $r->packs !== $l->packs,
+                 // Confirmed on arrival rather than typed again.
+                 'mrp' => $l->product?->mrp?->toDecimal(),
+                 'trade' => $l->product?->trade_price?->toDecimal(),
              ])->values()) }},
              existingExtras: {{ Illuminate\Support\Js::from($order->receiptLines->filter(fn ($r) => $r->isUnordered())->map(fn ($r) => [
                  'company_product_id' => $r->company_product_id,
@@ -104,6 +107,11 @@
                  'cartons' => $r->cartons,
                  'packs' => $r->packs,
                  'rate' => $r->rate->toDecimal(),
+                 // What the catalogue says it costs, so a rate that has moved
+                 // since the last list can be seen rather than worked out.
+                 'list_rate' => $r->product?->purchase_rate?->toDecimal(),
+                 'mrp' => $r->product?->mrp?->toDecimal(),
+                 'trade' => $r->product?->trade_price?->toDecimal(),
              ])->values()) }},
          })">
         <x-flash />
@@ -138,9 +146,11 @@
 
                     <div class="min-h-0 flex-1 overflow-y-auto p-2">
                         <template x-if="! pending.length">
-                            <p class="py-10 text-center text-sm text-emerald-700">
-                                Everything has been checked off.
-                            </p>
+                            <p class="py-10 text-center text-sm"
+                               :class="lines.length ? 'text-emerald-700' : 'text-gray-500'"
+                               x-text="lines.length
+                                   ? 'Everything has been checked off.'
+                                   : 'This delivery had no order form, so there is nothing to check against. What came is on the right.'"></p>
                         </template>
 
                         <ul class="divide-y divide-gray-100">
@@ -223,6 +233,55 @@
                                 Nothing checked off yet. Work down the order on the left as you unpack.
                             </p>
                         </template>
+
+                        {{-- What arrived without being ordered, listed here rather
+                             than only inside the drawer. A delivery recorded without
+                             an order form is entirely made of these, and a panel that
+                             looked empty read as though nothing had been saved.
+
+                             Shown, not edited: the drawer holds the inputs that are
+                             submitted, and a second set under the same names would
+                             send every line twice. --}}
+                        <div x-show="extras.length" x-cloak class="border-b border-gray-200">
+                            <div class="flex items-center justify-between gap-3 bg-gray-50 px-4 py-2 sm:px-6">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                    Came without being ordered
+                                </p>
+                                <button type="button" x-on:click="openUnordered()"
+                                        class="text-xs font-medium text-emerald-700 hover:text-emerald-800">
+                                    Add or change products
+                                </button>
+                            </div>
+                            <table class="min-w-full divide-y divide-gray-100 text-sm">
+                                <tbody class="divide-y divide-gray-100">
+                                    <template x-for="(extra, i) in extras" :key="i">
+                                        <tr>
+                                            <td class="px-4 py-2 sm:px-6">
+                                                <span class="text-sm text-gray-900" x-text="extra.label || extra.brand_name"></span>
+                                            </td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">
+                                                <span x-text="extra.packs"></span>
+                                                <span class="text-xs font-normal text-gray-500">{{ $business->unit()->many() }}</span>
+                                            </td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-right">
+                                                <span class="font-mono tabular-nums text-gray-600" x-text="extra.rate ?? '—'"></span>
+                                                {{-- What it cost last time, when that has changed. --}}
+                                                <template x-if="priceMove(extra)">
+                                                    <span class="ml-1.5 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium"
+                                                          :class="priceMove(extra).up ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'"
+                                                          :title="'Was ' + priceMove(extra).was.toFixed(2) + ' — ' + (priceMove(extra).up ? 'dearer' : 'cheaper') + ' by ' + priceMove(extra).percent.toFixed(1) + '%'">
+                                                        <span x-text="priceMove(extra).up ? '▲' : '▼'"></span>
+                                                        <span x-text="priceMove(extra).delta.toFixed(2)"></span>
+                                                    </span>
+                                                </template>
+                                            </td>
+                                            <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6"
+                                                x-text="(((Number(extra.packs) || 0) * (Number(extra.rate) || 0)).toFixed(2))"></td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
+                        </div>
 
                         <table class="min-w-full divide-y divide-gray-200 text-sm" x-show="received.length" x-cloak>
                             <thead class="sticky top-0 z-10 bg-gray-50">
@@ -340,7 +399,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm" x-show="extras.length" x-cloak>
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach ([['Product','left'],['Cartons','right'],['Packs','right'],['Rate','right'],['','right']] as [$h,$align])
+                            @foreach ([['Product','left'],['Cartons','right'],['Packs','right'],['Rate','right'],[$sellLabel,'right'],['MRP','right'],['','right']] as [$h,$align])
                                 <th class="whitespace-nowrap px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }}">{{ $h }}</th>
                             @endforeach
                         </tr>
@@ -365,10 +424,28 @@
                                            class="w-24 rounded-md border-gray-300 text-right text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>
                                 <td class="py-2 pr-3 text-right">
+                                    <template x-if="priceMove(extra)">
+                                        <span class="mr-1 inline-flex items-center gap-0.5 text-xs font-medium"
+                                              :class="priceMove(extra).up ? 'text-red-700' : 'text-emerald-700'"
+                                              :title="'Was ' + priceMove(extra).was.toFixed(2)">
+                                            <span x-text="priceMove(extra).up ? '▲' : '▼'"></span>
+                                            <span x-text="priceMove(extra).percent.toFixed(0) + '%'"></span>
+                                        </span>
+                                    </template>
                                     <input type="text" inputmode="decimal" :name="`extras[${i}][rate]`" x-model="extra.rate"
                                            class="w-24 rounded-md border-gray-300 text-right font-mono text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>
                                 <td class="py-2 text-right">
+                                    <input type="text" inputmode="decimal" :name="`extras[${i}][trade]`" x-model="extra.trade"
+                                           placeholder="{{ $sellRequired ? 'required' : '—' }}"
+                                           :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(extra.trade) > 0) ? 'border-amber-400 bg-amber-50' : 'border-gray-300'"
+                                           class="w-20 rounded-md py-1 text-right text-sm tabular-nums">
+                                </td>
+                                <td class="px-2 py-2 text-right">
+                                    <input type="text" inputmode="decimal" :name="`extras[${i}][mrp]`" x-model="extra.mrp"
+                                           placeholder="—" class="w-20 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
+                                </td>
+                                <td class="px-2 py-2 text-right">
                                     <button type="button" x-on:click="extras.splice(i, 1)"
                                             class="text-sm text-gray-400 hover:text-red-700" aria-label="Remove">✕</button>
                                 </td>
@@ -864,8 +941,34 @@
                             company_product_id: p.id, label: p.label, generic_name: p.generic_name,
                             pack_size: p.pack_size, case_size: p.case_size,
                             cartons: p.case_size ? 1 : '', packs: p.case_size || 1, rate: p.rate ?? '',
+                            list_rate: p.rate ?? null,
+                            mrp: p.mrp ?? '', trade: p.trade_price ?? '',
                         });
                         // The list stays put so several can be added in a row.
+                    },
+
+                    /**
+                     * How this delivery's rate compares with what the product
+                     * cost before it.
+                     *
+                     * Read from the buyer's side, which is the side the person
+                     * looking at it is on: paying less than last time is the
+                     * good direction, so it is green and points down.
+                     */
+                    priceMove(line) {
+                        const was = Number(line.list_rate);
+                        const now = Number(line.rate);
+
+                        if (! was || ! now || was === now) return null;
+
+                        const delta = now - was;
+
+                        return {
+                            up: delta > 0,
+                            delta: Math.abs(delta),
+                            percent: Math.abs(delta / was) * 100,
+                            was,
+                        };
                     },
 
                     // The shared picker row expects these; nothing is discounted

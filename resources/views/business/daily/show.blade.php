@@ -1,6 +1,10 @@
 {{-- Two views of the day: the entry itself, and who has changed it. --}}
 @php($activeTab = request('tab') === 'history' ? 'history' : 'day')
 <x-workspace-layout :business="$business">
+    @push('scripts')
+        @include('business.collections.partials.script')
+    @endpush
+
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
@@ -37,7 +41,7 @@
         </div>
     </x-slot>
 
-    <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
+    <div class="w-full px-4 py-8 sm:px-6 lg:px-8" x-data="collections()">
         <x-flash />
 
         @include('business.partials.page-tabs', [
@@ -101,7 +105,7 @@
                 </x-panel>
 
 
-                @if ($entry->purchaseLines->isNotEmpty() || $entry->saleLines->isNotEmpty() || $entry->expenseLines->isNotEmpty())
+                @if ($entry->purchaseLines->isNotEmpty() || $entry->saleLines->isNotEmpty() || $entry->expenseLines->isNotEmpty() || $entry->collectionLines->isNotEmpty())
                     {{-- The named detail beneath the day's totals. Absent when the
                          day was entered as plain figures, which is a valid way to
                          enter it, not a gap. --}}
@@ -146,7 +150,7 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            @foreach (['Sold to', 'Invoice', 'Amount', 'Received', 'On credit'] as $h)
+                                            @foreach (['Sold to', 'Invoice', 'Amount', 'Received', 'On credit', ''] as $h)
                                                 <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ in_array($h, ['Sold to','Invoice']) ? 'text-left' : 'text-right' }} {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                             @endforeach
                                         </tr>
@@ -168,9 +172,71 @@
                                                 {{-- Negative means they handed over more than the invoice: a
                                                      recovery against earlier credit, not a bigger sale. --}}
                                                 @php($credit = $line->outstanding())
-                                                <td class="px-4 py-2 text-right font-mono tabular-nums sm:px-6 {{ $credit->isNegative() ? 'text-emerald-800' : 'text-gray-900' }}">
+                                                <td class="px-4 py-2 text-right font-mono tabular-nums {{ $credit->isNegative() ? 'text-emerald-800' : 'text-gray-900' }}">
                                                     {{ $credit->isNegative() ? $credit->absolute()->format() . ' off earlier credit' : $credit->format() }}
                                                 </td>
+                                                {{-- Money that comes back later is a new event on the day it
+                                                     arrives, never an edit of this one — so collecting here
+                                                     writes today's entry, and this day is left alone. --}}
+                                                @php($open = $collectable[$line->invoice_no ?? ''] ?? null)
+                                                <td class="px-4 py-2 text-right sm:px-6">
+                                                    @if ($credit->isPositive() && $open !== null && $open['owed']->isPositive())
+                                                        <button type="button" @disabled($dayClosed)
+                                                                x-on:click="collect(@js($open['customer']))"
+                                                                class="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
+                                                            Collect
+                                                        </button>
+                                                    @elseif ($credit->isPositive() && $open !== null)
+                                                        {{-- Paid off since, by a collection on this or a later day. --}}
+                                                        <span class="text-xs font-medium text-emerald-700" title="Settled by a later collection">Collected ✓</span>
+                                                    @endif
+                                                </td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        @endif
+
+                        {{-- Where the day's collection figure came from. Recorded on
+                             the Collection screen, shown here because this entry is
+                             the document those postings belong to. --}}
+                        @if ($entry->collectionLines->isNotEmpty())
+                            <div class="overflow-x-auto border-t border-gray-200">
+                                <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Collected from</th>
+                                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Against</th>
+                                            <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Amount</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        @foreach ($entry->collectionLines as $line)
+                                            <tr>
+                                                <td class="px-4 py-2 sm:px-6">
+                                                    @if ($line->pharmacy)
+                                                        <a href="{{ route('businesses.pharmacies.show', [$business, $line->pharmacy]) }}"
+                                                           class="font-medium text-gray-900 hover:text-emerald-700">{{ $line->pharmacy->name }}</a>
+                                                    @else
+                                                        <span class="text-gray-900">{{ $line->label() }}</span>
+                                                    @endif
+                                                    @if ($line->note)
+                                                        <span class="block text-xs text-gray-500">{{ $line->note }}</span>
+                                                    @endif
+                                                </td>
+                                                <td class="px-4 py-2 text-xs text-gray-600">
+                                                    @forelse ($line->allocations as $allocation)
+                                                        <span class="font-mono">{{ $allocation->bill?->reference() ?? '—' }}</span>
+                                                        <span class="tabular-nums text-gray-500">{{ $allocation->amount->format() }}</span>@unless ($loop->last), @endunless
+                                                    @empty
+                                                        <span class="text-gray-400">on account</span>
+                                                    @endforelse
+                                                    @unless ($line->onAccount()->isZero())
+                                                        <span class="block text-gray-500">{{ $line->onAccount()->format() }} left on account</span>
+                                                    @endunless
+                                                </td>
+                                                <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6">{{ $line->amount->format() }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -228,7 +294,12 @@
                             'Gross profit' => $entry->gross_profit,
                             'Expenses' => $entry->expenses_cash,
                             'Net profit' => $entry->netProfit(),
-                            'Collected on earlier credit' => $entry->collection_cash,
+                            // Split by the date of the bills it actually paid: money
+                            // back the same day the goods went out is not "earlier
+                            // credit", and saying so made the day read as if it had
+                            // sold twice.
+                            'Collected on today\'s bills' => $entry->collectedOnSameDay(),
+                            'Collected on earlier credit' => $entry->collectedOnEarlier(),
                             // Everything paid to companies today, and the part of it
                             // that settled earlier bills rather than today's buying.
                             // Payments against earlier bills are entered in the
@@ -293,5 +364,9 @@
             </div>
         </div>
         @endif
+
+        {{-- Collecting against an invoice on this day. It writes today's entry,
+             never this one — which is why it is a dialog and not a field. --}}
+        @include('business.collections.partials.collect')
     </div>
 </x-workspace-layout>

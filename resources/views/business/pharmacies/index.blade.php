@@ -1,30 +1,51 @@
 <x-workspace-layout :business="$business">
     <x-slot name="header">
-        <h1 class="text-xl font-semibold text-gray-900">Pharmacies</h1>
-        <p class="mt-1 text-sm text-gray-500">
-            Each pharmacy gets its own ledger under Market Receivables.
-        </p>
+        <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+                <h1 class="text-xl font-semibold text-gray-900">Customers</h1>
+                <p class="mt-1 text-sm text-gray-500">
+                    The pharmacies and stores you sell to. Each keeps its own ledger of what it owes.
+                </p>
+            </div>
+            @can('configure', $business)
+                <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-pharmacy')"
+                        class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                    Add a customer
+                </button>
+            @endcan
+        </div>
     </x-slot>
 
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         <x-flash />
 
-        <div class="mb-6 flex flex-wrap items-center gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-            <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Total receivable</span>
-            <span class="font-mono text-lg font-semibold tabular-nums text-gray-900">{{ $total->format() }}</span>
-            <x-badge :classes="$reconciles ? 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' : 'bg-red-50 text-red-800 ring-red-600/20'">
-                {{ $reconciles ? 'Equals the sum of pharmacy ledgers ✓' : 'Does not reconcile' }}
-            </x-badge>
-            @unless ($unallocated->isZero())
-                <span class="text-sm text-gray-500">
-                    of which <span class="font-mono tabular-nums">{{ $unallocated->format() }}</span> unallocated
-                </span>
-            @endunless
+        <div class="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
+            <p class="flex flex-wrap items-center gap-2 text-sm">
+                <span class="text-base font-semibold text-gray-900">{{ number_format($pharmacies->total()) }} {{ Str::plural('customer', $pharmacies->total()) }}</span>
+                <span class="text-gray-500">· the market owes</span>
+                <span class="font-semibold tabular-nums text-gray-900">Rs. {{ $total->format() }}</span>
+                <x-badge :classes="$reconciles ? 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' : 'bg-red-50 text-red-800 ring-red-600/20'">
+                    {{ $reconciles ? 'Adds up across customers ✓' : 'Does not add up across customers' }}
+                </x-badge>
+                @unless ($unallocated->isZero())
+                    <span class="text-gray-500">· <span class="tabular-nums">{{ $unallocated->format() }}</span> not under any customer</span>
+                @endunless
+            </p>
+
+            <form method="GET" class="flex flex-wrap items-center gap-2">
+                <label for="q" class="sr-only">Search</label>
+                <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search name, area or phone"
+                       class="w-56 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Search</button>
+                @if ($search !== '')
+                    <a href="{{ route('businesses.pharmacies.index', $business) }}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+                @endif
+            </form>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-3">
-            <div class="xl:col-span-2">
-                <x-panel title="Pharmacy ledgers">
+        <div class="grid gap-6">
+            <div>
+                <x-panel>
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
@@ -63,29 +84,10 @@
                 </x-panel>
             </div>
 
-            <x-panel title="Add a pharmacy">
-                <form method="POST" action="{{ route('businesses.pharmacies.store', $business) }}" class="space-y-4 p-4 sm:p-6">
-                    @csrf
-                    @foreach ([['name','Name',true],['code','Code',false],['area','Area',false],['contact','Contact',false],['phone','Phone',false]] as [$field,$label,$required])
-                        <div>
-                            <x-input-label :for="$field" :value="$label" />
-                            <x-text-input :id="$field" :name="$field" type="text" class="mt-1 block w-full" :required="$required" />
-                            <x-input-error :messages="$errors->get($field)" class="mt-2" />
-                        </div>
-                    @endforeach
-                    <div>
-                        <x-input-label for="credit_days" value="Credit days" />
-                        <x-text-input id="credit_days" name="credit_days" type="number" min="0" max="365" class="mt-1 block w-full" />
-                    </div>
-                    <button class="w-full rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                        Add pharmacy
-                    </button>
-                    <p class="text-xs text-gray-500">
-                        Adding the first pharmacy moves the existing total into an "Unallocated" ledger by a
-                        visible transfer — nothing in the history is rewritten.
-                    </p>
-                </form>
-            </x-panel>
         </div>
+
+        <div class="mt-4">{{ $pharmacies->links() }}</div>
+
+        @include('business.partials.add-pharmacy-drawer', ['afterAdd' => 'reload'])
     </div>
 </x-workspace-layout>

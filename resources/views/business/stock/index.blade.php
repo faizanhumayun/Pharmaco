@@ -14,15 +14,24 @@
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $bookValue->format() }}</p>
                 </div>
                 <div class="rounded-md bg-gray-100 px-3 py-2">
-                    <p class="text-xs uppercase tracking-wide text-gray-500">On hand</p>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">In stock</p>
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">
-                        {{ number_format($packsHeld) }} <span class="text-xs font-normal text-gray-500">packs</span>
+                        {{ number_format($packsHeld) }} <span class="text-xs font-normal text-gray-500">{{ $business->unit()->many() }}</span>
                     </p>
                 </div>
                 <div class="rounded-md bg-gray-100 px-3 py-2">
                     <p class="text-xs uppercase tracking-wide text-gray-500">Received · {{ strtolower($period['label']) }}</p>
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $receivedValue->format() }}</p>
                 </div>
+
+                {{-- Goods arrive both ways: checked off against an order form, or
+                     simply delivered because someone rang the company. --}}
+                @can('manageOrders', $business)
+                    <a href="{{ route('businesses.stock.receive', $business) }}"
+                       class="flex items-center rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                        Add stock
+                    </a>
+                @endcan
             </div>
         </div>
     </x-slot>
@@ -39,7 +48,7 @@
                     <button type="button" x-on:click="view = 'onhand'"
                             :class="view === 'onhand' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
                             class="rounded-full px-3 py-1 text-xs font-medium">
-                        On hand ({{ $onHand->count() }})
+                        In stock ({{ number_format($productsHeld) }})
                     </button>
                     <button type="button" x-on:click="view = 'deliveries'"
                             :class="view === 'deliveries' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
@@ -118,13 +127,29 @@
                 </table>
             </div>
 
-            {{-- What is held, product by product. --}}
+            {{-- What is held, product by product — a page at a time, because a
+                 whole catalogue in one table is a slow page and an unreadable one. --}}
             <div x-show="view === 'onhand'" class="flex min-h-0 flex-1 flex-col">
+                <form method="GET" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 sm:px-6">
+                    <input type="hidden" name="period" value="{{ $periodKey }}">
+                    <label for="q" class="sr-only">Search products</label>
+                    <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search a product"
+                           class="w-64 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                    <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Search</button>
+                    @if ($search !== '')
+                        <a href="{{ route('businesses.stock.index', [$business, 'period' => $periodKey]) }}"
+                           class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
+                    @endif
+                    <span class="ml-auto text-xs text-gray-500">
+                        Showing {{ $onHand->firstItem() ?? 0 }}–{{ $onHand->lastItem() ?? 0 }} of {{ number_format($onHand->total()) }}
+                    </span>
+                </form>
+
                 <div class="min-h-0 flex-1 overflow-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="sticky top-0 z-10 bg-gray-50">
                             <tr>
-                                @foreach ([['Product','left'],['Company','left'],['Pack','left'],['Received ' . strtolower($period['label']),'right'],['On hand','right'],['Value at cost','right']] as [$h,$align])
+                                @foreach ([['Product','left'],['Company','left'],['Pack','left'],['Received ' . strtolower($period['label']),'right'],['In stock','right'],['Value at cost','right']] as [$h,$align])
                                     <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                 @endforeach
                             </tr>
@@ -159,11 +184,11 @@
                                 </tr>
                             @endforelse
                         </tbody>
-                        @if ($onHand->isNotEmpty())
+                        @if ($productsHeld > 0)
                             <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(229,231,235)]">
                                 <tr>
                                     <td colspan="4" class="px-3 py-2 text-right text-sm font-semibold text-gray-900 sm:px-6">
-                                        {{ number_format($onHand->count()) }} products
+                                        {{ number_format($productsHeld) }} products
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono text-base font-semibold tabular-nums text-gray-900">
                                         {{ number_format($packsHeld) }}
@@ -176,6 +201,10 @@
                         @endif
                     </table>
                 </div>
+
+                @if ($onHand->hasPages())
+                    <div class="shrink-0 border-t border-gray-200 px-4 py-2 sm:px-6">{{ $onHand->links() }}</div>
+                @endif
 
                 <p class="shrink-0 border-t border-gray-200 px-4 py-2 text-xs text-gray-500 sm:px-6">
                     Quantities are the sum of every movement: deliveries add, adjustments correct. Selling is not

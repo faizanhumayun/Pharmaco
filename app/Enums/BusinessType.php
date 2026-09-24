@@ -15,10 +15,15 @@ enum BusinessType: string
         };
     }
 
-    /** Pharmacy mode is surfaced in the UI as "Coming Soon" but is not implemented. */
+    /**
+     * Both kinds can be set up. What differs between them is how stock is
+     * counted — whole packs for a distributor, loose items for a pharmacy —
+     * which each business says for itself (see StockUnit); the books, the day
+     * and the counter work the same either way.
+     */
     public function isAvailable(): bool
     {
-        return $this === self::Distributor;
+        return true;
     }
 
     public static function available(): array

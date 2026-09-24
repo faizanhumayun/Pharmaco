@@ -46,7 +46,9 @@ class UpdateBusinessRequest extends FormRequest
                 fn (BusinessType $t) => $t->value,
                 BusinessType::available()
             ))],
-            'stock_unit' => ['required', Rule::enum(\App\Enums\StockUnit::class)],
+            // Optional: left out, a business counts the way its kind usually does.
+            'stock_unit' => ['nullable', Rule::enum(\App\Enums\StockUnit::class)],
+            'receipt_format' => ['nullable', Rule::enum(\App\Enums\ReceiptFormat::class)],
             'currency' => ['required', 'string', 'size:3'],
             'timezone' => ['required', 'string', 'max:64', 'timezone'],
             'address' => ['nullable', 'string', 'max:255'],

@@ -23,18 +23,21 @@
             <x-stat label="Margin per pack"
                     :value="$product->marginPerPack()?->format() ?? '—'"
                     :hint="$product->marginPercent() ? $product->marginPercent() . '% of trade price' : null" />
-            <x-stat label="On hand"
-                    :value="number_format($onHand) . ' packs'"
+            <x-stat label="In stock"
+                    :value="number_format($onHand) . ' ' . $business->unit()->many()"
                     :hint="$product->case_size ? number_format($onHand / $product->case_size, 1) . ' cartons' : null" />
             <x-stat label="Value at cost"
                     :value="$product->purchase_rate ? $product->purchase_rate->times($onHand)->format() : '—'"
                     hint="At the current rate" />
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-3">
-            <div class="xl:col-span-2">
+        {{-- Two columns, not three cells: the price and movement panels stack in
+             one, so Details starts at the top of its own instead of waiting for
+             a row tall enough to hold it. --}}
+        <div class="grid items-start gap-6 xl:grid-cols-3">
+            <div class="space-y-6 xl:col-span-2">
                 <x-panel title="Price history"
-                         description="One row for every import that moved a figure. A list that repeated what was already on file leaves no row — and nothing here is ever rewritten.">
+                         description="One row for every time a figure moved, whether a price list moved it or the product was priced some other way. A list that repeated what was already on file leaves no row — and nothing here is ever rewritten.">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
@@ -61,8 +64,14 @@
                                             @if ($price->import)
                                                 <a href="{{ route('businesses.companies.imports.show', [$business, $product->company_id, $price->import]) }}"
                                                    class="text-emerald-700 hover:text-emerald-800">{{ $price->import->original_filename }}</a>
+                                            @elseif ($price->source instanceof \App\Models\Order)
+                                                {{-- The company charged this on a delivery. --}}
+                                                <a href="{{ route('businesses.orders.show', [$business, $price->source]) }}"
+                                                   class="text-emerald-700 hover:text-emerald-800">Delivery {{ $price->source->reference }}</a>
                                             @else
-                                                —
+                                                {{-- Priced without a list behind it: carried over from an
+                                                     older system, or set when the product was added. --}}
+                                                <span class="text-gray-400">{{ $loop->last ? 'opening price' : 'entered directly' }}</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -73,11 +82,10 @@
                         </table>
                     </div>
                 </x-panel>
-            </div>
 
             <x-panel title="Stock movements"
                      description="Every pack in or out. The quantity held is their sum — nothing stores a running count."
-                     class="xl:col-span-2">
+                     class="">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
@@ -112,7 +120,7 @@
                             @empty
                                 <tr>
                                     <td colspan="7" class="px-6 py-10 text-center text-gray-500">
-                                        Nothing has moved yet. A recorded delivery adds packs here.
+                                        Nothing has moved yet. A recorded delivery adds {{ $business->unit()->many() }} here.
                                     </td>
                                 </tr>
                             @endforelse
@@ -136,7 +144,7 @@
                         </div>
 
                         <div>
-                            <x-input-label for="packs" value="Packs (− to remove)" />
+                            <x-input-label for="packs" :value="ucfirst($business->unit()->many()) . ' (− to remove)'" />
                             <x-text-input id="packs" name="packs" type="number" step="1" required
                                           class="mt-1 block w-32 text-right font-mono" placeholder="e.g. -12" />
                         </div>
@@ -155,6 +163,7 @@
                     </form>
                 @endcan
             </x-panel>
+            </div>
 
             <x-panel title="Details">
                 <dl class="divide-y divide-gray-100 text-sm">
@@ -166,7 +175,7 @@
                         'Dosage form' => $product->dosageForm()?->label() ?? $product->dosage_form,
                         'Pack size' => $product->pack_size,
                         'Pack type' => $product->packType()?->label() ?? $product->pack_type,
-                        'Case size' => $product->case_size ? $product->case_size . ' packs' : null,
+                        'Case size' => $product->case_size ? $product->case_size . ' packs per carton' : null,
                         'Cost of a full case' => $product->caseCost()?->format(true),
                         'Company' => $product->company?->name,
                         'Priced on' => $product->priced_on?->format('j M Y'),

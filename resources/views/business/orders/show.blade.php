@@ -30,20 +30,24 @@
                 scope, which they cannot see. The body listens on the window.
             --}}
             <div class="flex flex-wrap items-center justify-end gap-2 print:hidden" x-data>
-                <a href="{{ route('businesses.orders.pdf', [$business, $order]) }}"
-                   class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                    Download PDF
-                </a>
+                {{-- Nothing to send, print or photograph when no order form was
+                     ever written: these all act on that document. --}}
+                @if ($order->lines->isNotEmpty())
+                    <a href="{{ route('businesses.orders.pdf', [$business, $order]) }}"
+                       class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                        Download PDF
+                    </a>
 
-                <button type="button" x-on:click="$dispatch('order-save-image', { button: $el })"
-                        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Save as image
-                </button>
+                    <button type="button" x-on:click="$dispatch('order-save-image', { button: $el })"
+                            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Save as image
+                    </button>
 
-                <button type="button" x-on:click="$dispatch('order-print')"
-                        class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Print
-                </button>
+                    <button type="button" x-on:click="$dispatch('order-print')"
+                            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                        Print
+                    </button>
+                @endif
 
                 @if ($canManage && $order->deliveryIsEditable())
                     <a href="{{ route('businesses.orders.receive', [$business, $order]) }}"
@@ -81,9 +85,15 @@
         </div>
     </x-slot>
 
+    {{-- A delivery recorded without an order form has no document behind it —
+         the order was placed on the phone. There is nothing to show, print or
+         photograph, so the form and its tab are left out entirely and the
+         delivery is simply the page. --}}
+    @php($hasForm = $order->lines->isNotEmpty())
+
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8"
          x-data="{
-             tab: 'order',
+             tab: @js($hasForm ? 'order' : 'delivery'),
              /* The document cannot be photographed or printed while it is
                 hidden, so both switch to it first and put the tab back after. */
              onDocument(run) {
@@ -116,6 +126,7 @@
         @if ($order->status === App\Enums\OrderStatus::Received)
             @php($exceptionCount = $order->deliveryExceptions()->count())
             <div class="mb-6 flex gap-1 border-b border-gray-200 print:hidden">
+                @if ($hasForm)
                 <button type="button" x-on:click="tab = 'order'"
                         :class="tab === 'order'
                             ? 'border-emerald-700 text-emerald-800'
@@ -123,6 +134,7 @@
                         class="border-b-2 px-4 py-2 text-sm font-medium transition">
                     Order form
                 </button>
+                @endif
                 <button type="button" x-on:click="tab = 'delivery'"
                         :class="tab === 'delivery'
                             ? 'border-emerald-700 text-emerald-800'
@@ -152,7 +164,14 @@
                      title="Delivery"
                      :description="$order->received_at?->format('j M Y') . ' · recorded by ' . ($order->receiver?->name ?? '—')">
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gray-200 px-4 py-3 sm:px-6">
-                    @if ($exceptions->isEmpty())
+                    @if (! $hasForm)
+                        {{-- Nothing was ordered on paper, so every line is
+                             "unordered" and calling that a difference would be
+                             counting the whole delivery as an exception. --}}
+                        <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">
+                            Recorded without an order form
+                        </x-badge>
+                    @elseif ($exceptions->isEmpty())
                         <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20">Everything arrived as ordered ✓</x-badge>
                     @else
                         <x-badge classes="bg-amber-50 text-amber-800 ring-amber-600/20">
@@ -203,16 +222,27 @@
                         </a>
                     </div>
 
-                    {{-- Goods and money move at different moments: the packs are
-                         counted as soon as the delivery is recorded, but nothing
-                         reaches the ledger until the day is posted. Said plainly,
-                         because "why hasn't stock gone up in the accounts" is the
-                         obvious question otherwise. --}}
+                    {{-- Goods and money move at different moments, and saying
+                         "stock moves when the day is posted" ran the two together:
+                         the count moved the moment the delivery was recorded — the
+                         packs are on the shelf and can be sold — while what the
+                         books say they are worth waits for the posting. --}}
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-emerald-200 bg-emerald-50 px-4 py-2 text-sm text-emerald-900 sm:px-6">
+                        <span>
+                            <span class="font-semibold">{{ number_format($order->receiptLines->sum('packs')) }}
+                            {{ Str::plural($business->unit()->one(), $order->receiptLines->sum('packs')) }}</span>
+                            are already counted in stock and can be sold.
+                        </span>
+                        <a href="{{ route('businesses.stock.index', $business) }}"
+                           class="ml-auto font-medium underline">See stock</a>
+                    </div>
+
                     @if ($bill->dailyEntry->isEditable())
                         <div class="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 sm:px-6">
                             <span>
-                                Nothing has reached the ledger yet — stock, the payable to
-                                {{ $order->company->name }} and the cash paid all move when the daily entry for
+                                The money has not reached the ledger yet — what the stock is
+                                worth, the payable to {{ $order->company->name }} and the cash paid
+                                all move when the daily entry for
                                 {{ $bill->dailyEntry->business_date->format('j M Y') }} is posted.
                             </span>
                             <a href="{{ route('businesses.daily.show', [$business, $bill->dailyEntry]) }}"
@@ -277,7 +307,7 @@
             </p>
         @endif
 
-        @if (! $business->address && ! $business->phone && ! $business->email && ! $business->ntn)
+        @if ($hasForm && ! $business->address && ! $business->phone && ! $business->email && ! $business->ntn)
             <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 print:hidden">
                 This order goes out with only your business name on it — no address, phone or NTN.
                 @can('update', $business)
@@ -291,7 +321,9 @@
 
         {{-- The document itself. This is what gets photographed and printed,
              so it is plain, white, and free of anything that only makes sense
-             on a screen. --}}
+             on a screen. Left out altogether when no order was written: an
+             empty form with a zero total is not a document. --}}
+        @if ($hasForm)
         <div id="order-document" x-show="tab === 'order'"
              class="mx-auto max-w-4xl bg-white p-8 shadow-sm ring-1 ring-gray-200 print:shadow-none print:ring-0">
             <div class="flex flex-wrap items-start justify-between gap-6 border-b-2 border-gray-900 pb-4">
@@ -417,5 +449,7 @@
                 This is an order, not an invoice. Prices are as quoted and subject to the company's confirmation.
             </p>
         </div>
+        @endif
+
     </div>
 </x-workspace-layout>

@@ -83,6 +83,30 @@ final class Money implements JsonSerializable, Stringable
         return new self(self::roundHalfUp($exact));
     }
 
+    /**
+     * The figure that, less this percentage, comes back to this amount.
+     *
+     * A trade bill is quoted the other way round from how it is settled: the
+     * rate is printed and a percentage comes off it. Given what is actually
+     * charged, this is the rate that has to be printed for the discount to
+     * land on it — 85.00 less 15% is quoted as 100.00.
+     *
+     * The inverse of percent(), and rounded the same way, so the two can be
+     * read together on one document without a paisa appearing from nowhere.
+     */
+    public function beforeDiscount(string|int|float $percent): self
+    {
+        $remaining = bcsub('100', (string) $percent, 8);
+
+        if (bccomp($remaining, '0', 8) <= 0) {
+            throw new \InvalidArgumentException('A discount of 100% or more has no rate behind it.');
+        }
+
+        return new self(self::roundHalfUp(
+            bcdiv(bcmul($this->amount, '100', 8), $remaining, 8)
+        ));
+    }
+
     private static function roundHalfUp(string $value): string
     {
         $negative = str_starts_with($value, '-');

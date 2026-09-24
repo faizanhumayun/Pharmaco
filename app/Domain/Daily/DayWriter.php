@@ -59,7 +59,8 @@ class DayWriter
     {
         return DailyEntry::forBusiness($business)
             ->where('business_date', $date->toDateString())
-            ->with(['purchaseLines.company', 'saleLines.pharmacy', 'expenseLines.category'])
+            ->with(['purchaseLines.company', 'saleLines.pharmacy', 'expenseLines.category',
+                'collectionLines.pharmacy', 'collectionLines.allocations'])
             ->first();
     }
 
@@ -98,6 +99,19 @@ class DayWriter
             'received' => $l->received->toDecimal(),
         ])->values()->all();
 
+        $data['collections'] = $entry->collectionLines->map(fn ($l) => [
+            'pharmacy' => $l->pharmacy?->name ?? $l->pharmacy_name ?? '',
+            'amount' => $l->amount->toDecimal(),
+            'note' => $l->note,
+            // Carried so an amendment can put the allocations back exactly as
+            // they were; a rewritten line would otherwise lose which bills it
+            // paid and leave them looking unpaid.
+            'allocations' => $l->allocations->map(fn ($a) => [
+                'pos_bill_id' => $a->pos_bill_id,
+                'amount' => $a->amount->toDecimal(),
+            ])->values()->all(),
+        ])->values()->all();
+
         $data['expenses'] = $entry->expenseLines->map(fn ($l) => [
             'category' => $l->category?->name ?? '',
             'description' => $l->description,
@@ -115,6 +129,7 @@ class DayWriter
             ...array_fill_keys(DailyEntry::MONEY_FIELDS, '0.00'),
             'purchases' => [],
             'sales' => [],
+            'collections' => [],
             'expenses' => [],
         ];
     }

@@ -14,6 +14,7 @@ use App\Http\Requests\Business\SaveDailyEntryRequest;
 use App\Models\Business;
 use App\Models\Company;
 use App\Models\DailyEntry;
+use App\Support\Money;
 use App\Models\ExpenseCategory;
 use App\Models\Pharmacy;
 use Illuminate\Contracts\View\View;
@@ -107,15 +108,76 @@ class DailyEntryController extends Controller
             ->with('status', 'Draft saved. Review the resulting position before posting.');
     }
 
+    /**
+     * The invoices on this day that money is still owed on, keyed by invoice
+     * number, each carrying what the collect dialog needs.
+     *
+     * A day is read far more often than it is collected against, so the bills
+     * and their allocations come back in two queries rather than one per row.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private function collectable(Business $business, DailyEntry $entry): array
+    {
+        $outstanding = app(\App\Domain\Market\Outstanding::class);
+        $collected = $outstanding->collectedByBill($business);
+
+        $open = $outstanding->bills($business)
+            ->each(fn ($bill) => $bill->setAttribute('collected', $collected[$bill->id] ?? Money::zero()))
+            ->filter(fn ($bill) => $outstanding->onBill($bill)->isPositive())
+            ->groupBy('customer_name');
+
+        $rows = [];
+
+        foreach ($entry->saleLines as $line) {
+            if ($line->invoice_no === null || $line->pharmacy === null) {
+                continue;
+            }
+
+            $theirs = $open[$line->pharmacy->name] ?? collect();
+
+            // This invoice first: it is the one the collector went out for.
+            $bills = $theirs
+                ->sortByDesc(fn ($bill) => $bill->reference() === $line->invoice_no)
+                ->values();
+
+            $mine = $theirs->firstWhere(fn ($bill) => $bill->reference() === $line->invoice_no);
+
+            $rows[$line->invoice_no] = [
+                'owed' => $mine !== null ? $outstanding->onBill($mine) : Money::zero(),
+                'customer' => [
+                    'pharmacy_id' => $line->pharmacy->id,
+                    'name' => $line->pharmacy->name,
+                    'owed' => (float) Money::sum($bills->map(fn ($b) => $outstanding->onBill($b)))->toDecimal(),
+                    'bills' => $bills->map(fn ($bill) => [
+                        'id' => $bill->id,
+                        'ref' => $bill->reference(),
+                        'owed' => (float) $outstanding->onBill($bill)->toDecimal(),
+                    ])->all(),
+                ],
+            ];
+        }
+
+        return $rows;
+    }
+
     public function show(Business $business, DailyEntry $entry, ChangeHistory $history): View
     {
         $this->authorize('view', $entry);
 
-        $entry->load(['creator', 'poster', 'purchaseLines.company', 'saleLines.pharmacy', 'expenseLines.category']);
+        $entry->load([
+            'creator', 'poster', 'purchaseLines.company', 'saleLines.pharmacy',
+            'expenseLines.category', 'collectionLines.pharmacy', 'collectionLines.allocations.bill',
+        ]);
 
         return view('business.daily.show', [
             'business' => $business,
             'entry' => $entry,
+            // What is still owed on each invoice this day sold, so a row that
+            // has been paid stops offering to collect it again.
+            'collectable' => $this->collectable($business, $entry),
+            'today' => $business->today(),
+            'dayClosed' => $business->isDayClosed($business->today()),
             'rows' => $this->preview->rows($entry),
             'warnings' => $this->warnings($entry),
             'netBefore' => $this->preview->netPositionBefore($entry),

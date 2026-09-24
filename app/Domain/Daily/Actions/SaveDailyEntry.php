@@ -80,6 +80,23 @@ class SaveDailyEntry
                 ])->save();
             }
 
+            /*
+             * Only touched when the caller says something about collections.
+             * The daily form knows nothing about them, and a form that stays
+             * silent must not wipe what the collections screen recorded.
+             */
+            if (array_key_exists('collections', $data)) {
+                $collectionLines = $this->saveCollectionLines($entry, $business, $data['collections'], $by);
+
+                // Named recovery is the record; the day's figure follows it,
+                // exactly as invoices govern the purchase totals above.
+                if ($collectionLines->isNotEmpty()) {
+                    $entry->forceFill([
+                        'collection_cash' => Money::sum($collectionLines->pluck('amount'))->toDecimal(),
+                    ])->save();
+                }
+            }
+
             $saleLines = $this->saveSaleLines($entry, $business, $data['sales'] ?? [], $by);
 
             // The same rule on the selling side. Taking more than the invoice
@@ -161,6 +178,57 @@ class SaveDailyEntry
         }
 
         return $entry->purchaseLines()->get();
+    }
+
+    /**
+     * Replaces the day's customer-level recovery detail.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function saveCollectionLines(DailyEntry $entry, Business $business, array $rows, User $by)
+    {
+        $entry->collectionLines()->delete();
+
+        foreach ($rows as $row) {
+            $amount = Money::of($row['amount'] ?? null);
+
+            if ($amount->isZero()) {
+                continue;
+            }
+
+            $name = trim((string) ($row['pharmacy'] ?? ''));
+            $pharmacy = null;
+
+            if ($name !== '') {
+                $pharmacy = Pharmacy::forBusiness($business)
+                    ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+                    ->first()
+                    ?? $this->createPharmacy->handle($business, ['name' => $name], $by);
+            }
+
+            $line = $entry->collectionLines()->create([
+                'pharmacy_id' => $pharmacy?->id,
+                'pharmacy_name' => $pharmacy?->name ?? ($name ?: null),
+                'amount' => $amount->toDecimal(),
+                'note' => $row['note'] ?? null,
+            ]);
+
+            // Which bills it paid, put back as they were.
+            foreach ($row['allocations'] ?? [] as $allocation) {
+                $against = Money::of($allocation['amount'] ?? null);
+
+                if ($against->isZero() || empty($allocation['pos_bill_id'])) {
+                    continue;
+                }
+
+                $line->allocations()->create([
+                    'pos_bill_id' => $allocation['pos_bill_id'],
+                    'amount' => $against->toDecimal(),
+                ]);
+            }
+        }
+
+        return $entry->collectionLines()->get();
     }
 
     /**

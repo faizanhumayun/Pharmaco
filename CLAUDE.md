@@ -67,6 +67,16 @@ Controllers authorize, delegate to an action, and redirect. Nothing else.
 Permissions live in `App\Enums\Permission`; roles are bundles of them, so a fourth
 role later is configuration rather than code.
 
+## Security code gate
+
+An optional code asked for in front of the whole site, before sign-in matters:
+`CheckSecurityCode` on the `web` group, `config/security-code.php` for the
+default and the exemptions, codes in `security_codes`. The App Owner switches it
+on and keeps the codes under Security code in the back office; that switch
+(`SystemSetting` `security_code_enabled`) overrides `SECURITY_CODE_ENABLED`.
+`/admin/*` and the sign-in pages are exempt on purpose, so the gate can always
+be switched off. It replaces no authentication, tenancy or policy check.
+
 ## Testing
 
 `php artisan test` runs against MySQL (`pharmaco_test`), not SQLite — the schema

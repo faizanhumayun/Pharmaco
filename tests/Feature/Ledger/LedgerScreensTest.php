@@ -17,8 +17,8 @@ it('renders the chart of accounts with derived balances', function () {
         ->get(route('businesses.ledger', $business))
         ->assertOk()
         ->assertSee('15,093.00')
-        // The balanced-books badge, in the page's plain wording.
-        ->assertSee('Books balance ✓', escape: false)
+        // The one check, in the page's plain wording.
+        ->assertSee('✓ Books check out', escape: false)
         ->assertSee('Cash in Hand');
 });
 

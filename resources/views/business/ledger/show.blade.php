@@ -6,9 +6,12 @@
                     <span class="font-mono text-base text-gray-500">{{ $account->code }}</span>
                     {{ $account->name }}
                 </h1>
-                <p class="mt-1 text-sm text-gray-500">{{ $account->type->label() }} account</p>
+                <p class="mt-1 text-sm text-gray-500">
+                    {{ $account->type->label() }} account
+                    @if ($asAt) · as at {{ $asAt->format('D d M Y') }} @endif
+                </p>
             </div>
-            <a href="{{ route('businesses.ledger', $business) }}"
+            <a href="{{ route('businesses.ledger', [$business] + ($asAt ? ['at' => 'custom', 'as_at' => $asAt->toDateString()] : [])) }}"
                class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                 All accounts
             </a>
@@ -16,7 +19,8 @@
     </x-slot>
 
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
-        <x-panel :title="'Statement — closing balance ' . $closing->format()">
+        <x-panel :title="'Statement — ' . ($asAt ? 'balance as at ' . $asAt->format('d M Y') . ' ' : 'closing balance ') . $closing->format()"
+                 :description="$rows->total() > $rows->perPage() ? number_format($rows->total()) . ' entries, newest first.' : null">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
@@ -74,6 +78,10 @@
                     </tbody>
                 </table>
             </div>
+
+            @if ($rows->hasPages())
+                <div class="border-t border-gray-200 px-4 py-2 sm:px-6">{{ $rows->links() }}</div>
+            @endif
         </x-panel>
     </div>
 </x-workspace-layout>

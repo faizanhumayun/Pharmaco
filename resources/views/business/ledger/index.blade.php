@@ -1,248 +1,229 @@
 @php
+    use App\Enums\AccountType;
+
     /*
-     * What the business owns and owes, in the owner's words. The top-level
-     * accounts already include their sub-accounts, so these add up to the
-     * Assets and Liabilities totals exactly. Anything not named here still
-     * appears, under its account name.
+     * The ledger in three blocks: which day, what the business owns and owes,
+     * and how it got there. Each account is drawn once. The second block
+     * reaches the same net position the other way round, which is also the
+     * check that the books agree with themselves.
+     *
+     * Accounts are named in the owner's words. Anything not named here still
+     * appears, under its own account name; the account's real name and
+     * description are on the link's tooltip.
      */
     $plain = [
-        '1200' => ['Medicine in stock', 'On the shelves, valued at cost. An estimate until stock is physically counted.'],
-        '1100' => ['Market owes us', 'Credit given to pharmacies and not yet collected.'],
-        '1000' => ['Cash in the drawer', 'As at the last count. Below zero means more went out than came in.'],
-        '1010' => ['Bank', 'Money in the bank.'],
-        '1300' => ['Paid to companies in advance', 'Prepayments for goods not yet received.'],
-        '1400' => ['Fixed assets', 'Vehicles, equipment, deposits.'],
-        '2000' => ['We owe companies', 'Bought on credit and not yet paid.'],
-        '2100' => ['Paid to us in advance', 'Pharmacies that paid before being supplied.'],
-        '2200' => ['Bills not yet paid', 'Expenses owed but not yet settled.'],
+        '1200' => 'Medicine in stock',
+        '1100' => 'Market owes us',
+        '1000' => 'Cash in hand',
+        '1010' => 'Bank',
+        '1300' => 'Paid to companies in advance',
+        '1400' => 'Fixed assets',
+        '2000' => 'We owe companies',
+        '2100' => 'Paid to us in advance',
+        '2200' => 'Bills not yet paid',
+        '3000' => 'Owner put in',
+        '3100' => 'Owner took out',
+        '3900' => 'Started with',
+        '4000' => 'Sales',
+        '4100' => 'Sales returns',
+        '4200' => 'Discount received',
+        '5000' => 'Cost of what was sold',
+        '5100' => 'Stock lost or damaged',
+        '5200' => 'Discount given',
+        '5300' => 'Bad debts',
+        '6000' => 'Expenses',
     ];
 
-    $side = fn (string $type) => $accounts->get($type, collect())
-        ->whereNull('parent_id')
-        ->map(fn ($a) => [
-            'code' => $a->code,
-            'name' => $plain[$a->code][0] ?? $a->name,
-            'note' => $plain[$a->code][1] ?? $a->description,
-            'amount' => $balances[$a->code],
-        ])
-        // Largest first, and anything at zero at the end, faded.
-        ->sortByDesc(fn ($r) => [! $r['amount']->isZero(), (float) $r['amount']->toDecimal()])
-        ->values();
+    // What one sub-account of a control account is called.
+    $nouns = [
+        '1100' => $business->sellsAtMrp() ? 'customer' : 'pharmacy',
+        '2000' => 'company',
+        '6000' => 'expense head',
+    ];
 
-    $own = $side(\App\Enums\AccountType::Asset->value);
-    $owe = $side(\App\Enums\AccountType::Liability->value);
-
-    $net = $position->netPosition();
-    $started = $position->equity;
-    $profit = $position->retainedProfit();
+    $hints = [
+        '3900' => $business->opening_date ? 'opening position on ' . $business->opening_date->format('d M Y') : null,
+    ];
 
     $rs = fn ($m) => ($m->isNegative() ? '−' : '') . $m->absolute()->format();
+
+    // How a figure is printed in each block: as it stands for what is owned
+    // and owed, and as what it adds or takes away in "How it got here".
+    $print = [
+        AccountType::Asset->value => fn ($m) => [$rs($m), $m->isNegative()],
+        AccountType::Liability->value => fn ($m) => [$rs($m), $m->isNegative()],
+        AccountType::Equity->value => fn ($m) => [$rs($m), $m->isNegative()],
+        AccountType::Income->value => fn ($m) => [($m->isZero() ? '' : ($m->isNegative() ? '− ' : '+ ')) . $m->absolute()->format(), false],
+        AccountType::Expense->value => fn ($m) => [($m->isZero() ? '' : ($m->isPositive() ? '− ' : '+ ')) . $m->absolute()->format(), false],
+    ];
+
+    $lines = fn (AccountType $type) => $accounts->get($type->value, collect())
+        ->map(function ($a) use ($plain, $hints, $balances, $print, $type) {
+            [$amount, $negative] = $print[$type->value]($balances[$a->code]);
+
+            return [
+                'code' => $a->code,
+                'name' => $plain[$a->code] ?? $a->name,
+                'title' => trim($a->name . ($a->description ? ' — ' . $a->description : '')),
+                'hint' => $hints[$a->code] ?? null,
+                'amount' => $amount,
+                'negative' => $negative,
+                'money' => $balances[$a->code],
+                'account' => $a,
+            ];
+        });
+
+    // Largest first; whatever holds nothing is folded away under the block.
+    $split = function ($lines, bool $sort) {
+        [$empty, $held] = $lines->partition(fn ($l) => $l['money']->isZero());
+
+        return [
+            $sort ? $held->sortByDesc(fn ($l) => (float) $l['money']->toDecimal())->values() : $held->values(),
+            $empty->values(),
+        ];
+    };
+
+    [$own, $ownEmpty] = $split($lines(AccountType::Asset), true);
+    [$owe, $oweEmpty] = $split($lines(AccountType::Liability), true);
+
+    // In the order the story is told: where it started, what came in, what went out.
+    [$story, $storyEmpty] = $split(
+        $lines(AccountType::Equity)->concat($lines(AccountType::Income))->concat($lines(AccountType::Expense)),
+        false,
+    );
+
+    $net = $position->netPosition();
+    $profit = $position->retainedProfit();
+    $sound = $trial['balanced'] && $position->isConsistent();
 @endphp
 
 <x-workspace-layout :business="$business">
     <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h1 class="text-xl font-semibold text-gray-900">Ledger</h1>
-                <p class="mt-1 text-sm text-gray-500">
-                    Every figure below is summed from ledger entries. Nothing here is stored as a balance.
-                </p>
-            </div>
-
+        <div>
+            <h1 class="text-xl font-semibold text-gray-900">Ledger</h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Where the business stands as at {{ $asAt->format('D d M Y') }}, worked out from every entry. Click any line to see what is behind it.
+            </p>
         </div>
     </x-slot>
 
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
-        {{-- Which day, and whether the books agree with themselves — on one line. --}}
-        <div class="mb-6 flex flex-wrap items-center justify-between gap-x-6 gap-y-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm sm:px-6">
-            <p class="flex flex-wrap items-center gap-2 text-sm">
-                <span class="text-base font-semibold text-gray-900">Balances as at {{ $asAt->format('D d M Y') }}</span>
-                @if ($at !== 'custom' && $at !== 'today')
-                    <span class="text-gray-500">· {{ strtolower($points[$at]) }}</span>
-                @endif
-                @if ($business->opening_date && $asAt->lessThan($business->opening_date))
-                    <span class="text-amber-700">· before the business opened on {{ $business->opening_date->format('d M Y') }}, so nothing is recorded yet</span>
-                @endif
-                <span class="text-gray-300">|</span>
-                @if ($trial['balanced'])
-                    <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20"
-                             title="Every debit has a matching credit: {{ $trial['debits']->format() }} each side">Books balance ✓</x-badge>
-                @else
-                    <x-badge classes="bg-red-50 text-red-800 ring-red-600/20">Books out by {{ $trial['difference']->format() }}</x-badge>
-                @endif
-                @if ($position->isConsistent())
-                    <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20"
-                             title="Net position worked out two ways gives the same answer">Figures agree ✓</x-badge>
-                @else
-                    <x-badge classes="bg-red-50 text-red-800 ring-red-600/20">Figures disagree by {{ $position->discrepancy()->format() }}</x-badge>
-                @endif
-            </p>
-
-            <x-filter-bar submit="Apply" :active="$at !== 'today'" clear="{{ route('businesses.ledger', $business) }}" x-data="{ at: {{ Illuminate\Support\Js::from($at) }} }">
-                <div>
-                    <x-input-label for="at" value="As at" />
-                    <select id="at" name="at" x-model="at"
+        {{-- Which day, through the one filter bar every screen uses. The
+             check that the books agree with themselves sits under it. --}}
+        <x-filter-bar class="mb-6" submit="Apply" :active="$at !== 'today'" clear="{{ route('businesses.ledger', $business) }}"
+                      x-data="{ at: {{ Illuminate\Support\Js::from($at) }} }">
+            <div>
+                <x-input-label for="at" value="As at" />
+                <select id="at" name="at" x-model="at"
                         class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     @foreach ($points as $value => $label)
+                        @continue($value === 'opening' && ! $business->opening_date)
                         <option value="{{ $value }}" @selected($at === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
-                </div>
+            </div>
 
-                <template x-if="at === 'custom'">
-                    <span>
-                        <div>
-                            <x-input-label for="as_at" value="Date" />
-                            <input id="as_at" name="as_at" type="date" value="{{ $asAt->toDateString() }}"
+            <template x-if="at === 'custom'">
+                <span>
+                    <div>
+                        <x-input-label for="as_at" value="Date" />
+                        <input id="as_at" name="as_at" type="date" value="{{ $asAt->toDateString() }}"
                                min="{{ $business->opening_date?->toDateString() }}" max="{{ $business->today()->toDateString() }}"
                                class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        </div>
-                    </span>
-                </template>
-            </x-filter-bar>
-        </div>
+                    </div>
+                </span>
+            </template>
 
-        <dl class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
-            <x-stat label="Assets" :value="$position->assets->format()" />
-            <x-stat label="Liabilities" :value="$position->liabilities->format()" />
-            <x-stat label="Net position" :value="$position->netPosition()->format()"
-                    hint="Management position — not a balance sheet" />
-            <x-stat label="Income" :value="$position->income->format()" />
-            <x-stat label="Retained profit" :value="$position->retainedProfit()->format()"
-                    hint="Income less expenses" />
-        </dl>
+            @if ($sound)
+                <x-slot name="count">
+                    <span class="font-medium text-emerald-700"
+                          title="Debits and credits are {{ $trial['debits']->format() }} each side, and net position worked out two ways gives the same answer">✓ Books check out</span>
+                    · debits equal credits, both totals agree
+                </x-slot>
+            @endif
+        </x-filter-bar>
 
-        {{-- The two totals above, opened up: what each is made of. --}}
-        <x-panel class="mb-8" title="What you own and what you owe"
-                 :description="'As at ' . $asAt->format('D d M Y') . '. Each line is the sum of its ledger; click one to see its entries.'">
+        @unless ($sound)
+            <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:px-6" role="alert">
+                <strong>The books do not check out.</strong>
+                @unless ($trial['balanced'])
+                    Debits and credits differ by <span class="font-mono">{{ $trial['difference']->format() }}</span>.
+                @endunless
+                @unless ($position->isConsistent())
+                    Net position worked out two ways differs by <span class="font-mono">{{ $position->discrepancy()->format() }}</span>.
+                @endunless
+                Every figure below is suspect until this is found.
+            </div>
+        @endunless
+
+        @if ($business->opening_date && $asAt->lessThan($business->opening_date))
+            <p class="mb-6 text-sm text-amber-700">
+                This is before the business opened on {{ $business->opening_date->format('d M Y') }}, so nothing is recorded yet.
+            </p>
+        @endif
+
+        {{-- What the business owns and owes. --}}
+        <x-panel class="mb-6">
             <div class="grid divide-y divide-gray-200 lg:grid-cols-2 lg:divide-x lg:divide-y-0">
-                @foreach ([['What you own', $own, $position->assets], ['What you owe', $owe, $position->liabilities]] as [$heading, $rows, $total])
+                @foreach ([['Business Value', $own, $ownEmpty, $position->assets], ['Business Credit/Pending amount', $owe, $oweEmpty, $position->liabilities]] as [$heading, $held, $empty, $total])
                     <div>
-                        <h3 class="bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">{{ $heading }}</h3>
-                        <dl class="divide-y divide-gray-100 text-sm">
-                            @foreach ($rows as $row)
-                                <div @class(['flex items-start justify-between gap-4 px-4 py-2.5 sm:px-6', 'opacity-50' => $row['amount']->isZero()])>
-                                    <dt>
-                                        <a href="{{ route('businesses.ledger.account', [$business, $row['code']]) }}"
-                                           class="font-medium text-gray-900 hover:text-emerald-700">{{ $row['name'] }}</a>
-                                        @if ($row['note'])
-                                            <p class="text-xs text-gray-500">{{ $row['note'] }}</p>
-                                        @endif
-                                    </dt>
-                                    <dd class="whitespace-nowrap tabular-nums {{ $row['amount']->isNegative() ? 'font-semibold text-red-700' : 'text-gray-900' }}">
-                                        {{ $rs($row['amount']) }}
-                                    </dd>
-                                </div>
-                            @endforeach
-                            <div class="flex justify-between gap-4 bg-gray-50 px-4 py-2.5 font-semibold sm:px-6">
-                                <dt class="text-gray-900">Total</dt>
-                                <dd class="tabular-nums text-gray-900">{{ $rs($total) }}</dd>
-                            </div>
-                        </dl>
+                        <div class="flex items-baseline justify-between gap-4 border-b border-gray-200 bg-gray-50 px-4 py-4 sm:px-6">
+                            <h2 class="font-sans text-xs font-semibold uppercase tracking-wide text-gray-500">{{ $heading }}</h2>
+                            <p class="font-mono text-xl font-medium tabular-nums text-gray-900">{{ $rs($total) }}</p>
+                        </div>
+
+                        @foreach ($held as $line)
+                            @include('business.ledger.partials.line', ['line' => $line, 'noun' => $nouns[$line['code']] ?? 'account'])
+                        @endforeach
+
+                        @include('business.ledger.partials.empty', ['lines' => $empty])
                     </div>
                 @endforeach
             </div>
 
-            {{-- The bottom line, and why it is what it is. --}}
-            <div class="border-t border-gray-200 px-4 py-4 text-sm sm:px-6">
-                <p class="flex flex-wrap items-baseline justify-between gap-2">
-                    <span class="font-semibold text-gray-900">
-                        Net position — what you own minus what you owe
-                    </span>
-                    <span class="text-lg font-semibold tabular-nums {{ $net->isNegative() ? 'text-red-700' : 'text-emerald-700' }}">
-                        {{ $rs($position->assets) }} − {{ $rs($position->liabilities) }} = {{ $rs($net) }}
-                    </span>
-                </p>
-                <p class="mt-1 text-gray-500">
-                    The business started at <span class="tabular-nums text-gray-700">{{ $rs($started) }}</span>
-                    (the opening position, with its corrections), and has
-                    {{ $profit->isNegative() ? 'lost' : 'made' }}
-                    <span class="tabular-nums {{ $profit->isNegative() ? 'text-red-700' : 'text-emerald-700' }}">{{ $rs($profit->absolute()) }}</span>
-                    since — sales less the cost of what was sold and expenses.
-                    @if ($net->isNegative())
-                        It still owes {{ $rs($net->absolute()) }} more than it owns.
-                    @else
-                        It owns {{ $rs($net) }} more than it owes.
-                    @endif
-                </p>
+            <div class="flex flex-wrap items-center justify-between gap-4 border-t border-gray-200 px-4 py-5 sm:px-6">
+                <div>
+                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Net position</p>
+                    <p class="mt-1 text-gray-900">
+                        @if ($net->isNegative())
+                            You owe {{ $net->absolute()->format() }} more than you own.
+                        @elseif ($net->isZero())
+                            You own exactly what you owe.
+                        @else
+                            You own {{ $net->format() }} more than you owe.
+                        @endif
+                    </p>
+                </div>
+                <p @class(['font-mono text-3xl font-semibold tabular-nums', 'text-red-700' => $net->isNegative(), 'text-gray-900' => ! $net->isNegative()])>{{ $rs($net) }}</p>
             </div>
         </x-panel>
 
-        @if ($opened && $children)
-            <x-panel id="sub" class="mb-6" :title="$opened->name . ' — its own ledgers'"
-                     :description="number_format($children->total()) . ' accounts under ' . $opened->code . ', each with its own balance.'">
-                <table class="w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50">
-                        <tr>
-                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Code</th>
-                            <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Account</th>
-                            <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Balance</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-gray-100">
-                        @foreach ($children as $child)
-                            <tr>
-                                <td class="whitespace-nowrap px-4 py-2 text-xs text-gray-500 sm:px-6">{{ $child->code }}</td>
-                                <td class="px-4 py-2">
-                                    <a href="{{ route('businesses.ledger.account', [$business, $child->code]) }}"
-                                       class="font-medium text-gray-900 hover:text-emerald-700">{{ $child->name }}</a>
-                                </td>
-                                <td class="whitespace-nowrap px-4 py-2 text-right tabular-nums sm:px-6
-                                           {{ ($balances[$child->code] ?? \App\Support\Money::zero())->isNegative() ? 'text-red-700' : 'text-gray-900' }}">
-                                    {{ ($balances[$child->code] ?? \App\Support\Money::zero())->format() }}
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+        {{-- The same figure, reached the other way. --}}
+        <x-panel title="How it got here"
+                 description="The same net position, reached the other way: where you started, plus what you have made since.">
+            @foreach ($story as $line)
+                @include('business.ledger.partials.line', ['line' => $line, 'noun' => $nouns[$line['code']] ?? 'account'])
+            @endforeach
 
-                <div class="border-t border-gray-200 px-4 py-2 sm:px-6">{{ $children->links() }}</div>
-            </x-panel>
-        @endif
+            <div class="flex items-baseline justify-between gap-4 border-b border-gray-100 bg-gray-50 px-4 py-3 font-semibold sm:px-6">
+                <span class="text-gray-900">{{ $profit->isNegative() ? 'Loss since opening' : 'Profit since opening' }}</span>
+                <span @class(['font-mono tabular-nums', 'text-red-700' => $profit->isNegative(), 'text-gray-900' => ! $profit->isNegative()])>{{ $rs($profit) }}</span>
+            </div>
 
-        @foreach ($types as $type)
-            @php($group = $accounts->get($type->value, collect()))
-            @continue($group->isEmpty())
+            @include('business.ledger.partials.empty', ['lines' => $storyEmpty])
 
-            <x-panel class="mb-6" :title="$type->label()">
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Code</th>
-                                <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Account</th>
-                                <th class="px-4 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 bg-white">
-                            @foreach ($group as $account)
-                                <tr class="{{ $account->parent_id ? 'bg-gray-50/50' : '' }}">
-                                    <td class="px-4 py-2 font-mono text-xs text-gray-500 sm:px-6">{{ $account->code }}</td>
-                                    <td class="px-4 py-2">
-                                        <a href="{{ route('businesses.ledger.account', [$business, $account->code]) }}"
-                                           class="font-medium text-gray-900 hover:text-emerald-700">{{ $account->name }}</a>
-                                        @if ($account->children_count > 0)
-                                            <a href="{{ request()->fullUrlWithQuery(['under' => $account->code, 'page' => null]) }}#sub"
-                                               class="ml-2 rounded-md bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600 hover:bg-emerald-50 hover:text-emerald-800">
-                                                {{ number_format($account->children_count) }} sub-accounts
-                                            </a>
-                                        @elseif (! $account->is_postable)
-                                            <x-badge classes="ml-2 bg-gray-100 text-gray-600 ring-gray-500/20">not in use</x-badge>
-                                        @endif
-                                        @if ($account->description)
-                                            <p class="mt-0.5 text-xs text-gray-500">{{ $account->description }}</p>
-                                        @endif
-                                    </td>
-                                    <td class="px-4 py-2 text-right font-mono tabular-nums sm:px-6
-                                               {{ $balances[$account->code]->isNegative() ? 'text-red-700' : 'text-gray-900' }}">
-                                        {{ $balances[$account->code]->format() }}
-                                    </td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-            </x-panel>
-        @endforeach
+            @php($derived = $position->equityDerivation())
+            <div class="flex items-baseline justify-between gap-4 border-t-2 border-gray-900 px-4 py-4 font-semibold sm:px-6">
+                <span class="text-gray-900">
+                    Net position
+                    @if ($position->isConsistent())
+                        <span class="ml-2 text-xs font-normal text-emerald-700">✓ same figure as above</span>
+                    @else
+                        <span class="ml-2 text-xs font-normal text-red-700">differs from the figure above by {{ $position->discrepancy()->format() }}</span>
+                    @endif
+                </span>
+                <span @class(['font-mono text-lg tabular-nums', 'text-red-700' => $derived->isNegative(), 'text-gray-900' => ! $derived->isNegative()])>{{ $rs($derived) }}</span>
+            </div>
+        </x-panel>
     </div>
 </x-workspace-layout>

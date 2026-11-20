@@ -36,6 +36,10 @@
 .ph-form .ph-button { align-self: stretch; justify-content: center; min-height: 48px; font-size: 16px; }
 .ph-status { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); padding: 10px 14px; font-size: 14px; line-height: 20px; }
 
+/* The security code page: four boxes, one digit each. */
+.ph-code { display: flex; justify-content: center; gap: var(--space-2); }
+.ph-code .ph-input { width: 56px; min-height: 56px; padding: 0; text-align: center; font-family: var(--font-mono); font-size: 24px; font-weight: 600; }
+
 /* The other door: a quiet, outlined button under the form. */
 .ph-login__other { display: flex; flex-direction: column; gap: var(--space-1); border-top: 1px solid var(--line); padding-top: var(--space-2); }
 .ph-login__other .text-small { color: var(--muted); }

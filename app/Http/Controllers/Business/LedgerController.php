@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Business;
 
 use App\Domain\Ledger\BalanceService;
-use App\Enums\AccountType;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Business;
@@ -11,6 +10,7 @@ use App\Models\LedgerEntry;
 use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Carbon;
 
 /**
@@ -59,18 +59,32 @@ class LedgerController extends Controller
                 ->withQueryString()
             : null;
 
+        /*
+         * Sub-accounts, as names only. Their balances are already in the one
+         * query BalanceService::all() runs for the whole chart, so the page
+         * can show the few that hold something under their own row without
+         * drawing — or paging through — the hundreds that hold nothing.
+         */
+        $subs = Account::forBusiness($business)
+            ->whereNotNull('parent_id')
+            ->get(['id', 'code', 'name', 'parent_id'])
+            ->groupBy('parent_id');
+
         return view('business.ledger.index', [
             'business' => $business,
             'asAt' => $asAt,
             'accounts' => $accounts->groupBy(fn (Account $a) => $a->type->value),
+            'subs' => $subs,
             'opened' => $opened,
             'children' => $children,
             'balances' => $balances->all($business, $asAt),
             'position' => $balances->position($business, $asAt),
             'trial' => $balances->trialBalance($business, $asAt),
-            'types' => AccountType::cases(),
             'at' => $at,
             'points' => self::POINTS,
+            // Carried onto every account link, so a statement opens as at the
+            // same day the page is showing.
+            'dateQuery' => $at === 'today' ? [] : ['as_at' => $asAt->toDateString()],
         ]);
     }
 
@@ -107,46 +121,77 @@ class LedgerController extends Controller
         return [$at, $date->greaterThan($today) ? $today : $date];
     }
 
-    public function show(Business $business, string $code, BalanceService $balances): View
+    /** Entries on one page of a statement. */
+    private const PER_PAGE = 100;
+
+    public function show(Request $request, Business $business, string $code, BalanceService $balances): View
     {
         $this->authorize('viewLedger', $business);
 
         $account = Account::forBusiness($business)->code($code)->firstOrFail();
+
+        // The day the ledger page was showing, when the link came from there.
+        $today = Carbon::parse($business->today()->toDateString());
+        $asAt = $request->date('as_at') ? Carbon::parse($request->date('as_at')->toDateString()) : null;
+        $asAt = $asAt && $asAt->lessThan($today) ? $asAt : null;
 
         $accountIds = Account::forBusiness($business)
             ->where('id', $account->id)
             ->orWhere('parent_id', $account->id)
             ->pluck('id');
 
-        $entries = LedgerEntry::forBusiness($business)
+        /*
+         * Every entry's two amounts and nothing else. The running balance has
+         * to be worked out from the first entry, so all of them are read — but
+         * only the page being shown is loaded in full, with its transaction
+         * and who entered it.
+         */
+        $amounts = LedgerEntry::forBusiness($business)
             ->whereIn('account_id', $accountIds)
-            ->with(['transaction.creator', 'account'])
-            ->whereHas('transaction', fn ($q) => $q->where('status', '!=', 'draft'))
+            ->posted()
+            ->when($asAt, fn ($q) => $q->whereDate('business_date', '<=', $asAt->toDateString()))
             ->orderBy('business_date')
             ->orderBy('id')
-            ->get();
+            ->get(['id', 'debit', 'credit']);
 
         // The running balance is computed here rather than in SQL so it goes
         // through Money and cannot drift from the summed balance.
         $running = Money::zero();
         $sign = $account->type->presentationSign();
 
-        $rows = $entries->map(function (LedgerEntry $entry) use (&$running, $sign) {
-            $running = $running->plus($entry->signedAmount()->times($sign));
+        $balanceAfter = [];
 
-            return ['entry' => $entry, 'running' => $running];
-        });
+        foreach ($amounts as $entry) {
+            $running = $running->plus($entry->signedAmount()->times($sign));
+            $balanceAfter[$entry->id] = $running;
+        }
 
         // Newest first on the screen. The running balance was worked out oldest
         // first, as it has to be, so each row still shows the balance as it
         // stood after that entry.
-        $rows = $rows->reverse()->values();
+        $page = max(1, (int) $request->integer('page', 1));
+        $ids = array_slice(array_reverse(array_keys($balanceAfter)), ($page - 1) * self::PER_PAGE, self::PER_PAGE);
+
+        $entries = LedgerEntry::forBusiness($business)
+            ->whereIn('id', $ids)
+            ->with(['transaction.creator', 'account'])
+            ->get()
+            ->keyBy('id');
+
+        $rows = collect($ids)
+            ->filter(fn ($id) => $entries->has($id))
+            ->map(fn ($id) => ['entry' => $entries[$id], 'running' => $balanceAfter[$id]])
+            ->values();
 
         return view('business.ledger.show', [
             'business' => $business,
             'account' => $account,
-            'rows' => $rows,
-            'closing' => $balances->asAt($business, $code),
+            'asAt' => $asAt,
+            'rows' => new LengthAwarePaginator($rows, count($balanceAfter), self::PER_PAGE, $page, [
+                'path' => $request->url(),
+                'query' => $request->query(),
+            ]),
+            'closing' => $balances->asAt($business, $code, $asAt),
         ]);
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CheckSecurityCode;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\SetCurrentBusiness;
@@ -16,6 +17,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // A deactivated account loses access on its next request, not its next login.
         $middleware->appendToGroup('web', EnsureUserIsActive::class);
+
+        // The site-wide access gate. Does nothing unless it is switched on
+        // (config/security-code.php, or Security code in the back office).
+        $middleware->appendToGroup('web', CheckSecurityCode::class);
 
         $middleware->alias([
             'platform.admin' => EnsurePlatformAdmin::class,

@@ -27,11 +27,19 @@ use App\Http\Controllers\Business\ProductController;
 use App\Http\Controllers\Business\StockAuditController;
 use App\Http\Controllers\Business\StockVerificationController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\SecurityCodeController;
 use Illuminate\Support\Facades\Route;
 
 // The public landing page. Its feature list is config/landing.php — add a
 // feature there when it ships.
 Route::view('/', 'landing')->name('home');
+
+// Security code gate entry (public; exempt from the gate itself). Throttled,
+// because a short code is otherwise there to be guessed.
+Route::get('/security-code', [SecurityCodeController::class, 'show'])->name('security-code');
+Route::post('/security-code', [SecurityCodeController::class, 'verify'])
+    ->middleware('throttle:10,1')
+    ->name('security-code.verify');
 
 Route::get('/dashboard', fn () => redirect(auth()->user()->homeRoute()))
     ->middleware('auth')
@@ -103,6 +111,18 @@ Route::middleware(['auth', 'platform.admin'])
         Route::get('payment-methods', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'index'])->name('payment-methods.index');
         Route::post('payment-methods', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'store'])->name('payment-methods.store');
         Route::patch('payment-methods/{paymentMethod}', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'update'])->name('payment-methods.update');
+
+        // The site's access gate: the switch, and the codes that open it. No
+        // delete route: a code is switched off.
+        Route::prefix('security-code')
+            ->name('security-code.')
+            ->controller(\App\Http\Controllers\Admin\SecurityCodeController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::put('/', 'update')->name('update');
+                Route::post('codes', 'store')->name('codes.store');
+                Route::patch('codes/{securityCode}', 'toggle')->name('codes.toggle');
+            });
 
         Route::resource('users', UserController::class)->except(['show', 'destroy']);
         Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive'])

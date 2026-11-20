@@ -69,10 +69,40 @@ return [
         ],
     ],
 
-    // What the owner sees together.
-    'four' => [
-        'label' => 'The owner sees four things together, and can trust them',
-        'items' => ['Cash', 'Stock', 'What customers owe', 'What is owed to companies'],
+    /*
+     * The product itself, in pictures. These are screens of the running
+     * application (public/images/landing), with the business's name changed.
+     * The first one answers the owner's question: cash, stock, what customers
+     * owe and what is owed to companies, together.
+     *
+     * To add one: save the picture beside the others and add a line here.
+     */
+    'screens' => [
+        'label' => 'The real screens',
+        'title' => 'Cash, stock, what customers owe and what is owed to companies, on one screen.',
+        'body' => 'This is the application as a pharmacy uses it, not a drawing of it.',
+        'items' => [
+            [
+                'tab' => 'Dashboard',
+                'image' => 'images/landing/dashboard.png',
+                'caption' => 'Where the business stands today: net position, sales, market credit, what is due, near-expiry stock and the stock count.',
+            ],
+            [
+                'tab' => 'The till',
+                'image' => 'images/landing/pos.png',
+                'caption' => 'Scan or search, see what is in stock, and take cash, a wallet, a bank transfer or credit.',
+            ],
+            [
+                'tab' => 'Daily closing',
+                'image' => 'images/landing/closing.png',
+                'caption' => 'The books say what should be in the drawer. The day closes only when every check is ticked.',
+            ],
+            [
+                'tab' => 'Near expiry',
+                'image' => 'images/landing/expiring.png',
+                'caption' => 'Every batch that is running out of time, valued at cost, before it becomes a loss.',
+            ],
+        ],
     ],
 
     'rows' => [
@@ -202,6 +232,25 @@ return [
             ['title' => 'Several businesses, one login', 'body' => 'Each business is fully separate.'],
             ['title' => 'Nothing to install', 'body' => 'Pharmaco runs in the browser.'],
         ],
+    ],
+
+    /*
+     * What it costs. The list prices and the discounts are kept apart so an
+     * offer can end by changing one number: the page works the discounted
+     * price out itself. Prices are whole rupees, per business.
+     *
+     * 'setup_free' => true shows the one-time setup fee crossed out and
+     * "Free for now"; set it to false when the fee starts being charged.
+     */
+    'pricing' => [
+        'label' => 'Pricing',
+        'title' => 'One price for the whole business',
+        'body' => 'Launch prices, per business rather than per user. The setup fee covers moving your old records in and entering your opening position.',
+        'monthly_discount' => 40,
+        'yearly_discount' => 50,
+        'setup_free' => true,
+        'pharmacy' => ['monthly' => 4000, 'setup' => 15000],
+        'distributor' => ['monthly' => 10000, 'setup' => 25000],
     ],
 
     // Shown only when contact_email is set.

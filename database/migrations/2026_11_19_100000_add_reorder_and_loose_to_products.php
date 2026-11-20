@@ -28,7 +28,7 @@ return new class extends Migration
         });
 
         // A movement of loose pieces alone moves no whole pack.
-        DB::statement('ALTER TABLE stock_movements DROP CHECK chk_stock_movements');
+        DB::statement('ALTER TABLE stock_movements DROP CONSTRAINT chk_stock_movements');
         DB::statement('ALTER TABLE stock_movements ADD CONSTRAINT chk_stock_movements CHECK (
             (packs <> 0 OR loose <> 0) AND (unit_cost IS NULL OR unit_cost >= 0)
         )');
@@ -47,12 +47,12 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE company_products DROP CHECK chk_company_products_units');
+        DB::statement('ALTER TABLE company_products DROP CONSTRAINT chk_company_products_units');
 
         Schema::table('pos_bill_lines', fn (Blueprint $table) => $table->dropColumn(['loose_quantity', 'units_per_pack']));
         Schema::table('order_receipt_lines', fn (Blueprint $table) => $table->dropColumn('batch_no'));
 
-        DB::statement('ALTER TABLE stock_movements DROP CHECK chk_stock_movements');
+        DB::statement('ALTER TABLE stock_movements DROP CONSTRAINT chk_stock_movements');
         Schema::table('stock_movements', fn (Blueprint $table) => $table->dropColumn(['loose', 'batch_no']));
         DB::statement('ALTER TABLE stock_movements ADD CONSTRAINT chk_stock_movements CHECK (
             packs <> 0 AND (unit_cost IS NULL OR unit_cost >= 0)

@@ -9,17 +9,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('order_receipt_lines', function (Blueprint $table) {
-            // Why the delivery differed: "out of stock until next month",
-            // "two cartons damaged". The figure says what came; this says why.
-            $table->string('note', 255)->nullable()->after('discount_percent');
-        });
+        // Guarded so the migration can be run again on a server where it got
+        // as far as adding the column and then stopped.
+        if (! Schema::hasColumn('order_receipt_lines', 'note')) {
+            Schema::table('order_receipt_lines', function (Blueprint $table) {
+                // Why the delivery differed: "out of stock until next month",
+                // "two cartons damaged". The figure says what came; this says why.
+                $table->string('note', 255)->nullable()->after('discount_percent');
+            });
+        }
 
         // Zero becomes a recordable quantity, because "we checked, and none of
         // it came" is a different fact from "we never got to this line" — and
         // only the first one can carry a reason. No line at all still means
         // the second.
-        DB::statement('ALTER TABLE order_receipt_lines DROP CHECK chk_receipt_lines_quantities');
+        //
+        // DROP CONSTRAINT rather than DROP CHECK: MariaDB does not know the
+        // second, and MySQL 8.0.19 and later accept the first.
+        DB::statement('ALTER TABLE order_receipt_lines DROP CONSTRAINT chk_receipt_lines_quantities');
         DB::statement('ALTER TABLE order_receipt_lines ADD CONSTRAINT chk_receipt_lines_quantities CHECK (
             packs >= 0
             AND rate >= 0
@@ -31,7 +38,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        DB::statement('ALTER TABLE order_receipt_lines DROP CHECK chk_receipt_lines_quantities');
+        DB::statement('ALTER TABLE order_receipt_lines DROP CONSTRAINT chk_receipt_lines_quantities');
         DB::statement('ALTER TABLE order_receipt_lines ADD CONSTRAINT chk_receipt_lines_quantities CHECK (
             packs > 0
             AND rate >= 0

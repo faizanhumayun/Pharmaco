@@ -14,10 +14,12 @@
 --}}
 @php
     $hero = config('landing.hero', []);
-    $four = config('landing.four', []);
+    $screens = config('landing.screens', []);
     $rows = config('landing.rows', []);
     $shared = config('landing.shared', []);
     $demo = config('landing.demo', []);
+    $pricing = config('landing.pricing', []);
+    $rupees = fn (int $amount) => 'Rs ' . number_format($amount);
     $contact = config('landing.contact_email');
     $name = config('app.name', 'Pharmaco');
 
@@ -46,6 +48,9 @@
                 <a href="#pharmacies">For pharmacies</a>
                 <a href="#distributors">For distributors</a>
                 <a href="#shared">What both share</a>
+                @if ($pricing)
+                    <a href="#pricing">Pricing</a>
+                @endif
                 @if ($contact)
                     <a href="#demo">Request a demo</a>
                 @endif
@@ -91,14 +96,33 @@
             </div>
         </section>
 
-        <section class="ph-section">
-            <p class="text-label">{{ $four['label'] ?? '' }}</p>
-            <div class="ph-four">
-                @foreach ($four['items'] ?? [] as $item)
-                    <div>{{ $item }}</div>
+        {{-- The application itself. One picture at a time; the buttons
+             choose which. Without scripts the first one is simply shown. --}}
+        @if (! empty($screens['items']))
+            <section class="ph-section ph-section--loose" id="screens" x-data="{ shown: 0 }">
+                <div class="ph-hero-text">
+                    <p class="text-label">{{ $screens['label'] }}</p>
+                    <h2 class="text-heading">{{ $screens['title'] }}</h2>
+                    <p class="ph-lede">{{ $screens['body'] }}</p>
+                </div>
+
+                <div class="ph-screens__tabs" role="tablist" aria-label="Screens">
+                    @foreach ($screens['items'] as $i => $screen)
+                        <button type="button" role="tab" class="ph-screens__tab {{ $i === 0 ? 'is-on' : '' }}"
+                                :class="{ 'is-on': shown === {{ $i }} }" :aria-selected="shown === {{ $i }}"
+                                x-on:click="shown = {{ $i }}">{{ $screen['tab'] }}</button>
+                    @endforeach
+                </div>
+
+                @foreach ($screens['items'] as $i => $screen)
+                    <figure class="ph-screens__frame" x-show="shown === {{ $i }}" @if ($i > 0) x-cloak @endif>
+                        <img src="{{ asset($screen['image']) }}" alt="{{ $screen['tab'] }} screen in {{ $name }}"
+                             width="2880" height="1280" @if ($i > 0) loading="lazy" @endif>
+                        <figcaption>{{ $screen['caption'] }}</figcaption>
+                    </figure>
                 @endforeach
-            </div>
-        </section>
+            </section>
+        @endif
 
         <div class="ph-rows" id="rows">
             @foreach ($rows as $i => $row)
@@ -147,6 +171,78 @@
             </div>
         </div>
     </section>
+
+    {{-- What it costs. The list price is crossed out beside what is charged
+         today; both come from config/landing.php. --}}
+    @if ($pricing)
+        <section class="ph-wrap ph-pricing" id="pricing">
+            <div class="ph-hero-text">
+                <p class="text-label">{{ $pricing['label'] }}</p>
+                <h2 class="text-heading">{{ $pricing['title'] }}</h2>
+                <p class="ph-lede">{{ $pricing['body'] }}</p>
+            </div>
+
+            <div class="ph-columns">
+                @foreach ($sides as $side => $label)
+                    @continue(empty($pricing[$side]))
+                    @php
+                        $monthly = (int) $pricing[$side]['monthly'];
+                        $yearly = $monthly * 12;
+                        $monthlyNow = intdiv($monthly * (100 - $pricing['monthly_discount']), 100);
+                        $yearlyNow = intdiv($yearly * (100 - $pricing['yearly_discount']), 100);
+                    @endphp
+
+                    <div class="ph-column ph-column--{{ $side }}">
+                        <p class="text-label">{{ $label }}</p>
+
+                        <div class="ph-vignette">
+                            <div class="ph-price">
+                                <div>
+                                    <span class="text-subheading">Monthly</span>
+                                    <span class="ph-chip">{{ $pricing['monthly_discount'] }}% off</span>
+                                </div>
+                                <div class="ph-price__figure">
+                                    <s>{{ $rupees($monthly) }}</s>
+                                    <span class="text-mono">{{ $rupees($monthlyNow) }}</span>
+                                    <span class="text-small">a month</span>
+                                </div>
+                            </div>
+
+                            <div class="ph-price">
+                                <div>
+                                    <span class="text-subheading">Yearly</span>
+                                    <span class="ph-chip">{{ $pricing['yearly_discount'] }}% off</span>
+                                </div>
+                                <div class="ph-price__figure">
+                                    <s>{{ $rupees($yearly) }}</s>
+                                    <span class="text-mono">{{ $rupees($yearlyNow) }}</span>
+                                    <span class="text-small">a year · {{ $rupees(intdiv($yearlyNow, 12)) }} a month</span>
+                                </div>
+                            </div>
+
+                            <div class="ph-price">
+                                <div>
+                                    <span class="text-subheading">One-time setup</span>
+                                    @if ($pricing['setup_free'])
+                                        <span class="ph-chip">Free for now</span>
+                                    @endif
+                                </div>
+                                <div class="ph-price__figure">
+                                    @if ($pricing['setup_free'])
+                                        <s>{{ $rupees((int) $pricing[$side]['setup']) }}</s>
+                                        <span class="text-mono">Free</span>
+                                    @else
+                                        <span class="text-mono">{{ $rupees((int) $pricing[$side]['setup']) }}</span>
+                                    @endif
+                                    <span class="text-small">paid once</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+        </section>
+    @endif
 
     {{-- Only when there is somewhere for the request to go. --}}
     @if ($contact)

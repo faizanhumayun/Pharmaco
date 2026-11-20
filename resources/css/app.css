@@ -41,6 +41,10 @@
 .ph-screens__frame img { display: block; width: 100%; height: auto; }
 .ph-screens__frame figcaption { padding: var(--space-2); border-top: 1px solid var(--line); color: var(--muted); font-size: 14px; line-height: 20px; }
 
+/* The foot of the landing page: the year, and who is behind it. */
+.ph-foot__base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); padding-top: var(--space-2); padding-bottom: var(--space-2); }
+.ph-foot__base strong { color: var(--ink); font-weight: 600; }
+
 /*
  * Pricing on the landing page: one card a side, a line per way of paying. The
  * list price is crossed out beside what is charged today.

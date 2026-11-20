@@ -19,6 +19,7 @@
     $shared = config('landing.shared', []);
     $demo = config('landing.demo', []);
     $pricing = config('landing.pricing', []);
+    $footer = config('landing.footer', []);
     $rupees = fn (int $amount) => 'Rs ' . number_format($amount);
     $contact = config('landing.contact_email');
     $name = config('app.name', 'Pharmaco');
@@ -264,9 +265,11 @@
     @endif
 
     <footer class="ph-footer">
-        <div class="ph-wrap ph-footer__inner">
-            <span class="ph-wordmark ph-wordmark--small">{{ $name }}</span>
-            <span class="text-small">Runs in the browser; nothing to install.</span>
+        <div class="ph-wrap ph-foot__base">
+            <span class="text-small">&copy; {{ now()->year }} {{ $name }}</span>
+            @if (! empty($footer['powered_by']))
+                <span class="text-small">Powered by <strong>{{ $footer['powered_by'] }}</strong></span>
+            @endif
         </div>
     </footer>
 

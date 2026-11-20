@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(RolePermissionSeeder::class);
 
-        $email = env('PLATFORM_ADMIN_EMAIL', 'admin@pharmaco.test');
+        $email = env('PLATFORM_ADMIN_EMAIL', 'faizanhumayun486@gmail.com');
 
         $admin = User::firstOrCreate(
             ['email' => $email],

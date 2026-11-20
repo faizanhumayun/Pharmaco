@@ -253,6 +253,11 @@ return [
         'distributor' => ['monthly' => 10000, 'setup' => 25000],
     ],
 
+    // The foot of the page. 'powered_by' is who built and runs the product.
+    'footer' => [
+        'powered_by' => 'Faizan Humayun',
+    ],
+
     // Shown only when contact_email is set.
     'demo' => [
         'pharmacy' => [

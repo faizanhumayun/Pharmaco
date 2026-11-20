@@ -11,12 +11,6 @@
                     {{ $business->today()->format('D d M Y') }} in {{ $business->timezone }}
                 </p>
             </div>
-            @if (auth()->user()->isPlatformAdmin())
-                <a href="{{ route('admin.businesses.show', $business) }}"
-                   class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Back office
-                </a>
-            @endif
         </div>
     </x-slot>
 

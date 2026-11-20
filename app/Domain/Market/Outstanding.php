@@ -32,7 +32,8 @@ class Outstanding
     public function bills(Business $business, ?Pharmacy $pharmacy = null): Collection
     {
         return PosBill::forBusiness($business)
-            ->when($pharmacy !== null, fn ($q) => $q->where('customer_name', $pharmacy->name))
+            ->when($pharmacy !== null, fn ($q) => $q->where('pharmacy_id', $pharmacy->id))
+            ->with('returns')
             ->whereRaw('total > received')
             ->orderBy('business_date')
             ->orderBy('id')
@@ -45,7 +46,10 @@ class Outstanding
     {
         $collected = $bill->getAttribute('collected') ?? $this->collectedOn($bill);
 
-        return $bill->credit()->minus($collected);
+        // Goods that came back and were taken off the account are no longer owed.
+        $owed = $bill->credit()->minus($collected)->minus($bill->returnedOnAccount());
+
+        return $owed->isNegative() ? Money::zero() : $owed;
     }
 
     /** What has been brought in against one bill since it was rung up. */

@@ -137,10 +137,14 @@ class DailyEntryPostingService
          * one number into a set of statements you can chase.
          */
         foreach ($this->saleAllocations($entry, $receivables) as $allocation) {
+            // Paid by wallet or bank, the money is in that account and not in
+            // the drawer — which is what keeps the cash count honest.
+            $into = $allocation['into'] ?? AccountCode::Cash;
+
             $add(
                 TransactionType::SaleCash, $allocation['covered'],
-                AccountCode::Cash, AccountCode::Sales,
-                'Cash sale — '.$allocation['label'],
+                $into, AccountCode::Sales,
+                ($into === AccountCode::Cash ? 'Cash sale — ' : 'Sale paid by transfer — ').$allocation['label'],
             );
 
             $add(
@@ -154,13 +158,37 @@ class DailyEntryPostingService
             // rather than adding to revenue.
             $add(
                 TransactionType::Collection, $allocation['excess'],
-                AccountCode::Cash, $allocation['account'],
+                $into, $allocation['account'],
                 'Recovered against earlier credit — '.$allocation['label'],
             );
         }
 
-        $add(TransactionType::SalesReturn, $entry->sales_return,
-            AccountCode::SalesReturns, $receivables);
+        /*
+         * Goods brought back. Where the counter recorded whose they were and
+         * how they were settled, the refund leaves the drawer and the rest
+         * comes off that customer's own account. A plain figure with no detail
+         * behind it comes off the market as a whole, as it always did.
+         */
+        $returns = $entry->returnLines()->with('pharmacy.account')->get();
+
+        if ($returns->isEmpty()) {
+            $add(TransactionType::SalesReturn, $entry->sales_return,
+                AccountCode::SalesReturns, $receivables);
+        }
+
+        foreach ($returns as $return) {
+            $add(
+                TransactionType::SalesReturn, $return->refunded,
+                AccountCode::SalesReturns, AccountCode::Cash,
+                'Return refunded in cash — '.$return->label(),
+            );
+
+            $add(
+                TransactionType::SalesReturn, $return->onAccount(),
+                AccountCode::SalesReturns, $return->pharmacy?->account?->code ?? $receivables,
+                'Return taken off account — '.$return->label(),
+            );
+        }
 
         /*
          * Cost of goods sold, derived from the gross profit the POS reported.
@@ -172,9 +200,17 @@ class DailyEntryPostingService
          */
         $cogs = $entry->costOfGoodsSold();
 
-        $add(TransactionType::CostOfGoodsSold, $cogs,
-            AccountCode::CostOfGoodsSold, AccountCode::Stock,
-            'Cost of goods sold — net sales less gross profit');
+        if ($cogs->isNegative()) {
+            // More came back than went out: a day of returns and little else.
+            // The goods are on the shelf again, so their cost goes back to stock.
+            $add(TransactionType::CostOfGoodsSold, $cogs->absolute(),
+                AccountCode::Stock, AccountCode::CostOfGoodsSold,
+                'Cost of returned goods — back into stock');
+        } else {
+            $add(TransactionType::CostOfGoodsSold, $cogs,
+                AccountCode::CostOfGoodsSold, AccountCode::Stock,
+                'Cost of goods sold — net sales less gross profit');
+        }
 
         // --- Market --------------------------------------------------------
         /*
@@ -185,7 +221,7 @@ class DailyEntryPostingService
         foreach ($this->collectionAllocations($entry, $receivables) as $allocation) {
             $add(
                 TransactionType::Collection, $allocation['amount'],
-                AccountCode::Cash, $allocation['account'],
+                $allocation['into'] ?? AccountCode::Cash, $allocation['account'],
                 'Collected — '.$allocation['label'],
             );
         }
@@ -285,7 +321,7 @@ class DailyEntryPostingService
      */
     private function collectionAllocations(DailyEntry $entry, AccountCode|string $receivables): array
     {
-        $lines = $entry->collectionLines()->with('pharmacy.account')->get();
+        $lines = $entry->collectionLines()->with(['pharmacy.account', 'paymentMethod.account'])->get();
 
         if ($lines->isEmpty()) {
             return [[
@@ -299,12 +335,13 @@ class DailyEntryPostingService
             'label' => $line->label(),
             'account' => $line->pharmacy?->account?->code ?? $receivables,
             'amount' => $line->amount,
+            'into' => $line->paymentMethod?->account?->code,
         ])->all();
     }
 
     private function saleAllocations(DailyEntry $entry, AccountCode|string $receivables): array
     {
-        $lines = $entry->saleLines()->with('pharmacy.account')->get();
+        $lines = $entry->saleLines()->with(['pharmacy.account', 'paymentMethod.account'])->get();
 
         if ($lines->isEmpty()) {
             return [$this->split(
@@ -315,12 +352,15 @@ class DailyEntryPostingService
             )];
         }
 
-        return $lines->map(fn (SaleLine $line) => $this->split(
-            $line->label(),
-            $line->pharmacy?->account?->code ?? $receivables,
-            $line->amount,
-            $line->received,
-        ))->all();
+        return $lines->map(fn (SaleLine $line) => [
+            ...$this->split(
+                $line->label(),
+                $line->pharmacy?->account?->code ?? $receivables,
+                $line->amount,
+                $line->received,
+            ),
+            'into' => $line->paymentMethod?->account?->code,
+        ])->all();
     }
 
     /**

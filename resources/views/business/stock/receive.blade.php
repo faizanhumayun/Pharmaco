@@ -6,236 +6,286 @@
     received at once — the order was placed, just on the telephone — so the
     goods, the invoice and the trail are identical to every other delivery.
 --}}
-<x-workspace-layout :business="$business" fill>
-    <div class="flex h-full w-full flex-col gap-4 overflow-hidden px-4 py-4 sm:px-6 lg:px-8" x-data="delivery({
+{{-- Laid out like the till — a screen stood at and worked through — but in
+     blue (mode="receiving"), so stock coming in never looks like a sale. --}}
+@php($label = 'font-mono text-[11px] uppercase tracking-widest')
+@php($many = $business->sellsLoose() ? 'packs' : $business->unit()->many())
+@php($cols = $business->sellsAtMrp()
+    ? 'grid-cols-[minmax(0,1fr)_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_2rem]'
+    : 'grid-cols-[minmax(0,1fr)_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_6.5rem_2rem]')
+<x-pos-layout :business="$business" title="Receive stock" mode="receiving">
+    <div class="flex h-full flex-col" x-data="delivery({
         products: @js($products),
-    })">
-        <x-flash />
+    })" x-on:keydown.window.f2.prevent="$refs.search?.focus()" x-on:keydown.window.f9.prevent="save()">
+
+        <header class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-slate-900 px-4 py-3 text-white sm:px-6">
+            <div class="flex items-center gap-3">
+                <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">In</span>
+                <div>
+                    <p class="text-lg font-semibold leading-tight">{{ $business->name }}</p>
+                    <p class="text-xs text-slate-400">Receiving stock · {{ auth()->user()->name }}</p>
+                </div>
+            </div>
+
+            <div class="text-center">
+                <p class="{{ $label }} text-slate-400">{{ $today->format('D d M Y') }}</p>
+                <p class="font-mono text-xl font-semibold leading-tight tabular-nums" x-text="clock">&nbsp;</p>
+            </div>
+
+            <div class="text-center">
+                <p class="{{ $label }} text-slate-400">On this delivery</p>
+                <p class="font-mono text-xl font-semibold leading-tight tabular-nums"
+                   x-text="lines.length + (lines.length === 1 ? ' line' : ' lines') + ' · ' + totalPacks + ' {{ $many }}'"></p>
+            </div>
+
+            <p class="hidden max-w-sm text-xs leading-snug text-slate-400 xl:block">
+                Goods that arrived without an order form. They go into stock, and onto today's entry as an invoice.
+            </p>
+
+            <div class="flex items-center gap-3">
+                <a href="{{ route('businesses.stock.index', $business) }}"
+                   class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+                    Back to stock
+                </a>
+                <a href="{{ route('businesses.show', $business) }}"
+                   class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
+                    Leave
+                </a>
+            </div>
+        </header>
 
         @if ($dayClosed)
-            <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                {{ $today->format('l j F Y') }} is closed, so an invoice cannot be put on it.
-                Reopen the day on its closing page first.
+            <div class="shrink-0 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white sm:px-6">
+                {{ $today->format('l j F Y') }} is closed, so an invoice cannot be put on it. Reopen the day on its closing page first.
             </div>
         @endif
 
-        <x-input-error :messages="$errors->get('lines')" class="mb-4" />
+        {{-- "Put into stock", or why it was refused, as a toast. --}}
+        <x-flash any />
 
         <form method="POST" action="{{ route('businesses.stock.receive.store', $business) }}"
-              class="flex min-h-0 flex-1 flex-col gap-4" x-ref="form">
+              class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit="if (! canSave) $event.preventDefault()">
             @csrf
 
-            {{-- The delivery itself, across the top: everything here is about the
-                 invoice rather than the goods, and it is answered once. --}}
-            <x-panel class="shrink-0">
-                <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
-                    <div>
-                        <h2 class="text-base font-semibold text-gray-900">The delivery</h2>
-                        <p class="mt-0.5 text-sm text-gray-500">
-                            Goods that arrived without an order form — ordered by phone, or brought
-                            without being asked for. They go into stock, and onto today's entry as an invoice.
-                        </p>
-                    </div>
-                    <a href="{{ route('businesses.stock.index', $business) }}"
-                       class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        Back to stock
-                    </a>
-                </div>
+            <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,7.5fr)] sm:px-6">
 
-                <div class="grid gap-4 p-4 sm:p-6 lg:grid-cols-4">
-                    <div>
-                        <x-input-label for="company_id" value="Company" />
-                        <select id="company_id" name="company_id" x-model="companyId" required
-                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            <option value="">Choose the company…</option>
-                            @foreach ($companies as $company)
-                                <option value="{{ $company->id }}">{{ $company->name }}</option>
-                            @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('company_id')" class="mt-1" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="invoice_no" value="Invoice number" />
-                        <x-text-input id="invoice_no" name="invoice_no" type="text" class="mt-1 block w-full"
-                                      placeholder="As printed on their bill" maxlength="60" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="paid" value="Paid now" />
-                        <x-text-input id="paid" name="paid" x-model="paid" type="text" inputmode="decimal"
-                                      class="mt-1 block w-full text-right tabular-nums" placeholder="0.00" />
-                    </div>
-
-                    <div>
-                        <x-input-label for="notes" value="Note" />
-                        <x-text-input id="notes" name="notes" type="text" class="mt-1 block w-full"
-                                      placeholder="Ordered by phone on Tuesday" maxlength="255" />
-                    </div>
-                </div>
-
-                <div class="flex flex-wrap items-center justify-between gap-x-8 gap-y-3 border-t border-gray-200 bg-gray-50 px-4 py-3 sm:px-6">
-                    <dl class="flex flex-wrap items-center gap-x-8 gap-y-2 text-sm">
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-gray-500">Lines</dt>
-                            <dd class="font-mono text-base font-semibold tabular-nums text-gray-900" x-text="lines.length"></dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-gray-500">{{ Str::ucfirst($business->unit()->many()) }}</dt>
-                            <dd class="font-mono text-base font-semibold tabular-nums text-gray-900" x-text="totalPacks"></dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-gray-500">Bill comes to</dt>
-                            <dd class="font-mono text-base font-semibold tabular-nums text-gray-900" x-text="'Rs. ' + money(total)"></dd>
-                        </div>
-                        <div>
-                            <dt class="text-xs uppercase tracking-wide text-gray-500">On their account</dt>
-                            <dd class="font-mono text-base font-semibold tabular-nums"
-                                :class="onAccount > 0 ? 'text-amber-800' : 'text-gray-900'"
-                                x-text="'Rs. ' + money(onAccount)"></dd>
-                        </div>
-                    </dl>
-
-                    <div class="flex items-center gap-3">
-                        <p class="text-xs" :class="missingSellPrice > 0 ? 'font-medium text-amber-700' : 'text-gray-500'"
-                           x-text="missingSellPrice > 0
-                               ? missingSellPrice + ' ' + (missingSellPrice === 1 ? 'line needs' : 'lines need') + ' a selling price'
-                               : @js('Recorded on ' . $today->format('j M Y'))"></p>
-                        <button type="submit" :disabled="lines.length === 0 || ! companyId || missingSellPrice > 0 || {{ $dayClosed ? 'true' : 'false' }}"
-                                class="rounded-md bg-emerald-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
-                            Put it into stock
-                        </button>
-                    </div>
-                </div>
-            </x-panel>
-
-            <div class="grid min-h-0 flex-1 gap-4 xl:grid-cols-2">
                 {{-- Their catalogue, browsable the way the order form's is: you
                      check a delivery against a list, not by remembering names. --}}
-                <x-panel class="flex min-h-0 flex-col">
-                    <div class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-gray-200 px-4 py-3 sm:px-6">
-                        <h2 class="text-base font-semibold text-gray-900">Their products</h2>
-                        <span class="text-sm text-gray-500" x-show="companyId" x-cloak>
-                            <span x-text="shown.length"></span> of <span x-text="ofCompany.length"></span>
-                        </span>
-                        <button type="button" x-show="companyId" x-cloak x-on:click="openNew()"
-                                class="ms-auto text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                            Not in the list? Add it
-                        </button>
-                    </div>
+                <section class="flex min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+                    <div class="shrink-0 space-y-3 border-b border-slate-200 p-4">
+                        {{-- Who it came from: the list below is their catalogue. --}}
+                        <label class="flex items-center gap-3">
+                            <span class="{{ $label }} shrink-0 text-slate-500">Company</span>
+                            <select id="company_id" name="company_id" x-model="companyId" required
+                                    class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
+                                <option value="">Choose the company…</option>
+                                @foreach ($companies as $company)
+                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                @endforeach
+                            </select>
+                        </label>
 
-                    <div x-show="! companyId" class="px-4 py-10 text-center text-sm text-gray-500 sm:px-6">
-                        Choose a company first — the list reads its catalogue.
-                    </div>
-
-                    <div x-show="companyId" x-cloak class="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
-                        <x-text-input type="search" class="block w-full shrink-0" x-model="query"
-                                      placeholder="Search by brand or code…" x-ref="search" />
-
-                        <div class="mt-3 grid shrink-0 grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-2 border-b border-gray-200 px-2 pb-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
-                            <span>Product</span>
-                            <span class="text-right">Rate</span>
-                            <span class="text-right" title="{{ Str::ucfirst($business->unit()->many()) }} already on this delivery">On</span>
+                        <div class="relative">
+                            <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
+                                 viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                                <circle cx="9" cy="9" r="6" /><path d="M14 14l4 4" stroke-linecap="round" />
+                            </svg>
+                            <input x-ref="search" x-model="query" type="text" autocomplete="off" :disabled="! companyId"
+                                   x-on:keydown.enter.prevent="shown[0] && add(shown[0])" x-on:keydown.escape="query = ''"
+                                   placeholder="Search their products by brand or code"
+                                   class="block w-full rounded-lg border-2 border-emerald-700 py-3 pl-12 pr-16 text-base placeholder:text-slate-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30 disabled:border-slate-300 disabled:bg-slate-50">
+                            <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-300 px-1.5 py-0.5 font-mono text-xs text-slate-500">F2</span>
                         </div>
 
-                        <ul class="min-h-0 flex-1 divide-y divide-gray-100 overflow-y-auto">
-                            <template x-for="product in shown" :key="product.id">
-                                <li x-on:click="add(product)"
-                                    class="grid cursor-pointer grid-cols-[minmax(0,1fr)_5rem_5rem] items-center gap-2 px-2 py-2 hover:bg-emerald-50">
-                                    <span class="min-w-0">
-                                        <span class="block truncate text-sm font-medium text-gray-900" x-text="product.name"></span>
-                                        <span class="block truncate text-xs text-gray-500" x-text="product.code || '—'"></span>
-                                    </span>
-                                    <span class="text-right font-mono text-sm tabular-nums text-gray-600" x-text="money(product.rate)"></span>
-                                    <span class="text-right font-mono text-sm tabular-nums"
-                                          :class="onDelivery(product.id) ? 'font-semibold text-emerald-700' : 'text-gray-300'"
-                                          x-text="onDelivery(product.id) || '—'"></span>
-                                </li>
-                            </template>
-                        </ul>
+                        <p class="flex items-center justify-between text-sm text-slate-600">
+                            <span x-show="companyId" x-cloak>
+                                <span x-text="shown.length"></span> of <span x-text="ofCompany.length"></span> products
+                            </span>
+                            <span x-show="! companyId">Their products</span>
+                            <button type="button" x-show="companyId" x-cloak x-on:click="openNew()"
+                                    class="font-medium text-emerald-700 hover:text-emerald-800">
+                                Not in the list? Add it
+                            </button>
+                        </p>
+                    </div>
 
-                        <p x-show="shown.length === 0" x-cloak class="py-8 text-center text-sm text-gray-500">
+                    <div class="min-h-0 flex-1 overflow-y-auto">
+                        <p x-show="! companyId" class="px-4 py-10 text-center text-sm text-slate-500">
+                            Choose a company first — the list reads its catalogue.
+                        </p>
+
+                        <template x-for="product in shown" :key="product.id">
+                            <div class="grid w-full grid-cols-[minmax(0,1fr)_auto_6rem_2.75rem] items-center gap-3 border-b border-slate-200 px-4 py-2.5 last:border-0 hover:bg-emerald-50">
+                                <button type="button" x-on:click="add(product)" class="min-w-0 text-left">
+                                    <span class="block break-words text-base font-medium leading-snug text-slate-900" x-text="product.name"></span>
+                                    <span class="block truncate font-mono text-xs text-slate-500" x-text="product.code || '—'"></span>
+                                </button>
+                                <span class="{{ $label }} font-semibold text-emerald-700" x-show="onDelivery(product.id)" x-cloak
+                                      x-text="onDelivery(product.id) + ' on delivery'"></span>
+                                <span x-show="! onDelivery(product.id)"></span>
+                                <button type="button" x-on:click="add(product)" title="What it cost last time"
+                                        class="text-right font-mono text-sm font-semibold tabular-nums text-slate-900"
+                                        x-text="'Rs. ' + money(product.rate)"></button>
+                                <button type="button" x-on:click="add(product)" :title="'Add one of ' + product.name"
+                                        class="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg bg-emerald-700 text-xl font-semibold leading-none text-white hover:bg-emerald-800">+</button>
+                            </div>
+                        </template>
+
+                        <p x-show="companyId && shown.length === 0" x-cloak class="px-4 py-10 text-center text-sm text-slate-500">
                             Nothing of theirs matches that.
                             <button type="button" x-on:click="openNew()"
                                     class="font-medium text-emerald-700 hover:text-emerald-800">Add it as a new product</button>
                         </p>
                     </div>
-                </x-panel>
+                </section>
 
                 {{-- What is going into stock. --}}
-                <x-panel class="flex min-h-0 flex-col">
-                    <div class="shrink-0 border-b border-gray-200 px-4 py-3 sm:px-6">
-                        <h2 class="text-base font-semibold text-gray-900">On this delivery</h2>
+                <section class="flex min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
+                    {{-- The invoice it arrived on. --}}
+                    <div class="flex shrink-0 flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3">
+                        <p class="flex items-baseline gap-3">
+                            <span class="{{ $label }} text-slate-500">Delivery</span>
+                            <span class="font-mono text-xl font-semibold tabular-nums text-emerald-700">{{ $today->format('d M Y') }}</span>
+                        </p>
+                        <label class="ml-auto flex items-center gap-3">
+                            <span class="{{ $label }} text-slate-500">Invoice no.</span>
+                            <input id="invoice_no" name="invoice_no" type="text" x-model="invoiceNo" x-ref="invoice" required
+                                   placeholder="Required — as printed on their bill" maxlength="60"
+                                   :class="lines.length > 0 && ! invoiceNo.trim() ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
+                                   class="block w-64 rounded-lg py-2 font-mono text-sm placeholder:font-sans focus:border-emerald-700 focus:ring-emerald-600">
+                        </label>
+                        <label class="flex items-center gap-3">
+                            <span class="{{ $label }} text-slate-500">Note</span>
+                            <input id="notes" name="notes" type="text" placeholder="Ordered by phone on Tuesday" maxlength="255"
+                                   class="block w-64 rounded-lg border-slate-300 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                        </label>
                     </div>
-                    <div class="min-h-0 flex-1 overflow-y-auto">
-                        <table class="min-w-full divide-y divide-gray-200 text-sm">
-                            <thead class="bg-gray-50">
-                                <tr>
-                                    @foreach (['Product', Str::ucfirst($business->unit()->many()), 'Cost', $sellLabel, 'MRP', 'Total', ''] as $h)
-                                        <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ $loop->first ? 'text-left sm:px-6' : 'text-right' }}">{{ $h }}</th>
-                                    @endforeach
-                                </tr>
-                            </thead>
-                            <tbody class="divide-y divide-gray-100">
-                                <template x-for="(line, i) in lines" :key="line.id">
-                                    <tr>
-                                        <td class="px-3 py-2 sm:px-6">
-                                            <span class="block text-sm font-medium text-gray-900" x-text="line.name"></span>
-                                            <input type="hidden" :name="`lines[${i}][company_product_id]`" :value="line.id">
-                                        </td>
-                                        <td class="px-3 py-2 text-right">
-                                            <input type="text" inputmode="numeric" x-model.number="line.packs"
-                                                   :name="`lines[${i}][packs]`"
-                                                   class="w-20 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
-                                        </td>
-                                        <td class="whitespace-nowrap px-3 py-2 text-right" x-data>
-                                            <template x-if="priceMove(line)">
-                                                <span class="mr-1 inline-flex items-center gap-0.5 text-xs font-medium"
-                                                      :class="priceMove(line).up ? 'text-red-700' : 'text-emerald-700'"
-                                                      :title="'Was ' + priceMove(line).was.toFixed(2)">
-                                                    <span x-text="priceMove(line).up ? '▲' : '▼'"></span>
-                                                    <span x-text="priceMove(line).percent.toFixed(0) + '%'"></span>
-                                                </span>
-                                            </template>
-                                            <input type="text" inputmode="decimal" x-model.number="line.rate"
-                                                   :name="`lines[${i}][rate]`"
-                                                   class="w-24 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
-                                        </td>
-                                        {{-- What this business sells it for. --}}
-                                        <td class="px-3 py-2 text-right">
-                                            <input type="text" inputmode="decimal" x-model.number="line.trade"
-                                                   :name="`lines[${i}][trade]`" placeholder="{{ $sellRequired ? 'required' : '—' }}"
-                                                   :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(line.trade) > 0)
-                                                       ? 'border-amber-400 bg-amber-50'
-                                                       : 'border-gray-300'"
-                                                   class="w-24 rounded-md py-1 text-right text-sm tabular-nums">
-                                        </td>
 
-                                        {{-- Printed on the pack. --}}
-                                        <td class="px-3 py-2 text-right">
-                                            <input type="text" inputmode="decimal" x-model.number="line.mrp"
-                                                   :name="`lines[${i}][mrp]`" placeholder="—"
-                                                   class="w-24 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
-                                        </td>
-
-                                        <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-900"
-                                            x-text="money((Number(line.packs) || 0) * (Number(line.rate) || 0))"></td>
-                                        <td class="px-3 py-2 text-right">
-                                            <button type="button" x-on:click="lines.splice(i, 1)"
-                                                    class="rounded p-1 text-gray-400 hover:bg-red-50 hover:text-red-700" title="Remove">&times;</button>
-                                        </td>
-                                    </tr>
-                                </template>
-                                <tr x-show="lines.length === 0">
-                                    <td colspan="7" class="px-6 py-12 text-center text-sm text-gray-500">
-                                        Nothing added yet. Pick from their products on the left.
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                    <div class="{{ $label }} {{ $cols }} grid shrink-0 items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-600">
+                        <span>On this delivery</span>
+                        <span class="text-center">Qty</span>
+                        <span>Expiry · batch</span>
+                        <span class="text-right">Cost</span>
+                        @unless ($business->sellsAtMrp())
+                            <span class="text-right">{{ $sellLabel }}</span>
+                        @endunless
+                        <span class="text-right">MRP</span>
+                        <span class="text-right">Total</span>
+                        <span></span>
                     </div>
-                </x-panel>
+
+                    <div class="min-h-0 flex-1 overflow-y-auto" x-ref="delivery">
+                        <template x-for="(line, i) in lines" :key="line.id">
+                            {{-- The line just added is scrolled to and held in
+                                 colour for a moment, as on the till, so a long
+                                 delivery never swallows what was just picked. --}}
+                            <div :data-line="line.id" :class="flash === line.id ? 'bg-emerald-50' : ''"
+                                 class="{{ $cols }} grid items-center gap-3 border-b border-slate-200 px-4 py-2.5 transition-colors duration-500">
+                                <span class="min-w-0">
+                                    <span class="block break-words text-base font-medium leading-snug text-slate-900" x-text="line.name"></span>
+                                    <template x-if="priceMove(line)">
+                                        <span class="text-xs font-medium" :class="priceMove(line).up ? 'text-red-700' : 'text-emerald-700'"
+                                              x-text="(priceMove(line).up ? '▲ ' : '▼ ') + priceMove(line).percent.toFixed(0) + '% on last cost of ' + priceMove(line).was.toFixed(2)"></span>
+                                    </template>
+                                    <input type="hidden" :name="`lines[${i}][company_product_id]`" :value="line.id">
+                                </span>
+
+                                <input type="text" inputmode="numeric" x-model.number="line.packs" :name="`lines[${i}][packs]`"
+                                       class="w-full rounded-lg border-slate-300 py-2 text-center font-mono text-lg font-semibold tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+
+                                {{-- The date on the carton, taken while it is still in
+                                     someone's hands. Blank is an answer: not everything
+                                     expires. Under it, the batch number printed beside it. --}}
+                                <span class="space-y-1">
+                                    <input type="month" x-model="line.expires_on" :name="`lines[${i}][expires_on]`"
+                                           :class="line.expires_on && expiresSoon(line.expires_on) ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
+                                           class="block w-full rounded-lg px-2 py-1 text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                                    <input type="text" x-model="line.batch_no" :name="`lines[${i}][batch_no]`"
+                                           placeholder="Batch no." maxlength="60"
+                                           class="block w-full rounded-lg border-slate-300 px-2 py-1 font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:border-emerald-700 focus:ring-emerald-600">
+                                </span>
+
+                                <input type="text" inputmode="decimal" x-model.number="line.rate" :name="`lines[${i}][rate]`"
+                                       class="w-full rounded-lg border-slate-300 py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+
+                                {{-- What a distributor sells it for. A pharmacy sells
+                                     at the MRP in the next column. --}}
+                                @unless ($business->sellsAtMrp())
+                                    <input type="text" inputmode="decimal" x-model.number="line.trade" :name="`lines[${i}][trade]`" placeholder="—"
+                                           class="w-full rounded-lg border-slate-300 py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+                                @endunless
+
+                                {{-- Printed on the pack. --}}
+                                <input type="text" inputmode="decimal" x-model.number="line.mrp" :name="`lines[${i}][mrp]`"
+                                       placeholder="{{ $sellRequired ? 'required' : '—' }}"
+                                       :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(line.mrp) > 0) ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
+                                       class="w-full rounded-lg py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+
+                                <span class="text-right font-mono text-sm font-bold tabular-nums text-slate-900"
+                                      x-text="money((Number(line.packs) || 0) * (Number(line.rate) || 0))"></span>
+
+                                <button type="button" x-on:click="lines.splice(i, 1)"
+                                        class="justify-self-end rounded-lg p-1 text-lg leading-none text-slate-500 hover:bg-red-50 hover:text-red-700" title="Remove">&times;</button>
+                            </div>
+                        </template>
+
+                        <div x-show="lines.length === 0" class="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
+                            <p class="text-lg font-medium text-slate-400">Nothing on the delivery yet</p>
+                            <p class="text-sm text-slate-400">Choose the company, then pick from their products on the left.</p>
+                        </div>
+                    </div>
+
+                    <div class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 px-4 py-3">
+                        <p class="flex items-center gap-3 text-sm text-slate-600">
+                            <span x-text="lines.length + (lines.length === 1 ? ' line' : ' lines') + ' · ' + totalPacks + ' {{ $many }}'"></span>
+                            <button type="button" x-on:click="lines = []" x-show="lines.length > 0" x-cloak
+                                    class="font-medium text-slate-500 underline hover:text-red-700">Clear</button>
+                        </p>
+                        <p class="text-sm" :class="missingSellPrice > 0 ? 'font-medium text-amber-700' : 'text-slate-500'"
+                           x-text="lines.length > 0 && ! invoiceNo.trim() ? 'The invoice number is needed' : missingSellPrice > 0
+                               ? missingSellPrice + ' ' + (missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP'
+                               : (missingExpiry > 0
+                                   ? missingExpiry + ' ' + (missingExpiry === 1 ? 'line has' : 'lines have') + ' no expiry date'
+                                   : @js('Recorded on ' . $today->format('j M Y')))"></p>
+                    </div>
+                </section>
             </div>
+
+            {{-- The foot of the screen: what their bill comes to, what is paid
+                 now, what is left on their account, and the button that
+                 finishes it. --}}
+            <footer class="flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
+                <div>
+                    <p class="{{ $label }} text-slate-500">Bill comes to</p>
+                    <p class="mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
+                </div>
+
+                <div>
+                    <p class="{{ $label }} text-slate-500">Paid now</p>
+                    <div class="mt-1 flex flex-wrap items-stretch gap-2">
+                        <input id="paid" name="paid" x-model="paid" type="text" inputmode="decimal" placeholder="0.00"
+                               class="block w-44 rounded-lg border-2 border-emerald-700 py-2 text-right font-mono text-2xl font-semibold tabular-nums focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30">
+                        <button type="button" x-on:click="paid = total.toFixed(2)"
+                                class="rounded-lg bg-slate-100 px-4 font-mono text-sm font-semibold text-slate-900 hover:bg-slate-200">In full</button>
+                        <button type="button" x-on:click="paid = ''"
+                                class="rounded-lg bg-amber-100 px-4 font-mono text-sm font-semibold text-amber-800 hover:bg-amber-200"
+                                title="Nothing paid now — the whole bill goes on their account">On account</button>
+                    </div>
+                </div>
+
+                <div>
+                    <p class="{{ $label }}" :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-500'">On their account</p>
+                    <p class="mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
+                       :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-300'"
+                       x-text="'Rs. ' + money(onAccount)"></p>
+                </div>
+
+                <button type="submit" :disabled="! canSave"
+                        class="flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
+                    Put it into stock
+                    <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
+                </button>
+            </footer>
         </form>
 
         {{-- A product the price list never had. It joins the catalogue, because
@@ -283,14 +333,15 @@
                         </div>
                     </div>
 
+                    {{-- The code is issued here, not asked for: it is ours, it is
+                         the next in sequence, and there is nothing to decide about
+                         it. Shown before saving so it can be written on the pack
+                         while the delivery is still open. --}}
                     <div>
-                        <x-input-label value="Their code" />
-                        <x-text-input x-model="draft.code" type="text" class="mt-1 block w-full"
-                                      placeholder="Optional — from their price list" maxlength="60" />
-                        <p class="mt-1 text-xs text-gray-500">
-                            Giving their code means their next price list updates this product
-                            rather than adding a second copy of it.
-                        </p>
+                        <x-input-label value="Code" />
+                        <p class="mt-1 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900"
+                           x-text="nextCode"></p>
+                        <p class="mt-1 text-xs text-gray-500">Given to this product when it is added.</p>
                     </div>
                 </div>
 
@@ -321,7 +372,8 @@
                     adding: false,
                     savingNew: false,
                     draftError: '',
-                    draft: { brand_name: '', pack_size: '', strength: '', purchase_rate: '', mrp: '', code: '' },
+                    nextCode: @js($nextCode),
+                    draft: { brand_name: '', pack_size: '', strength: '', purchase_rate: '', mrp: '' },
 
                     /* Only the chosen company's goods: a delivery comes from one
                        supplier, and their invoice is what is being recorded. */
@@ -351,7 +403,7 @@
 
                     openNew() {
                         this.draftError = '';
-                        this.draft = { brand_name: this.query.trim(), pack_size: '', strength: '', purchase_rate: '', mrp: '', code: '' };
+                        this.draft = { brand_name: this.query.trim(), pack_size: '', strength: '', purchase_rate: '', mrp: '' };
                         this.adding = true;
                     },
 
@@ -390,6 +442,10 @@
 
                             const product = await response.json();
 
+                            // The one after it, ready for the next product added
+                            // without reloading the screen.
+                            this.nextCode = product.next_code ?? this.nextCode;
+
                             // Into the list on screen as well, so it behaves
                             // exactly like one that came from a price list.
                             if (! this.products.some(p => p.id === product.id)) {
@@ -416,14 +472,30 @@
                                 // Confirmed rather than retyped where they exist.
                                 mrp: product.mrp ?? '',
                                 trade: product.trade ?? '',
+                                expires_on: '',
+                                batch_no: '',
                                 // What it cost before this delivery, so a rate
                                 // typed differently shows as a change.
                                 list_rate: product.rate,
                             });
                         }
 
+                        // Seen arriving: scrolled into view and held in colour briefly.
+                        this.flash = product.id;
+                        clearTimeout(this.flashTimer);
+                        this.flashTimer = setTimeout(() => { this.flash = null; }, 1200);
+                        this.$nextTick(() => {
+                            this.$refs.delivery
+                                ?.querySelector('[data-line="' + product.id + '"]')
+                                ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        });
+
                         this.$refs.search?.focus();
                     },
+
+                    flash: null,
+                    flashTimer: null,
+                    invoiceNo: @js(old('invoice_no', '')),
 
                     get total() {
                         return this.lines.reduce((n, l) => n + (Number(l.packs) || 0) * (Number(l.rate) || 0), 0);
@@ -449,13 +521,29 @@
                         return { up: delta > 0, delta: Math.abs(delta), percent: Math.abs(delta / was) * 100, was };
                     },
 
-                    /** Lines a pharmacy may not save without a selling price. */
+                    /** Lines a pharmacy may not save without an MRP — the price it sells at. */
                     get missingSellPrice() {
                         @if ($sellRequired)
-                            return this.lines.filter(l => ! (Number(l.trade) > 0)).length;
+                            return this.lines.filter(l => ! (Number(l.mrp) > 0)).length;
                         @else
                             return 0;
                         @endif
+                    },
+
+                    /** Within six months, which is when it stops being worth buying. */
+                    expiresSoon(month) {
+                        if (! month) return false;
+
+                        const [y, m] = month.split('-').map(Number);
+                        const limit = new Date();
+                        limit.setMonth(limit.getMonth() + 6);
+
+                        return new Date(y, m - 1, 1) <= limit;
+                    },
+
+                    /** Lines where nobody has said when the goods go out of date. */
+                    get missingExpiry() {
+                        return this.lines.filter(l => ! l.expires_on).length;
                     },
 
                     get onAccount() {
@@ -473,9 +561,30 @@
                     // company's goods under this invoice.
                     init() {
                         this.$watch('companyId', () => { this.lines = []; this.query = ''; });
+
+                        // The screen's own clock, in the business's timezone.
+                        const tick = () => {
+                            this.clock = new Date().toLocaleTimeString('en-US', {
+                                timeZone: @js($business->timezone),
+                                hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true,
+                            });
+                        };
+                        tick();
+                        setInterval(tick, 1000);
+                    },
+
+                    clock: '',
+
+                    /** Whether the delivery can be put into stock as it stands. */
+                    get canSave() {
+                        return this.lines.length > 0 && !! this.companyId && this.invoiceNo.trim() !== '' && this.missingSellPrice === 0 && ! @js($dayClosed);
+                    },
+                    save() {
+                        if (this.lines.length > 0 && ! this.invoiceNo.trim()) return this.$refs.invoice.focus();
+                        if (this.canSave) this.$refs.form.requestSubmit();
                     },
                 };
             }
         </script>
     @endpush
-</x-workspace-layout>
+</x-pos-layout>

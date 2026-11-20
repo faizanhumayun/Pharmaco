@@ -107,6 +107,30 @@ class DailyEntry extends Model
         return $this->hasMany(CollectionLine::class);
     }
 
+    /** Goods that came back, customer by customer. */
+    public function returnLines(): HasMany
+    {
+        return $this->hasMany(ReturnLine::class);
+    }
+
+    /**
+     * Of what was received today, the part that never reached the drawer:
+     * sales and collections paid by wallet or bank transfer.
+     */
+    public function receivedByTransfer(): Money
+    {
+        $sales = $this->saleLines->whereNotNull('business_payment_method_id')->pluck('received');
+        $collections = $this->collectionLines->whereNotNull('business_payment_method_id')->pluck('amount');
+
+        return Money::sum($sales->merge($collections));
+    }
+
+    /** Cash handed back over the counter for returned goods. */
+    public function refundedInCash(): Money
+    {
+        return Money::sum($this->returnLines->pluck('refunded'));
+    }
+
     public function saleLines(): HasMany
     {
         return $this->hasMany(SaleLine::class);

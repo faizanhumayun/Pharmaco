@@ -5,6 +5,7 @@ use App\Http\Controllers\Admin\BusinessMemberController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\OpeningBalanceController;
 use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Business\AttentionController;
 use App\Http\Controllers\Business\AuditController;
 use App\Http\Controllers\Business\CollectionController;
 use App\Http\Controllers\Business\CompanyController;
@@ -13,19 +14,24 @@ use App\Http\Controllers\Business\DailyEntryController;
 use App\Http\Controllers\Business\DashboardController as BusinessDashboardController;
 use App\Http\Controllers\Business\DirectDeliveryController;
 use App\Http\Controllers\Business\ExpenseCategoryController;
+use App\Http\Controllers\Business\ExpiringStockController;
 use App\Http\Controllers\Business\HistoryController;
 use App\Http\Controllers\Business\PosController;
 use App\Http\Controllers\Business\TeamController;
 use App\Http\Controllers\Business\LedgerController;
 use App\Http\Controllers\Business\OrderController;
 use App\Http\Controllers\Business\PharmacyController;
+use App\Http\Controllers\Business\SettingsController;
 use App\Http\Controllers\Business\PriceListImportController;
 use App\Http\Controllers\Business\ProductController;
+use App\Http\Controllers\Business\StockAuditController;
 use App\Http\Controllers\Business\StockVerificationController;
 use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('login'));
+// The public landing page. Its feature list is config/landing.php — add a
+// feature there when it ships.
+Route::view('/', 'landing')->name('home');
 
 Route::get('/dashboard', fn () => redirect(auth()->user()->homeRoute()))
     ->middleware('auth')
@@ -74,6 +80,30 @@ Route::middleware(['auth', 'platform.admin'])
                 Route::post('correct', 'correct')->name('correct');
             });
 
+        // Moving a business in from its old POS: upload its database, preview
+        // what would come across, then import it. The delete route discards an
+        // upload that has not been imported; it removes no business data.
+        Route::prefix('businesses/{business}/import')
+            ->name('businesses.import.')
+            ->controller(\App\Http\Controllers\Admin\BusinessImportController::class)
+            ->group(function () {
+                Route::get('/', 'create')->name('create');
+                Route::post('/', 'store')->name('store');
+                // The file in pieces, for servers that take only small uploads.
+                Route::post('pieces', 'chunk')->name('chunk');
+                Route::get('{import}', 'show')->whereNumber('import')->name('show');
+                Route::post('{import}', 'commit')->whereNumber('import')->name('commit');
+                // Balances kept from an import, posted once the opening balance is finalised.
+                Route::post('{import}/balances', 'balances')->whereNumber('import')->name('balances');
+                Route::delete('{import}', 'destroy')->name('destroy');
+            });
+
+        // The wallets and banks any business may be paid through. No delete
+        // route: a method that has taken money is switched off, never removed.
+        Route::get('payment-methods', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'index'])->name('payment-methods.index');
+        Route::post('payment-methods', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'store'])->name('payment-methods.store');
+        Route::patch('payment-methods/{paymentMethod}', [\App\Http\Controllers\Admin\PaymentMethodController::class, 'update'])->name('payment-methods.update');
+
         Route::resource('users', UserController::class)->except(['show', 'destroy']);
         Route::patch('users/{user}/toggle-active', [UserController::class, 'toggleActive'])
             ->name('users.toggle-active');
@@ -93,15 +123,36 @@ Route::middleware(['auth', 'business'])
     ->group(function () {
         Route::get('/', BusinessDashboardController::class)->name('show');
 
+        // What needs acting on. Read as often as the dashboard, so it sits
+        // beside it rather than inside a group.
+        Route::get('attention', AttentionController::class)->name('attention');
+
         Route::get('history', HistoryController::class)->name('history');
 
         Route::get('audit', AuditController::class)->name('audit');
+
+        // Sales, purchases, stock and returns, each as a table that can be
+        // filtered by date and taken away as a spreadsheet.
+        Route::get('reports', [\App\Http\Controllers\Business\ReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/{report}', [\App\Http\Controllers\Business\ReportController::class, 'show'])->name('reports.show');
 
         // The counter. A bill here writes itself onto the day's entry, so the
         // day stays the one financial document.
         Route::get('pos', [PosController::class, 'index'])->name('pos.index');
         Route::post('pos/bills', [PosController::class, 'store'])->name('pos.store');
         Route::get('pos/bills/{posBill}', [PosController::class, 'receipt'])->name('pos.receipt');
+
+        // Correcting a saved bill. The page is also the bill's history: every
+        // edit and every return against it, for anyone who can sell.
+        // The bill to read. Its old address ended in /edit, from when it was
+        // corrected here; that still lands on the same page.
+        Route::get('pos/bills/{posBill}/view', [\App\Http\Controllers\Business\PosBillController::class, 'edit'])->name('pos.bills.edit');
+        Route::get('pos/bills/{posBill}/edit', fn (\App\Models\Business $business, \App\Models\PosBill $posBill) => redirect()->route('businesses.pos.bills.edit', [$business, $posBill]));
+        Route::put('pos/bills/{posBill}', [\App\Http\Controllers\Business\PosBillController::class, 'update'])->name('pos.bills.update');
+
+        // Goods brought back against a bill.
+        Route::get('pos/bills/{posBill}/return', [\App\Http\Controllers\Business\PosBillController::class, 'returnForm'])->name('pos.bills.return');
+        Route::post('pos/bills/{posBill}/return', [\App\Http\Controllers\Business\PosBillController::class, 'storeReturn'])->name('pos.bills.return.store');
 
         // Who works here and the logins they use. The owner's page; {member}
         // resolves through Business::members(), so it is always someone in
@@ -172,8 +223,23 @@ Route::middleware(['auth', 'business'])
         // The catalogue itself — read-only, and derived wholly from those imports.
         Route::get('products', [ProductController::class, 'index'])->name('products.index');
         Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+        Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+        Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::post('products/{product}/stock', [ProductController::class, 'adjustStock'])
             ->name('products.adjust-stock');
+
+        // What a business looks after itself: its details, and its counter.
+        Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');
+        Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
+        Route::put('settings/payment-methods', [SettingsController::class, 'paymentMethods'])->name('settings.payment-methods');
+
+        // Counting the shelves a few lines at a time.
+        Route::get('stock/audit', [StockAuditController::class, 'index'])->name('stock.audit');
+        Route::post('stock/audit', [StockAuditController::class, 'store'])->name('stock.audit.store');
+        Route::post('stock/audit/{stockCount}', [StockAuditController::class, 'resolve'])->name('stock.audit.resolve');
+
+        // The shelf sweep: what is running out of time.
+        Route::get('stock/expiring', [ExpiringStockController::class, 'index'])->name('stock.expiring');
 
         // A delivery that arrived without an order form having been raised.
         Route::get('stock/receive', [DirectDeliveryController::class, 'create'])->name('stock.receive');

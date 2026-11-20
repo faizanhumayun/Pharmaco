@@ -17,7 +17,11 @@ class StorePosSaleRequest extends FormRequest
         return [
             'items' => ['required', 'array', 'min:1', 'max:200'],
             'items.*.product_id' => ['required', 'integer'],
-            'items.*.quantity' => ['required', 'integer', 'min:1', 'max:100000'],
+            'items.*.quantity' => ['required', 'integer', 'min:0', 'max:100000'],
+            // Pieces out of an opened pack, where the product allows it.
+            'items.*.loose' => ['nullable', 'integer', 'min:0', 'max:100000'],
+            // One of this business's payment methods; empty is cash.
+            'via' => ['nullable', 'integer'],
             'items.*.unit_price' => ['required', 'string', 'regex:/^\d+(\.\d{1,2})?$/'],
 
             'received' => ['nullable', 'string', 'regex:/^\d+(\.\d{1,2})?$/'],

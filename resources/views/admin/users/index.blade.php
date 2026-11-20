@@ -15,10 +15,10 @@
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         <x-flash />
 
-        <form method="GET" class="mb-4">
+        <x-filter-bar submit="Search" :active="($filters['q'] ?? '') !== ''" clear="{{ route('admin.users.index') }}" class="mb-4">
             <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search name or email"
                    class="w-72 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-        </form>
+        </x-filter-bar>
 
         <x-panel>
             <div class="overflow-x-auto">

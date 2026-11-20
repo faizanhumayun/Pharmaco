@@ -111,7 +111,7 @@
             @endforeach
         </nav>
 
-        <form method="GET" x-data="{ preset: '{{ $preset }}' }" class="flex flex-wrap items-end gap-3">
+        <x-filter-bar submit="Apply" x-data="{ preset: '{{ $preset }}' }">
             <div>
                 <x-input-label for="preset" value="Range" />
                 <select id="preset" name="preset" x-model="preset"
@@ -143,11 +143,7 @@
 
             {{-- Keeps the active pane when the range changes. --}}
             <input type="hidden" name="view" value="{{ $view }}">
-
-            <button class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                Apply
-            </button>
-        </form>
+        </x-filter-bar>
         </div>
 
         {{--
@@ -385,7 +381,8 @@
                     // Colours validated for colour-blind readers (dataviz palette,
                     // slots 1–3). Identity never rests on colour alone: every chart
                     // has a legend, and the listing view has the same numbers.
-                    const BLUE = '#2a78d6', ORANGE = '#eb6834', AQUA = '#1baf7a';
+                    // The values are in the theme file (tokens.css, --chart-1 to --chart-3).
+                    const BLUE = themeColor('chart-1'), ORANGE = themeColor('chart-2'), AQUA = themeColor('chart-3');
 
                     const labels = @json($labels);
                     const withOpening = @json($positionLabels);
@@ -403,7 +400,7 @@
                     const line = (label, data, color, extra = {}) => ({
                         type: 'line', label, data, borderColor: color, backgroundColor: color,
                         borderWidth: 2, tension: 0.25, order: 0,
-                        pointRadius: 4, pointHoverRadius: 6, pointBorderColor: '#fff', pointBorderWidth: 2,
+                        pointRadius: 4, pointHoverRadius: 6, pointBorderColor: themeColor('surface-rgb'), pointBorderWidth: 2,
                         ...extra,
                     });
                     const bar = (label, data, color, extra = {}) => ({
@@ -421,7 +418,7 @@
                             tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ${tip(c.parsed.y)}` } },
                         },
                         scales: {
-                            y: { stacked, ticks: { callback: tick, maxTicksLimit: 6 }, grid: { color: '#f1f1ef' }, border: { display: false } },
+                            y: { stacked, ticks: { callback: tick, maxTicksLimit: 6 }, grid: { color: themeColor('chart-grid') }, border: { display: false } },
                             x: { stacked, ticks: { maxRotation: 0, autoSkipPadding: 16 }, grid: { display: false } },
                         },
                     });

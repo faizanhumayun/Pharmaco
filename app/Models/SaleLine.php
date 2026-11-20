@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class SaleLine extends Model
 {
     protected $fillable = [
-        'daily_entry_id', 'pharmacy_id', 'pharmacy_name', 'invoice_no', 'amount', 'received',
+        'daily_entry_id', 'pharmacy_id', 'pharmacy_name', 'invoice_no', 'amount', 'received', 'business_payment_method_id',
     ];
 
     protected function casts(): array
@@ -24,6 +24,12 @@ class SaleLine extends Model
     public function dailyEntry(): BelongsTo
     {
         return $this->belongsTo(DailyEntry::class);
+    }
+
+    /** How the money came in; null when it was cash. */
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(BusinessPaymentMethod::class, 'business_payment_method_id');
     }
 
     public function pharmacy(): BelongsTo

@@ -119,6 +119,43 @@ class BusinessPolicy
             && $this->allows($user, $business, Permission::PosSell);
     }
 
+    /** Goods coming back over the counter. Counter work, like the sale it undoes. */
+    public function returnAtPos(User $user, Business $business): bool
+    {
+        return $business->acceptsTransactions()
+            && $this->allows($user, $business, Permission::PosReturn);
+    }
+
+    /**
+     * Rewriting a saved bill changes the day's sales and its profit, so it
+     * sits with the owner and the manager rather than with the till.
+     */
+    public function editPosBills(User $user, Business $business): bool
+    {
+        return $business->acceptsTransactions()
+            && $this->allows($user, $business, Permission::PosEditBill);
+    }
+
+    /** Changing what a product is called, costs, or sells for. */
+    public function editProducts(User $user, Business $business): bool
+    {
+        return $this->allows($user, $business, Permission::ProductEdit);
+    }
+
+    /**
+     * The operational reports: what was sold, bought and is on the shelf.
+     * Cost and margin columns inside them follow viewReports().
+     */
+    public function viewOperationalReports(User $user, Business $business): bool
+    {
+        return $this->allows($user, $business, Permission::ReportView);
+    }
+
+    public function exportReports(User $user, Business $business): bool
+    {
+        return $this->allows($user, $business, Permission::ReportExport);
+    }
+
     public function suspend(User $user, Business $business): bool
     {
         return $user->isPlatformAdmin() && $business->status !== BusinessStatus::Archived;

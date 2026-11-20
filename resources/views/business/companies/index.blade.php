@@ -36,38 +36,39 @@
                 @endunless
             </p>
 
-            <form method="GET" class="flex flex-wrap items-center gap-2">
-                <label for="q" class="sr-only">Search</label>
-                <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search name or code"
-                       class="w-48 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            <x-filter-bar submit="Apply" :active="$search !== '' || $status !== 'all' || $owing || $sort !== 'name'" clear="{{ route('businesses.companies.index', $business) }}">
+                <div>
+                    <x-input-label for="q" value="Search" />
+                    <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search name or code"
+                       class="mt-1 block w-48 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                </div>
 
-                <label for="status" class="sr-only">Status</label>
-                <select id="status" name="status"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                <div>
+                    <x-input-label for="status" value="Status" />
+                    <select id="status" name="status"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     @foreach (['all' => 'Active and not', 'active' => 'Active only', 'inactive' => 'Inactive only'] as $value => $label)
                         <option value="{{ $value }}" @selected($status === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                </div>
 
-                <label for="sort" class="sr-only">Order</label>
-                <select id="sort" name="sort"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                <div>
+                    <x-input-label for="sort" value="Order" />
+                    <select id="sort" name="sort"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     @foreach (['name' => 'By name', 'owed' => 'Most owed first', 'purchased' => 'Most bought first'] as $value => $label)
                         <option value="{{ $value }}" @selected($sort === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                </div>
 
                 <label class="flex items-center gap-1.5 text-sm text-gray-600">
                     <input type="checkbox" name="owing" value="1" @checked($owing)
                            class="rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
                     Owing only
                 </label>
-
-                <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Apply</button>
-                @if ($search !== '' || $status !== 'all' || $owing || $sort !== 'name')
-                    <a href="{{ route('businesses.companies.index', $business) }}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
-                @endif
-            </form>
+            </x-filter-bar>
         </div>
 
         <x-panel title="Company ledgers">

@@ -28,7 +28,7 @@ class CompanyProduct extends Model
     protected $fillable = [
         'business_id', 'company_id', 'code', 'brand_name', 'generic_name',
         'strength', 'dosage_form', 'pack_size', 'pack_type',
-        'mrp', 'trade_price', 'purchase_rate', 'case_size',
+        'mrp', 'trade_price', 'purchase_rate', 'case_size', 'reorder_level', 'units_per_pack',
         'match_key', 'is_active', 'first_import_id', 'last_import_id', 'priced_on',
     ];
 
@@ -39,9 +39,43 @@ class CompanyProduct extends Model
             'trade_price' => MoneyCast::class,
             'purchase_rate' => MoneyCast::class,
             'case_size' => 'integer',
+            'reorder_level' => 'integer',
+            'units_per_pack' => 'integer',
             'is_active' => 'boolean',
             'priced_on' => 'date',
         ];
+    }
+
+    /**
+     * Keeps "pieces in one pack" true to the kind of business.
+     *
+     * A distributor sells whole packs, so its products are always one piece —
+     * whatever was typed. A pharmacy sells what is inside, so a product whose
+     * pack size says how many are inside ("1/10", "20's") takes that number
+     * when it is created or its pack size changes, unless someone has set a
+     * figure of their own. Enforced here, on the model, so an import, a
+     * delivery and the edit form cannot each do it differently.
+     */
+    protected static function booted(): void
+    {
+        static::saving(function (self $product) {
+            static $loose = [];
+
+            $sellsLoose = $loose[$product->business_id] ??= (bool) Business::query()->find($product->business_id)?->sellsLoose();
+
+            if (! $sellsLoose) {
+                $product->units_per_pack = 1;
+
+                return;
+            }
+
+            $packChanged = ! $product->exists || $product->isDirty('pack_size');
+            $setByHand = $product->exists && $product->isDirty('units_per_pack');
+
+            if ($packChanged && ! $setByHand && (int) ($product->units_per_pack ?? 1) <= 1) {
+                $product->units_per_pack = \App\Support\PackSize::pieces($product->pack_size);
+            }
+        });
     }
 
     public function company(): BelongsTo
@@ -90,6 +124,44 @@ class CompanyProduct extends Model
         return ProductLabel::make($this->brand_name, $this->strength, $this->dosage_form);
     }
 
+    /** Whether a pack of this can be opened and sold piece by piece. */
+    public function sellsLoose(): bool
+    {
+        return $this->units_per_pack > 1;
+    }
+
+    /**
+     * How a quantity of this product reads: "141 packs and 4 loose tablets".
+     *
+     * The whole unit is always called a pack, because that is what the price
+     * belongs to — a strip, a bottle, a box. What is left of an opened one is
+     * named for what it is: tablets, capsules, sachets, or pieces when the
+     * form does not say. A quantity with nothing loose is just its packs.
+     */
+    public function stockLabel(int $packs, int $loose = 0): string
+    {
+        $whole = number_format($packs).' '.(abs($packs) === 1 ? 'pack' : 'packs');
+
+        if ($loose === 0) {
+            return $whole;
+        }
+
+        // Read from the text as stored, whatever its capitals: imported
+        // catalogues write "Tablet", "TABLET" and "tablet" for the same thing.
+        $form = mb_strtolower(trim((string) $this->dosage_form));
+
+        $noun = match (true) {
+            str_starts_with($form, 'tab') => 'tablet',
+            str_starts_with($form, 'cap') => 'capsule',
+            str_starts_with($form, 'sachet') => 'sachet',
+            default => 'piece',
+        };
+
+        $pieces = number_format($loose).' loose '.($loose === 1 ? $noun : $noun.'s');
+
+        return $packs === 0 ? $pieces : $whole.' and '.$pieces;
+    }
+
     public function dosageForm(): ?DosageForm
     {
         return $this->dosage_form === null ? null : DosageForm::tryFrom($this->dosage_form);
@@ -100,26 +172,46 @@ class CompanyProduct extends Model
         return $this->pack_type === null ? null : PackType::tryFrom($this->pack_type);
     }
 
-    /** What the business makes per pack if it sells at trade price. */
-    public function marginPerPack(): ?Money
+    /**
+     * What this business sells the product for.
+     *
+     * A pharmacy sells at the MRP and nothing else. A distributor sells at
+     * its trade price, and the MRP stands in only for a product that has no
+     * trade price yet.
+     */
+    public function sellingPriceFor(Business $business): ?Money
     {
-        if ($this->trade_price === null || $this->purchase_rate === null) {
-            return null;
-        }
-
-        return $this->trade_price->minus($this->purchase_rate);
+        return $business->sellsAtMrp() ? $this->mrp : ($this->trade_price ?? $this->mrp);
     }
 
-    /** That margin as a percentage of the trade price, to one decimal place. */
-    public function marginPercent(): ?string
+    /**
+     * What the business makes per pack at its selling price.
+     *
+     * Asked with the business, the answer follows how that business sells.
+     * Without one it is measured against the trade price, as it always was.
+     */
+    public function marginPerPack(?Business $business = null): ?Money
     {
-        $margin = $this->marginPerPack();
+        $sells = $business !== null ? $this->sellingPriceFor($business) : $this->trade_price;
 
-        if ($margin === null || $this->trade_price === null || $this->trade_price->isZero()) {
+        if ($sells === null || $this->purchase_rate === null) {
             return null;
         }
 
-        return bcdiv(bcmul($margin->toDecimal(), '100', 4), $this->trade_price->toDecimal(), 1);
+        return $sells->minus($this->purchase_rate);
+    }
+
+    /** That margin as a percentage of the selling price, to one decimal place. */
+    public function marginPercent(?Business $business = null): ?string
+    {
+        $margin = $this->marginPerPack($business);
+        $sells = $business !== null ? $this->sellingPriceFor($business) : $this->trade_price;
+
+        if ($margin === null || $sells === null || $sells->isZero()) {
+            return null;
+        }
+
+        return bcdiv(bcmul($margin->toDecimal(), '100', 4), $sells->toDecimal(), 1);
     }
 
     /** What a full carton costs this business. */

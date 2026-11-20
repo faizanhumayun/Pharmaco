@@ -92,6 +92,8 @@
                  'cartons' => ($r = $order->receiptLines->firstWhere('order_line_id', $l->id)) ? $r->cartons : $l->cartons,
                  'packs' => $r ? $r->packs : $l->packs,
                  'note' => $r?->note ?? '',
+                 'expires_on' => $r?->expires_on?->format('Y-m'),
+                 'batch_no' => $r?->batch_no,
                  'checked' => $r !== null,
                  'changed' => $r !== null && $r->packs !== $l->packs,
                  // Confirmed on arrival rather than typed again.
@@ -106,6 +108,8 @@
                  'case_size' => $r->case_size,
                  'cartons' => $r->cartons,
                  'packs' => $r->packs,
+                 'expires_on' => $r->expires_on?->format('Y-m'),
+                 'batch_no' => $r->batch_no,
                  'rate' => $r->rate->toDecimal(),
                  // What the catalogue says it costs, so a rate that has moved
                  // since the last list can be seen rather than worked out.
@@ -266,7 +270,14 @@
                                             <td class="whitespace-nowrap px-3 py-2 text-right">
                                                 <span class="font-mono tabular-nums text-gray-600" x-text="extra.rate ?? '—'"></span>
                                                 {{-- What it cost last time, when that has changed. --}}
-                                                <template x-if="priceMove(extra)">
+                                                <input type="month" :name="`extras[${i}][expires_on]`" x-model="extra.expires_on"
+                                           class="w-32 rounded-md border-gray-300 py-1 text-sm">
+                                    <input type="text" :name="`extras[${i}][batch_no]`" x-model="extra.batch_no"
+                                           placeholder="Batch no." maxlength="60"
+                                           class="mt-1 block w-32 rounded-md border-gray-300 py-1 text-sm uppercase placeholder:normal-case">
+                                </td>
+                                <td class="px-2 py-2 text-right">
+                                    <template x-if="priceMove(extra)">
                                                     <span class="ml-1.5 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium"
                                                           :class="priceMove(extra).up ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'"
                                                           :title="'Was ' + priceMove(extra).was.toFixed(2) + ' — ' + (priceMove(extra).up ? 'dearer' : 'cheaper') + ' by ' + priceMove(extra).percent.toFixed(1) + '%'">
@@ -327,6 +338,15 @@
 
                                         <td class="px-3 py-2 text-xs text-gray-600">
                                             <span class="block max-w-[12rem] break-words" x-text="line.note || ''"></span>
+                                            {{-- Off the carton while it is in hand: when this
+                                                 batch expires, and its batch number. --}}
+                                            <span class="mt-1 flex items-center gap-1">
+                                                <input type="month" :name="`lines[${line.id}][expires_on]`" x-model="line.expires_on"
+                                                       title="Expiry" class="w-32 rounded-md border-gray-300 py-1 text-xs">
+                                                <input type="text" :name="`lines[${line.id}][batch_no]`" x-model="line.batch_no"
+                                                       placeholder="Batch no." maxlength="60"
+                                                       class="w-28 rounded-md border-gray-300 py-1 text-xs uppercase placeholder:normal-case">
+                                            </span>
                                         </td>
 
                                         <td class="whitespace-nowrap px-3 py-2 text-right">
@@ -399,7 +419,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm" x-show="extras.length" x-cloak>
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach ([['Product','left'],['Cartons','right'],['Packs','right'],['Rate','right'],[$sellLabel,'right'],['MRP','right'],['','right']] as [$h,$align])
+                            @foreach ([['Product','left'],['Cartons','right'],['Packs','right'],['Rate','right'],['Expires','right'],...($business->sellsAtMrp() ? [] : [[$sellLabel,'right']]),['MRP','right'],['','right']] as [$h,$align])
                                 <th class="whitespace-nowrap px-2 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }}">{{ $h }}</th>
                             @endforeach
                         </tr>
@@ -424,6 +444,13 @@
                                            class="w-24 rounded-md border-gray-300 text-right text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>
                                 <td class="py-2 pr-3 text-right">
+                                    <input type="month" :name="`extras[${i}][expires_on]`" x-model="extra.expires_on"
+                                           class="w-32 rounded-md border-gray-300 py-1 text-sm">
+                                    <input type="text" :name="`extras[${i}][batch_no]`" x-model="extra.batch_no"
+                                           placeholder="Batch no." maxlength="60"
+                                           class="mt-1 block w-32 rounded-md border-gray-300 py-1 text-sm uppercase placeholder:normal-case">
+                                </td>
+                                <td class="px-2 py-2 text-right">
                                     <template x-if="priceMove(extra)">
                                         <span class="mr-1 inline-flex items-center gap-0.5 text-xs font-medium"
                                               :class="priceMove(extra).up ? 'text-red-700' : 'text-emerald-700'"
@@ -435,15 +462,18 @@
                                     <input type="text" inputmode="decimal" :name="`extras[${i}][rate]`" x-model="extra.rate"
                                            class="w-24 rounded-md border-gray-300 text-right font-mono text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>
-                                <td class="py-2 text-right">
-                                    <input type="text" inputmode="decimal" :name="`extras[${i}][trade]`" x-model="extra.trade"
-                                           placeholder="{{ $sellRequired ? 'required' : '—' }}"
-                                           :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(extra.trade) > 0) ? 'border-amber-400 bg-amber-50' : 'border-gray-300'"
-                                           class="w-20 rounded-md py-1 text-right text-sm tabular-nums">
-                                </td>
+                                {{-- A distributor's trade price. A pharmacy sells at the MRP beside it. --}}
+                                @unless ($business->sellsAtMrp())
+                                    <td class="py-2 text-right">
+                                        <input type="text" inputmode="decimal" :name="`extras[${i}][trade]`" x-model="extra.trade"
+                                               placeholder="—" class="w-20 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
+                                    </td>
+                                @endunless
                                 <td class="px-2 py-2 text-right">
                                     <input type="text" inputmode="decimal" :name="`extras[${i}][mrp]`" x-model="extra.mrp"
-                                           placeholder="—" class="w-20 rounded-md border-gray-300 py-1 text-right text-sm tabular-nums">
+                                           placeholder="{{ $sellRequired ? 'required' : '—' }}"
+                                           :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(extra.mrp) > 0) ? 'border-amber-400 bg-amber-50' : 'border-gray-300'"
+                                           class="w-20 rounded-md py-1 text-right text-sm tabular-nums">
                                 </td>
                                 <td class="px-2 py-2 text-right">
                                     <button type="button" x-on:click="extras.splice(i, 1)"
@@ -942,7 +972,7 @@
                             pack_size: p.pack_size, case_size: p.case_size,
                             cartons: p.case_size ? 1 : '', packs: p.case_size || 1, rate: p.rate ?? '',
                             list_rate: p.rate ?? null,
-                            mrp: p.mrp ?? '', trade: p.trade_price ?? '',
+                            mrp: p.mrp ?? '', trade: p.trade_price ?? '', expires_on: '', batch_no: '',
                         });
                         // The list stays put so several can be added in a row.
                     },

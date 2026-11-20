@@ -115,6 +115,23 @@ class SaveDailyEntry
                 ])->save();
             }
 
+            /*
+             * Returns follow the same rule as collections: the counter records
+             * them, the daily form knows nothing of them, and a form that stays
+             * silent must not wipe them. Where they exist, they are the figure.
+             */
+            if (array_key_exists('returns', $data)) {
+                $this->saveReturnLines($entry, $business, $data['returns']);
+            }
+
+            $returnLines = $entry->returnLines()->get();
+
+            if ($returnLines->isNotEmpty()) {
+                $entry->forceFill([
+                    'sales_return' => Money::sum($returnLines->pluck('amount'))->toDecimal(),
+                ])->save();
+            }
+
             $expenseLines = $this->saveExpenseLines($entry, $business, $data['expenses'] ?? [], $by);
 
             // And on the spending side. An expense has no credit half to split:
@@ -211,6 +228,7 @@ class SaveDailyEntry
                 'pharmacy_name' => $pharmacy?->name ?? ($name ?: null),
                 'amount' => $amount->toDecimal(),
                 'note' => $row['note'] ?? null,
+                'business_payment_method_id' => $this->method($business, $row['via'] ?? null),
             ]);
 
             // Which bills it paid, put back as they were.
@@ -241,6 +259,15 @@ class SaveDailyEntry
      */
     private function saveSaleLines(DailyEntry $entry, Business $business, array $rows, User $by)
     {
+        /*
+         * The daily form lists invoices without saying how each was paid, so a
+         * row that is silent about it keeps what its invoice already had. A
+         * bill taken by JazzCash must not turn into cash because someone
+         * re-saved the day.
+         */
+        $paidBy = $entry->saleLines()->whereNotNull('invoice_no')
+            ->pluck('business_payment_method_id', 'invoice_no');
+
         $entry->saleLines()->delete();
 
         foreach ($rows as $row) {
@@ -268,10 +295,62 @@ class SaveDailyEntry
                 'invoice_no' => $row['invoice_no'] ?? null,
                 'amount' => $amount->toDecimal(),
                 'received' => $received->toDecimal(),
+                'business_payment_method_id' => $this->method(
+                    $business,
+                    array_key_exists('via', $row) ? $row['via'] : ($paidBy[$row['invoice_no'] ?? ''] ?? null),
+                ),
             ]);
         }
 
         return $entry->saleLines()->get();
+    }
+
+    /**
+     * Replaces the day's returns.
+     *
+     * @param  array<int, array<string, mixed>>  $rows
+     */
+    private function saveReturnLines(DailyEntry $entry, Business $business, array $rows): void
+    {
+        $entry->returnLines()->delete();
+
+        foreach ($rows as $row) {
+            $amount = Money::of($row['amount'] ?? null);
+
+            if (! $amount->isPositive()) {
+                continue;
+            }
+
+            $refunded = Money::of($row['refunded'] ?? null);
+            $name = trim((string) ($row['pharmacy'] ?? ''));
+
+            // A return never invents a customer: it names one that a bill
+            // already named, or nobody.
+            $pharmacy = $name === '' ? null : Pharmacy::forBusiness($business)
+                ->whereRaw('LOWER(name) = ?', [mb_strtolower($name)])
+                ->first();
+
+            $entry->returnLines()->create([
+                'pharmacy_id' => $pharmacy?->id,
+                'pharmacy_name' => $pharmacy?->name ?? ($name ?: null),
+                'reference' => $row['reference'] ?? null,
+                'amount' => $amount->toDecimal(),
+                'refunded' => ($refunded->greaterThan($amount) ? $amount : $refunded)->toDecimal(),
+            ]);
+        }
+    }
+
+    /**
+     * The payment method a row names, if it is one of this business's own.
+     * Anything else — nothing, or another tenant's id — is cash.
+     */
+    private function method(Business $business, mixed $id): ?int
+    {
+        if ($id === null || $id === '' || (int) $id === 0) {
+            return null;
+        }
+
+        return \App\Models\BusinessPaymentMethod::forBusiness($business)->whereKey((int) $id)->value('id');
     }
 
     /**

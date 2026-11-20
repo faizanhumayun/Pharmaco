@@ -66,6 +66,11 @@ it('offers the audit trail to owners and hides it from operators', function () {
 it('exposes no route that edits or deletes an audit record', function () {
     $names = collect(Route::getRoutes())->map(fn ($r) => $r->getName())->filter();
 
-    expect($names->filter(fn ($n) => str_contains($n, 'audit') && $n !== 'businesses.audit'))
+    /*
+     * The trail itself: businesses.audit and anything hanging off it. The word
+     * alone is not enough to go on — a stock audit is a different thing that
+     * happens to share it, and counting the shelves is meant to be writable.
+     */
+    expect($names->filter(fn ($n) => $n === 'businesses.audit.' || str_starts_with($n, 'businesses.audit.')))
         ->toBeEmpty();
 });

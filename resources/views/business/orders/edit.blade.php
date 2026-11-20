@@ -255,7 +255,7 @@
 
                                 {{-- Pinned to the bottom of this pane's scroller,
                                      so the total is on screen at all times. --}}
-                                <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(229,231,235)]"
+                                <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(var(--line-rgb))]"
                                        x-show="lines.length" x-cloak>
                                     <tr>
                                         <td :colspan="anyDiscount ? 7 : 6" class="px-3 py-1.5 text-right text-sm text-gray-500 sm:px-6">Before discount</td>
@@ -315,10 +315,12 @@
                                 <dt class="text-xs text-gray-500">Case</dt>
                                 <dd class="text-gray-900" x-text="draft.product.case_size ? draft.product.case_size + ' packs' : '—'"></dd>
                             </div>
-                            <div>
-                                <dt class="text-xs text-gray-500">Trade price</dt>
-                                <dd class="font-mono tabular-nums text-gray-900" x-text="draft.product.trade_price || '—'"></dd>
-                            </div>
+                            @unless ($business->sellsAtMrp())
+                                <div>
+                                    <dt class="text-xs text-gray-500">Trade price</dt>
+                                    <dd class="font-mono tabular-nums text-gray-900" x-text="draft.product.trade_price || '—'"></dd>
+                                </div>
+                            @endunless
                             <div>
                                 <dt class="text-xs text-gray-500">MRP</dt>
                                 <dd class="font-mono tabular-nums text-gray-900" x-text="draft.product.mrp || '—'"></dd>

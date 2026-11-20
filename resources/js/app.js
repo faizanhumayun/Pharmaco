@@ -2,9 +2,22 @@ import './bootstrap';
 
 import Alpine from 'alpinejs';
 
+import { startKebabSelects } from './kebab-select';
+import { startDateFields } from './date-fields';
+
 window.Alpine = Alpine;
 
 Alpine.start();
+
+// Every dropdown becomes a kebab menu, once Alpine has drawn the page.
+// …and every date a calendar.
+const dressFields = () => { startKebabSelects(); startDateFields(); };
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', dressFields);
+} else {
+    dressFields();
+}
 
 /**
  * Save an element as a PNG.

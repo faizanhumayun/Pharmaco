@@ -72,6 +72,21 @@
                 </p>
             </div>
 
+            {{-- How it was paid. Included from three pages, so the list is read
+                 here rather than handed in by each of them. --}}
+            @php($collectVia = \App\Models\BusinessPaymentMethod::forBusiness($business)->active()->with('method')->get())
+            @if ($collectVia->isNotEmpty())
+                <label class="mt-4 block">
+                    <span class="text-sm font-medium text-gray-700">Paid by</span>
+                    <select name="via" class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        <option value="">Cash</option>
+                        @foreach ($collectVia as $method)
+                            <option value="{{ $method->id }}">{{ $method->label() }}</option>
+                        @endforeach
+                    </select>
+                </label>
+            @endif
+
             <label class="mt-4 block">
                 <span class="text-sm font-medium text-gray-700">Note <span class="font-normal text-gray-400">optional</span></span>
                 <input name="note" type="text" maxlength="255" placeholder="e.g. collected on delivery"

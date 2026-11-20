@@ -25,50 +25,55 @@
                 <span class="text-gray-500">{{ $activities->total() }} {{ Str::plural('step', $activities->total()) }}</span>
             </p>
 
-            <form method="GET" x-data="{ range: @js($range) }" class="flex flex-wrap items-center gap-2">
-                <label for="event" class="sr-only">What happened</label>
-                <select id="event" name="event"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            <x-filter-bar submit="Apply" :active="$event || $who || $range !== 'all'" clear="{{ route('businesses.audit', $business) }}" x-data="{ range: {{ Illuminate\Support\Js::from($range) }} }">
+                <div>
+                    <x-input-label for="event" value="What happened" />
+                    <select id="event" name="event"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     <option value="">Everything</option>
                     @foreach ($events as $value => $label)
                         <option value="{{ $value }}" @selected($event === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                </div>
 
-                <label for="who" class="sr-only">Who</label>
-                <select id="who" name="who"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                <div>
+                    <x-input-label for="who" value="Who" />
+                    <select id="who" name="who"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     <option value="">Anyone</option>
                     @foreach ($people as $person)
                         <option value="{{ $person->id }}" @selected($who?->is($person))>{{ $person->name }}</option>
                     @endforeach
                 </select>
+                </div>
 
-                <label for="range" class="sr-only">Period</label>
-                <select id="range" name="range" x-model="range"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                <div>
+                    <x-input-label for="range" value="Period" />
+                    <select id="range" name="range" x-model="range"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     @foreach ($ranges as $value => $label)
                         <option value="{{ $value }}" @selected($range === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                </div>
 
                 <template x-if="range === 'custom'">
-                    <span class="flex items-center gap-2">
-                        <label for="from" class="sr-only">From</label>
-                        <input id="from" name="from" type="date" value="{{ $from?->toDateString() }}"
-                               class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                    <span class="flex items-end gap-2">
+                        <div>
+                            <x-input-label for="from" value="From" />
+                            <input id="from" name="from" type="date" value="{{ $from?->toDateString() }}"
+                               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </div>
                         <span class="text-sm text-gray-400">to</span>
-                        <label for="to" class="sr-only">To</label>
-                        <input id="to" name="to" type="date" value="{{ $to?->toDateString() }}"
-                               class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        <div>
+                            <x-input-label for="to" value="To" />
+                            <input id="to" name="to" type="date" value="{{ $to?->toDateString() }}"
+                               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </div>
                     </span>
                 </template>
-
-                <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Apply</button>
-                @if ($event || $who || $range !== 'all')
-                    <a href="{{ route('businesses.audit', $business) }}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
-                @endif
-            </form>
+            </x-filter-bar>
         </div>
 
         @include('business.partials.change-history', [

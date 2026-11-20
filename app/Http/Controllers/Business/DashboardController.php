@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Business;
 
 use App\Domain\Reporting\DashboardQuery;
+use App\Domain\Reporting\DayChecklist;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\DailyEntry;
@@ -10,7 +11,7 @@ use Illuminate\Contracts\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(Business $business, DashboardQuery $query): View
+    public function __invoke(Business $business, DashboardQuery $query, DayChecklist $checklist): View
     {
         $this->authorize('view', $business);
 
@@ -34,6 +35,20 @@ class DashboardController extends Controller
             // Operators deliberately do not see the overall position: they do
             // not need the business's financial standing to enter the day.
             'showPosition' => $user->can('viewReports', $business),
+            // Only how far through the day it is. The steps themselves are a
+            // page of their own, and the dashboard is not a worklist.
+            'day' => $checklist->for($business, $user),
+            // Today, for quick access beside the figures: the counter's bills,
+            // what came in from companies, and what was spent. Newest first.
+            'todayBills' => \App\Models\PosBill::forBusiness($business)
+                ->whereDate('business_date', $business->today()->toDateString())
+                ->withCount('lines')
+                ->latest('id')
+                ->get(),
+            'todayEntry' => DailyEntry::forBusiness($business)
+                ->whereDate('business_date', $business->today()->toDateString())
+                ->with(['purchaseLines.company', 'expenseLines.category'])
+                ->first(),
             ...$query->build($business),
         ]);
     }

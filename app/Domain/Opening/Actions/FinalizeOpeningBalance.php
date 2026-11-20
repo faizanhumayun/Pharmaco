@@ -25,6 +25,7 @@ class FinalizeOpeningBalance
     public function __construct(
         private readonly OpeningBalanceCalculator $calculator,
         private readonly LedgerPoster $poster,
+        private readonly \App\Domain\Ledger\ChartOfAccounts $chart,
     ) {}
 
     public function handle(OpeningBalance $opening, User $by, string $confirmation): OpeningBalance
@@ -53,7 +54,7 @@ class FinalizeOpeningBalance
                 business: $business,
                 date: $opening->opening_date,
                 type: TransactionType::Opening,
-                lines: $position->toPostingLines(),
+                lines: $this->placed($business, $position->toPostingLines()),
                 createdBy: $by,
                 narration: 'Opening financial position',
                 source: $opening,
@@ -94,5 +95,37 @@ class FinalizeOpeningBalance
 
             return $opening->fresh(['lines.account', 'transaction.lines.account']);
         });
+    }
+
+    /**
+     * Puts each opening figure where it can be posted.
+     *
+     * The opening balance states totals — what the market owes, what is owed
+     * to companies. A business moved in from an old system already has its
+     * customers and companies, each with an account under those totals, and a
+     * total cannot be posted to an account that has accounts beneath it. So it
+     * goes to that account's "Unallocated", exactly where a day's summary
+     * goes, and from there each balance is moved to the name it belongs to.
+     *
+     * @param  array<int, \App\Domain\Ledger\PostingLine>  $lines
+     * @return array<int, \App\Domain\Ledger\PostingLine>
+     */
+    private function placed(\App\Models\Business $business, array $lines): array
+    {
+        return array_map(function (\App\Domain\Ledger\PostingLine $line) use ($business) {
+            if (! $line->account instanceof \App\Enums\AccountCode) {
+                return $line;
+            }
+
+            $code = $this->chart->postingCodeFor($business, $line->account);
+
+            if ($code === $line->account->value) {
+                return $line;
+            }
+
+            return $line->debit->isZero()
+                ? \App\Domain\Ledger\PostingLine::credit($code, $line->credit, $line->memo)
+                : \App\Domain\Ledger\PostingLine::debit($code, $line->debit, $line->memo);
+        }, $lines);
     }
 }

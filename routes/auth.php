@@ -23,6 +23,17 @@ Route::middleware('guest')->group(function () {
 
     Route::post('login', [AuthenticatedSessionController::class, 'store']);
 
+    /*
+     * The back office has a door of its own. Same accounts table, same check
+     * of the password — but each door lets in only the people it is for: a
+     * business's staff at /login, the people who run the platform here.
+     */
+    Route::get('back-office/login', [AuthenticatedSessionController::class, 'create'])
+        ->name('backoffice.login');
+
+    Route::post('back-office/login', [AuthenticatedSessionController::class, 'store'])
+        ->name('backoffice.login.store');
+
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])
         ->name('password.request');
 

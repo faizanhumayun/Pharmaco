@@ -26,6 +26,11 @@ class ReceiveOrderRequest extends FormRequest
             // The catalogue figures a delivery confirms.
             'extras.*.mrp' => ['nullable', 'string', 'max:30'],
             'extras.*.trade' => ['nullable', 'string', 'max:30'],
+            // A month: cartons are printed "09/2027", not to the day.
+            'extras.*.expires_on' => ['nullable', 'date_format:Y-m'],
+            'lines.*.expires_on' => ['nullable', 'date_format:Y-m'],
+            'extras.*.batch_no' => ['nullable', 'string', 'max:60'],
+            'lines.*.batch_no' => ['nullable', 'string', 'max:60'],
             'extras.*.brand_name' => ['nullable', 'string', 'max:200'],
             'extras.*.label' => ['nullable', 'string', 'max:300'],
             'extras.*.generic_name' => ['nullable', 'string', 'max:255'],

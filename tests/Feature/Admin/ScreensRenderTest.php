@@ -44,12 +44,15 @@ it('renders the login screen without a registration link', function () {
         ->assertDontSee('Register');
 });
 
-it('offers both kinds of business, and asks how each counts its stock', function () {
+it('offers both kinds of business, and does not ask how each counts its stock', function () {
     $this->actingAs(platformAdmin())
         ->get(route('admin.businesses.create'))
         ->assertOk()
         ->assertSee('Pharmacy')
         ->assertSee('Pharmaceutical Distributor')
-        ->assertSee('How stock is counted')
+        // A distributor moves whole packs and cartons and a pharmacy breaks
+        // them open, so the kind of business settles it and there is nothing
+        // to ask. A control that cannot be wrong is a control nobody needs.
+        ->assertDontSee('How stock is counted')
         ->assertDontSee('coming soon', escape: false);
 });

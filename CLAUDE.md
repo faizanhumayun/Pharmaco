@@ -91,6 +91,35 @@ Blade + Tailwind + Alpine. No SPA, no Livewire, no Inertia. Revisit exactly once
 when invoice-level line-item grids arrive — not before. Charts (Phase 7) use
 Chart.js.
 
+### One place for the look
+
+Every colour, font, corner and gap is defined once, in
+`resources/css/pharmaco/tokens.css`. Change it there and every page follows.
+
+- `tailwind.config.js` holds no values: `gray`/`slate`, `emerald`, `red` and the
+  brand names (`paper`, `ink`, `line`…) all read CSS variables from that file.
+- Never write a hex colour, an `rgb(...)` literal or a font name in a view, a
+  stylesheet or the Tailwind config. Use a utility, or `var(--token)`.
+- Charts take colours from `themeColor('chart-1')` (see
+  `partials/theme-script.blade.php`), which reads the same file.
+- The usage rules are in `docs/brand-book.md`. The landing page's words are in
+  `config/landing.php`; anything not built yet is labelled "Coming soon".
+
+### Lists: one search-and-filter bar
+
+Every list filters through the `x-filter-bar` component
+(`resources/views/components/filter-bar.blade.php`): fields with a label above
+each, the apply button, a Clear button that shows only while something is
+filtered, and the count on its own line under the bar. Do not hand-write a
+`<form method="GET">` for filtering.
+
+### Prices: pharmacy and distributor differ
+
+`Business::sellsAtMrp()` — a pharmacy sells at the MRP and has no selling price
+of its own (a discount is given at the till); a distributor keeps a trade price
+as well as the MRP. Ask `CompanyProduct::sellingPriceFor($business)` for what a
+product sells at; never read `trade_price` directly to price a sale.
+
 ## Posting, in practice
 
 ```php

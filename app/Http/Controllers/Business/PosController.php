@@ -27,14 +27,46 @@ use Illuminate\Validation\ValidationException;
  */
 class PosController extends Controller
 {
-    public function index(Business $business, StockLedger $stock, BalanceService $balances): View
-    {
+    public function index(
+        Request $request,
+        Business $business,
+        StockLedger $stock,
+        BalanceService $balances,
+        \App\Domain\Stock\ExpiryWatch $expiry,
+    ): View|\Illuminate\Http\RedirectResponse {
         $this->authorize('sellAtPos', $business);
 
+        /*
+         * Correcting a saved bill happens on the same screen it was rung up
+         * on: ?edit= loads the bill back onto the till. A bill that can no
+         * longer be changed goes to its own page, which says why.
+         */
+        $editing = null;
+
+        if ($request->filled('edit')) {
+            $this->authorize('editPosBills', $business);
+
+            $editing = PosBill::forBusiness($business)->with(['lines', 'returns', 'pharmacy'])->findOrFail((int) $request->query('edit'));
+
+            if ($business->isDayClosed($editing->business_date) || $editing->returns->isNotEmpty()) {
+                return redirect()->route('businesses.pos.bills.edit', [$business, $editing]);
+            }
+        }
+
+        // What the bill being corrected took is free to it again, in pieces.
+        $own = $editing
+            ? $editing->lines->groupBy('company_product_id')->map(fn ($lines) => $lines->sum(fn ($l) => $l->pieces()))
+            : collect();
+
         $onHand = $stock->onHandByProduct($business);
+        $looseOnHand = $stock->looseByProduct($business);
+
+        // The soonest date still on the shelf for each product, so short-dated
+        // goods can be pulled off it rather than sold by mistake.
+        $soonest = $expiry->soonestByProduct($business);
 
         $products = CompanyProduct::forBusiness($business)
-            ->where('is_active', true)
+            ->where(fn ($q) => $q->where('is_active', true)->orWhereIn('id', $own->keys()))
             ->with('company:id,name')
             ->orderBy('brand_name')
             ->get()
@@ -43,10 +75,30 @@ class PosController extends Controller
                 'name' => $p->label(),
                 'code' => $p->code,
                 'company' => $p->company?->name,
-                'price' => (float) ($p->mrp?->toDecimal() ?? 0),
+                // What this business sells at: the MRP for a pharmacy, the
+                // trade price for a distributor (see Business::sellsAtMrp()).
+                'price' => (float) ($p->sellingPriceFor($business)?->toDecimal() ?? 0),
+                'trade' => (float) ($p->trade_price?->toDecimal() ?? 0),
+                'mrp' => (float) ($p->mrp?->toDecimal() ?? 0),
                 'cost' => (float) ($p->purchase_rate?->toDecimal() ?? 0),
                 'stock' => (int) ($onHand[$p->id] ?? 0),
+                // Pieces in a pack, and the opened pack's pieces on the shelf.
+                'per' => max(1, (int) $p->units_per_pack),
+                'pack' => trim((string) $p->pack_size),
+                'loose_stock' => (int) ($looseOnHand[$p->id] ?? 0),
+                'expires_on' => ($e = $soonest[$p->id] ?? null) ? $e['expires_on']->toDateString() : null,
+                'expires_label' => $e ? $e['expires_on']->format('M Y') : null,
+                'expiry_state' => $expiry->stateFor($business, $e['expires_on'] ?? null),
             ])
+            ->map(function (array $p) use ($own) {
+                if ($back = (int) ($own[$p['id']] ?? 0)) {
+                    $pieces = $p['stock'] * $p['per'] + $p['loose_stock'] + $back;
+                    $p['stock'] = intdiv($pieces, $p['per']);
+                    $p['loose_stock'] = $pieces % $p['per'];
+                }
+
+                return $p;
+            })
             ->values();
 
         /*
@@ -75,25 +127,71 @@ class PosController extends Controller
             ->values();
 
         return view('business.pos.index', [
+            'editing' => $editing,
+            // The bill as it stands, for the till to start from.
+            'editingLines' => $editing?->lines->map(fn ($l) => [
+                'id' => $l->company_product_id,
+                'qty' => (int) $l->quantity,
+                'loose' => (int) $l->loose_quantity,
+                'price' => (float) $l->unit_price->toDecimal(),
+            ])->values() ?? collect(),
             'customers' => $customers,
+            // Ways of paying other than cash that this business has switched on.
+            'methods' => \App\Models\BusinessPaymentMethod::forBusiness($business)->active()->with('method')->get(),
             'saved' => $this->justSaved($business, $balances),
             'format' => $business->receiptFormat(),
             // Shown on the screen before the sale is saved, so the counter and
             // the customer are looking at the same bill number.
-            'billReference' => 'B-' . str_pad((string) ((int) PosBill::forBusiness($business)->max('bill_no') + 1), 5, '0', STR_PAD_LEFT),
+            'billReference' => PosBill::referenceFor($business->today(), PosBill::nextDailyNo($business, $business->today())),
             'business' => $business,
             'products' => $products,
             'today' => $business->today(),
-            'dayClosed' => $business->isDayClosed($business->today()),
+            // A bill being corrected belongs to its own day, which is open
+            // or it would not have loaded.
+            'dayClosed' => $editing ? false : $business->isDayClosed($business->today()),
+            'expiryMonths' => $business->expiryAlertMonths(),
             'recent' => PosBill::forBusiness($business)
                 ->with('creator')
                 ->latest('id')
                 ->limit(10)
                 ->get(),
-            'soldToday' => PosBill::forBusiness($business)
+            // Today's bills, newest first — the list behind the header figure,
+            // and what the counter reaches for when a customer comes back.
+            'soldToday' => $soldToday = PosBill::forBusiness($business)
                 ->whereDate('business_date', $business->today()->toDateString())
+                ->with('creator')
+                ->withCount('lines')
+                ->orderByDesc('id')
                 ->get(),
+            'statementFor' => $this->statementsFor($request, $business, $soldToday),
         ]);
+    }
+
+    /**
+     * Which of today's buyers have a statement to open, by name.
+     *
+     * A bill carries the customer's name, not their id, so the name is looked
+     * up once for the whole list. Empty for anyone who cannot read statements:
+     * the history offers only what the statement page will let them see.
+     *
+     * @return array<string, int>
+     */
+    private function statementsFor(Request $request, Business $business, $bills): array
+    {
+        if (! $request->user()->can('configure', $business)) {
+            return [];
+        }
+
+        $names = $bills->pluck('customer_name')->filter()->unique()->values();
+
+        if ($names->isEmpty()) {
+            return [];
+        }
+
+        return \App\Models\Pharmacy::forBusiness($business)
+            ->whereIn('name', $names)
+            ->pluck('id', 'name')
+            ->all();
     }
 
     public function store(StorePosSaleRequest $request, Business $business, RecordPosSale $action): RedirectResponse
@@ -107,6 +205,14 @@ class PosController extends Controller
                 $request->input('note'),
                 $request->user(),
                 discount: Money::of($request->string('discount')->toString() ?: '0'),
+                shownAs: [
+                    'net' => ReceiptFormat::NET_BILL_AVAILABLE && $request->boolean('net'),
+                    'print' => $request->boolean('preview'),
+                    'balance' => $request->boolean('balance'),
+                ],
+                via: $request->filled('via')
+                    ? \App\Models\BusinessPaymentMethod::forBusiness($business)->active()->find($request->integer('via'))
+                    : null,
             );
         } catch (LedgerException $e) {
             throw ValidationException::withMessages(['items' => $e->getMessage()]);
@@ -233,7 +339,13 @@ class PosController extends Controller
 
         // The same bill, quoted before the trade discount. A view, not a
         // different sale: the net at its foot is this bill's own total.
-        $net = ReceiptFormat::NET_BILL_AVAILABLE && $request->boolean('net');
+        /*
+         * The bill it was rung up as, unless this link asks for the other one.
+         * A net bill reopened as a plain one is a different document, and the
+         * customer is holding the first.
+         */
+        $net = ReceiptFormat::NET_BILL_AVAILABLE
+            && ($request->has('net') ? $request->boolean('net') : $posBill->as_net_bill);
 
         // A sheet is addressed to somebody, and says what their account stands
         // at. A slip is not, so neither is looked up for one.

@@ -41,6 +41,7 @@ class RecordCollection
         ?Carbon $date = null,
         ?PosBill $against = null,
         ?string $note = null,
+        ?\App\Models\BusinessPaymentMethod $via = null,
     ): DailyEntry {
         $date ??= $business->today();
 
@@ -48,11 +49,15 @@ class RecordCollection
             throw new LedgerException('A collection has to be an amount of money.');
         }
 
+        if ($via !== null && ($via->business_id !== $business->id || ! $via->is_active)) {
+            throw new LedgerException('That payment method is not switched on for this business.');
+        }
+
         if ($against !== null && $against->business_id !== $business->id) {
             throw new LedgerException('That bill belongs to another business.');
         }
 
-        return DB::transaction(function () use ($business, $pharmacy, $amount, $by, $date, $against, $note) {
+        return DB::transaction(function () use ($business, $pharmacy, $amount, $by, $date, $against, $note, $via) {
             /*
              * Worked out before the day is touched, against the bills as they
              * stand. The named bill is settled first even when it is not the
@@ -61,11 +66,13 @@ class RecordCollection
              */
             $allocations = $this->allocate($business, $pharmacy, $amount, $against);
 
-            return $this->day->write($business, $date, function (array $data) use ($pharmacy, $amount, $allocations, $note) {
+            return $this->day->write($business, $date, function (array $data) use ($pharmacy, $amount, $allocations, $note, $via) {
                 $data['collections'][] = [
                     'pharmacy' => $pharmacy->name,
                     'amount' => $amount->toDecimal(),
                     'note' => $note,
+                    // Paid by wallet or bank goes to that account, not the drawer.
+                    'via' => $via?->id,
                     'allocations' => $allocations,
                 ];
 

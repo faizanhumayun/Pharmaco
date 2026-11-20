@@ -180,8 +180,8 @@ class OrderController extends Controller
         return view('business.orders.receive', [
             // A shop selling to the public must know its own price; a
             // distributor quotes per customer and can fill it in later.
-            'sellRequired' => $business->business_type === \App\Enums\BusinessType::Pharmacy,
-            'sellLabel' => $business->business_type === \App\Enums\BusinessType::Pharmacy ? 'Retail' : 'Trade',
+            'sellRequired' => $business->sellsAtMrp(),
+            'sellLabel' => 'Trade',
             'business' => $business,
             // What this supplier is owed on the ledger today, so an overpayment
             // can say whether it is settling earlier bills or running ahead.

@@ -30,7 +30,7 @@ enum ReceiptFormat: string
      * receipt, and nothing else has to change. While it is off the choice is
      * ignored everywhere, including any value a till has already remembered.
      */
-    public const NET_BILL_AVAILABLE = false;
+    public const NET_BILL_AVAILABLE = true;
 
     /**
      * The trade discount a net bill is quoted with.

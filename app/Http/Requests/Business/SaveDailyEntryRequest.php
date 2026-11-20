@@ -185,11 +185,24 @@ class SaveDailyEntryRequest extends FormRequest
                 }
             }
 
-            if ($get('sales_return')->greaterThan($totalSales)) {
+            /*
+             * A returns figure typed on the form is bounded by the day's sales,
+             * as it always was. Returns taken at the counter are different:
+             * goods come back on a later day than they were sold, so on such a
+             * day they can outweigh the sales and the profit handed back can
+             * outweigh the profit made. Those are recorded bill by bill, and
+             * the form does not second-guess them.
+             */
+            $counterReturns = \App\Models\DailyEntry::forBusiness($this->route('business'))
+                ->where('business_date', (string) $this->input('business_date'))
+                ->whereHas('returnLines')
+                ->exists();
+
+            if (! $counterReturns && $get('sales_return')->greaterThan($totalSales)) {
                 $v->errors()->add('sales_return', "Returns cannot exceed the day's sales.");
             }
 
-            if ($get('gross_profit')->greaterThan($totalSales->minus($get('sales_return')))) {
+            if (! $counterReturns && $get('gross_profit')->greaterThan($totalSales->minus($get('sales_return')))) {
                 $v->errors()->add('gross_profit',
                     'Gross profit cannot exceed net sales — that would make cost of goods negative.');
             }

@@ -39,7 +39,7 @@
             </div>
         @endif
 
-        <form method="GET" class="mb-6 flex flex-wrap items-end gap-3 rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+        <x-filter-bar submit="Filter" :active="array_filter($filters)" clear="{{ route('businesses.orders.index', $business) }}" class="mb-6">
             <div>
                 <x-input-label for="company" value="Company" />
                 <select id="company" name="company"
@@ -61,13 +61,7 @@
                     @endforeach
                 </select>
             </div>
-
-            <button class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">Filter</button>
-
-            @if (array_filter($filters))
-                <a href="{{ route('businesses.orders.index', $business) }}" class="pb-2 text-sm text-gray-500 hover:text-gray-700">Clear</a>
-            @endif
-        </form>
+        </x-filter-bar>
 
         <x-panel>
             <div class="overflow-x-auto">

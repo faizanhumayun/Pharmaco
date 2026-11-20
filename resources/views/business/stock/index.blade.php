@@ -10,7 +10,7 @@
 
             <div class="flex flex-wrap items-stretch gap-3">
                 <div class="rounded-md bg-gray-100 px-3 py-2">
-                    <p class="text-xs uppercase tracking-wide text-gray-500">Book value</p>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Stock value</p>
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $bookValue->format() }}</p>
                 </div>
                 <div class="rounded-md bg-gray-100 px-3 py-2">
@@ -20,8 +20,14 @@
                     </p>
                 </div>
                 <div class="rounded-md bg-gray-100 px-3 py-2">
-                    <p class="text-xs uppercase tracking-wide text-gray-500">Received · {{ strtolower($period['label']) }}</p>
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Stock received · {{ strtolower($period['label']) }}</p>
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $receivedValue->format() }}</p>
+                </div>
+                {{-- The other side of what was received: what the goods sold at
+                     the till cost, less what came back. --}}
+                <div class="rounded-md bg-gray-100 px-3 py-2" title="What the stock sold at the counter cost, less goods returned">
+                    <p class="text-xs uppercase tracking-wide text-gray-500">Stock sold · {{ strtolower($period['label']) }}</p>
+                    <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $soldValue->format() }}</p>
                 </div>
 
                 {{-- Goods arrive both ways: checked off against an order form, or
@@ -130,20 +136,16 @@
             {{-- What is held, product by product — a page at a time, because a
                  whole catalogue in one table is a slow page and an unreadable one. --}}
             <div x-show="view === 'onhand'" class="flex min-h-0 flex-1 flex-col">
-                <form method="GET" class="flex shrink-0 flex-wrap items-center gap-2 border-b border-gray-200 px-4 py-2 sm:px-6">
+                <x-filter-bar submit="Search" :active="$search !== ''" clear="{{ route('businesses.stock.index', [$business, 'period' => $periodKey]) }}">
                     <input type="hidden" name="period" value="{{ $periodKey }}">
-                    <label for="q" class="sr-only">Search products</label>
-                    <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search a product"
-                           class="w-64 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                    <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Search</button>
-                    @if ($search !== '')
-                        <a href="{{ route('businesses.stock.index', [$business, 'period' => $periodKey]) }}"
-                           class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
-                    @endif
-                    <span class="ml-auto text-xs text-gray-500">
-                        Showing {{ $onHand->firstItem() ?? 0 }}–{{ $onHand->lastItem() ?? 0 }} of {{ number_format($onHand->total()) }}
-                    </span>
-                </form>
+                    <div>
+                        <x-input-label for="q" value="Search products" />
+                        <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search a product"
+                           class="mt-1 block w-64 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                    </div>
+
+                    <x-slot name="count">Showing {{ $onHand->firstItem() ?? 0 }}–{{ $onHand->lastItem() ?? 0 }} of {{ number_format($onHand->total()) }}</x-slot>
+                </x-filter-bar>
 
                 <div class="min-h-0 flex-1 overflow-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -170,7 +172,7 @@
                                         {{ $row['received'] > 0 ? '+' . number_format($row['received']) : '—' }}
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono text-base font-semibold tabular-nums {{ $row['packs'] < 0 ? 'text-red-700' : 'text-gray-900' }}">
-                                        {{ number_format($row['packs']) }}
+                                        {{ $row['product']->stockLabel($row['packs'], $row['loose'] ?? 0) }}
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-600">
                                         {{ $row['value']?->format() ?? '—' }}
@@ -185,7 +187,7 @@
                             @endforelse
                         </tbody>
                         @if ($productsHeld > 0)
-                            <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(229,231,235)]">
+                            <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(var(--line-rgb))]">
                                 <tr>
                                     <td colspan="4" class="px-3 py-2 text-right text-sm font-semibold text-gray-900 sm:px-6">
                                         {{ number_format($productsHeld) }} products
@@ -211,7 +213,7 @@
                     yet recorded per product, so until the point of sale is built these do not come down on their
                     own — record breakage, expiry and opening stock as an adjustment on the product.
                     <span class="text-gray-400">Value at cost is each product's current rate, for comparing against
-                    the book value of {{ $bookValue->format() }} — the ledger holds the figure that counts.</span>
+                    the stock value of {{ $bookValue->format() }} — the ledger holds the figure that counts.</span>
                 </p>
             </div>
 
@@ -224,7 +226,7 @@
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="sticky top-0 z-10 bg-gray-50">
                                     <tr>
-                                        @foreach (['Date', 'Book value', 'Counted', 'Variance', 'Drift', 'Reason', 'Verified by'] as $h)
+                                        @foreach (['Date', 'Stock value', 'Counted', 'Variance', 'Drift', 'Reason', 'Verified by'] as $h)
                                             <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ in_array($h, ['Date','Reason','Verified by']) ? 'text-left' : 'text-right' }}">{{ $h }}</th>
                                         @endforeach
                                     </tr>
@@ -256,7 +258,7 @@
                         </div>
 
                         <dl class="flex justify-between text-sm">
-                            <dt class="text-gray-600">Book value now</dt>
+                            <dt class="text-gray-600">Stock value now</dt>
                             <dd class="font-mono tabular-nums text-gray-900">{{ $bookValue->format() }}</dd>
                         </dl>
 

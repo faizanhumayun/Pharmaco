@@ -21,6 +21,9 @@
      * the day's trading, what is bought and held, who is owed and owes, and
      * the record. The counter is not in a group — it is the button.
      */
+    // Beside the counter button: goods arriving is the other thing done all day.
+    $addStock = $tab('Add stock', 'businesses.stock.receive', 'businesses.stock.receive*', $user->can('manageOrders', $business));
+
     $counter = $tab('Sell at the counter', 'businesses.pos.index', 'businesses.pos.*', $user->can('sellAtPos', $business));
 
     $groups = array_filter([
@@ -28,12 +31,13 @@
             $tab('Daily entry', 'businesses.daily.index',   'businesses.daily.*',     $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
             $tab('Day closing', 'businesses.closing.index', 'businesses.closing.*',   $user->can('viewAny', [\App\Models\DailyClosing::class, $business])),
             $tab('Expenses',    'businesses.expenses.index','businesses.expenses.*',  $user->can('configure', $business)),
-            $tab('Collection',  'businesses.collections.index','businesses.collections.*', $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
+            $tab('Bill Collection', 'businesses.collections.index','businesses.collections.*', $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
         ]),
         'Stock' => array_filter([
             $tab('Products',    'businesses.products.index','businesses.products.*',  $user->can('viewProducts', $business)),
-            $tab('Stock held',  'businesses.stock.index',   'businesses.stock.*',     $user->can('verifyStock', $business)),
+            $tab('Stock held',  'businesses.stock.index',   'businesses.stock.index', $user->can('verifyStock', $business)),
             $tab('Order forms', 'businesses.orders.index',  'businesses.orders.*',    $user->can('viewOrders', $business)),
+            $tab('Stock audit', 'businesses.stock.audit',   'businesses.stock.audit*', $user->can('verifyStock', $business)),
         ]),
         'People' => array_filter([
             $tab('Customers',   'businesses.pharmacies.index','businesses.pharmacies.*', $user->can('configure', $business)),
@@ -41,6 +45,7 @@
             $tab('Team',        'businesses.team.index',      'businesses.team.*',       $user->can('manageMembers', $business)),
         ]),
         'Books' => array_filter([
+            $tab('Reports',     'businesses.reports.index', 'businesses.reports.*',   $user->can('viewOperationalReports', $business)),
             $tab('History',     'businesses.history',       'businesses.history',     $user->can('viewReports', $business)),
             $tab('Ledger',      'businesses.ledger',        'businesses.ledger*',     $user->can('viewLedger', $business)),
             $tab('Activity',    'businesses.audit',         'businesses.audit',       $user->can('viewAudit', $business)),
@@ -48,6 +53,24 @@
     ]);
 
     $dashboard = $tab('Dashboard', 'businesses.show', 'businesses.show', true);
+
+    /*
+     * The bell: whether the books can be trusted, how far through the day it
+     * is, and what needs attention — on every page, and the way in to "What
+     * to do", which is why that has no tab of its own. Only for those who see
+     * the day's figures, and only once the business is trading.
+     */
+    $notice = $business->acceptsTransactions() && $user->can('viewAny', [\App\Models\DailyEntry::class, $business])
+        ? app(\App\Domain\Reporting\Notices::class)->for($business, $user)
+        : null;
+
+    // Out of the Stock group and in plain sight: expired stock that has not
+    // gone back to the company is money being lost, and it is checked often.
+    $expiring = $tab('Near expiry', 'businesses.stock.expiring', 'businesses.stock.expiring', $user->can('viewProducts', $business));
+
+    // Its own tab rather than inside a group: it is reached rarely and looked
+    // for by name, which is the opposite of everything above.
+    $settings = $tab('Settings', 'businesses.settings.edit', 'businesses.settings.*', $user->can('configure', $business));
 
 @endphp
 
@@ -60,13 +83,13 @@
 
         <title>{{ $business->name }} — Pharmaco</title>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600&display=swap" rel="stylesheet" />
+        @include('partials.pharmaco-fonts')
+        @include('partials.theme-script')
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
-    <body class="font-sans antialiased">
-        <div @class(['bg-gray-100', 'min-h-screen' => ! $fill, 'flex h-screen flex-col overflow-hidden' => $fill])>
+    <body class="side-{{ $business->business_type->value }} accent-{{ $business->accentColour()->value }} font-sans antialiased">
+        <div @class(['bg-app', 'min-h-screen' => ! $fill, 'flex h-screen flex-col overflow-hidden' => $fill])>
             <header @class(['border-b border-gray-200 bg-white', 'shrink-0' => $fill])>
                 {{-- Identity row: which business you are inside, and its state. --}}
                 <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 pt-3 sm:px-6 lg:px-8">
@@ -158,6 +181,20 @@
                         </a>
                     @endif
 
+
+                    @if ($expiring)
+                        @php($active = request()->routeIs($expiring['pattern']))
+                        <a href="{{ route($expiring['route'], $business) }}"
+                           @class([
+                               'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition',
+                               'border-emerald-700 text-emerald-800' => $active,
+                               'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' => ! $active,
+                           ])
+                           @if ($active) aria-current="page" @endif>
+                            {{ $expiring['label'] }}
+                        </a>
+                    @endif
+
                     @foreach ($groups as $name => $items)
                         @continue($items === [])
                         @php($inside = collect($items)->contains(fn ($i) => request()->routeIs($i['pattern'])))
@@ -195,12 +232,105 @@
                         </div>
                     @endforeach
 
+                    @if ($settings)
+                        <a href="{{ route($settings['route'], $business) }}"
+                           @class([
+                               'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition',
+                               'border-emerald-700 text-emerald-800' => request()->routeIs($settings['pattern']),
+                               'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' => ! request()->routeIs($settings['pattern']),
+                           ])>
+                            {{ $settings['label'] }}
+                        </a>
+                    @endif
+
+                    {{-- Add stock sits just before the counter button. Whichever of
+                         the two comes first carries the push to the right. --}}
+                    {{-- Alerts, behind a bell: the count is everything that is not
+                         as it should be, red when the books themselves are in doubt. --}}
+                    @if ($notice)
+                        <div class="relative my-1 ms-auto" x-data="{ open: false }" x-on:click.outside="open = false" x-on:keydown.escape="open = false">
+                            <button type="button" x-on:click="open = ! open" :aria-expanded="open"
+                                    title="{{ $notice['count'] > 0 ? $notice['count'].' '.Str::plural('alert', $notice['count']) : 'Alerts' }}"
+                                    class="relative inline-flex h-9 w-9 items-center justify-center rounded-md border border-gray-300 bg-white text-gray-600 hover:bg-gray-50">
+                                <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                                    <path fill-rule="evenodd" d="M10 2a6 6 0 00-6 6c0 1.887-.454 3.665-1.257 5.234a.75.75 0 00.515 1.076 32.91 32.91 0 003.256.508 3.5 3.5 0 006.972 0 32.903 32.903 0 003.256-.508.75.75 0 00.515-1.076A11.448 11.448 0 0116 8a6 6 0 00-6-6zM8.05 14.943a33.54 33.54 0 003.9 0 2 2 0 01-3.9 0z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="sr-only">Alerts</span>
+                                @if ($notice['count'] > 0)
+                                    <span @class([
+                                        'absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-white',
+                                        'bg-red-600' => $notice['level'] === 'critical',
+                                        'bg-amber-500' => $notice['level'] !== 'critical',
+                                    ])>{{ $notice['count'] }}</span>
+                                @endif
+                            </button>
+
+                            <div x-show="open" x-cloak x-transition.opacity.duration.100ms
+                                 class="absolute right-0 z-40 mt-1 w-96 max-w-[90vw] overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">
+                                <div class="border-b border-gray-200 px-4 py-3">
+                                    <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Integrity</p>
+                                    <ul class="mt-2 space-y-1.5 text-sm">
+                                        @foreach ($notice['checks'] as [$what, $says, $state])
+                                            <li class="flex items-center justify-between gap-3">
+                                                <span class="text-gray-700">{{ $what }}</span>
+                                                <x-badge :classes="['ok' => 'bg-emerald-50 text-emerald-800 ring-emerald-600/20', 'warn' => 'bg-amber-50 text-amber-800 ring-amber-600/20', 'bad' => 'bg-red-50 text-red-800 ring-red-600/20'][$state]">
+                                                    {{ $says }}{{ $state === 'ok' ? ' ✓' : '' }}
+                                                </x-badge>
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                    @if ($notice['unexplained'])
+                                        <p class="mt-2 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                                            Opening Balance Equity of <strong>{{ $notice['unexplained']->format() }}</strong> is still unexplained.
+                                        </p>
+                                    @endif
+                                </div>
+
+                                <a href="{{ route('businesses.attention', $business) }}" class="block px-4 py-3 hover:bg-gray-50">
+                                    <p class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
+                                        What to do
+                                        <span class="normal-case tracking-normal text-emerald-800">Open &rarr;</span>
+                                    </p>
+                                    <p class="mt-2 text-sm font-semibold {{ $notice['day']['complete'] ? 'text-emerald-800' : 'text-gray-900' }}">
+                                        @if ($notice['day']['complete'])
+                                            Today is complete
+                                        @else
+                                            {{ $notice['day']['outstanding'] }} {{ Str::plural('step', $notice['day']['outstanding']) }} left to finish today
+                                            <span class="font-normal text-gray-500 tabular-nums">· {{ $notice['day']['done'] }} of {{ $notice['day']['done'] + $notice['day']['outstanding'] }} done</span>
+                                        @endif
+                                    </p>
+                                    @if ($notice['alerts'] !== [])
+                                        <p class="mt-2 text-sm font-semibold text-gray-900">
+                                            {{ count($notice['alerts']) }} {{ Str::plural('item', count($notice['alerts'])) }} {{ count($notice['alerts']) === 1 ? 'needs' : 'need' }} attention
+                                        </p>
+                                        <ul class="mt-1 space-y-1 text-sm text-gray-600">
+                                            @foreach ($notice['alerts'] as $alert)
+                                                <li class="flex items-start gap-2">
+                                                    <span class="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full {{ ($alert['level'] ?? '') === 'critical' ? 'bg-red-600' : 'bg-amber-500' }}"></span>
+                                                    {{ $alert['title'] }}
+                                                </li>
+                                            @endforeach
+                                        </ul>
+                                    @endif
+                                </a>
+                            </div>
+                        </div>
+                    @endif
+
+                    @if ($addStock)
+                        <a href="{{ route($addStock['route'], $business) }}"
+                           class="my-1 {{ $notice ? 'ms-2' : 'ms-auto' }} inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                            <span aria-hidden="true" class="text-base leading-none">+</span>
+                            {{ $addStock['label'] }}
+                        </a>
+                    @endif
+
                     @if ($counter)
                         {{-- The counter opens in its own tab: the till is a place you
                              stand at all day, and the back office stays where it was. --}}
-                        <a href="{{ route($counter['route'], $business) }}" target="_blank" rel="noopener"
-                           title="Opens in a new tab"
-                           class="my-1 ms-auto inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
+                        <a href="{{ route($counter['route'], $business) }}" target="_blank"
+                           title="Opens the till in its own tab; a till already open hands its bill over and closes"
+                           class="my-1 {{ $addStock || $notice ? 'ms-2' : 'ms-auto' }} inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
                             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path d="M3 4.5A1.5 1.5 0 014.5 3h11A1.5 1.5 0 0117 4.5v3A1.5 1.5 0 0115.5 9h-11A1.5 1.5 0 013 7.5v-3zM3 12a1 1 0 011-1h12a1 1 0 011 1v3.5A1.5 1.5 0 0115.5 17h-11A1.5 1.5 0 013 15.5V12zm3 1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5H6z" />
                             </svg>

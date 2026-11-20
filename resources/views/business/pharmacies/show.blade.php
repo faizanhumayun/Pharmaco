@@ -44,51 +44,44 @@
          x-on:collect-from.window="collect($event.detail)">
         <x-flash />
 
-        {{-- What they owe, and how much of it is late. --}}
-        <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-gray-400">Owes now</p>
-                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $balance->isNegative() ? 'text-emerald-800' : 'text-gray-900' }}">
-                    {{ $rs($balance) }}
-                </p>
-                @if ($balance->isNegative())
-                    <p class="mt-0.5 text-xs text-emerald-700">paid ahead — this is credit in their favour</p>
-                @endif
-            </div>
+        {{-- Where they stand: what they have bought, what has come back in,
+             what is still out — amber while anything is — and how much of
+             that is late. --}}
+        @php($owes = $balance->isPositive())
+        <div class="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+            <x-stat label="Total sales till now" :value="'Rs. '.$rs($bought)" :hint="$bills->count().' '.Str::plural('bill', $bills->count())" />
+            <x-stat label="Paid so far" :value="'Rs. '.$rs($bought->minus($owingOnBills))" hint="Against their bills" />
 
-            <div class="rounded-md border px-4 py-3 shadow-sm {{ $overdue->isPositive() ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white' }}">
-                <p class="text-xs uppercase tracking-wide {{ $overdue->isPositive() ? 'text-red-700' : 'text-gray-400' }}">Overdue</p>
-                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $overdue->isPositive() ? 'text-red-800' : 'text-gray-400' }}">
-                    {{ $rs($overdue) }}
-                </p>
-                <p class="mt-0.5 text-xs {{ $overdue->isPositive() ? 'text-red-700' : 'text-gray-400' }}">
-                    past {{ $pharmacy->credit_days ? $pharmacy->credit_days . ' days' : 'the day of sale' }}
-                </p>
-            </div>
-
-            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-gray-400">Unpaid bills</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ $open->count() }}</p>
-                <p class="mt-0.5 text-xs text-gray-500">
-                    {{ $open->isEmpty() ? 'nothing outstanding' : 'oldest ' . $open->max('age') . ' ' . Str::plural('day', $open->max('age')) }}
+            <div @class(['rounded-lg border px-4 py-4', 'border-amber-300 bg-amber-50' => $owes, 'border-line bg-white' => ! $owes])>
+                <dt @class(['text-xs font-medium uppercase tracking-wide', 'text-amber-800' => $owes, 'text-gray-500' => ! $owes])>On credit now</dt>
+                <dd @class(['mt-1 text-xl font-semibold tabular-nums xl:text-2xl', 'text-amber-700' => $owes, 'text-emerald-800' => $balance->isNegative(), 'text-gray-900' => $balance->isZero()])>Rs. {{ $rs($balance) }}</dd>
+                <p @class(['mt-1 text-xs', 'font-medium text-amber-700' => $owes, 'text-gray-500' => ! $owes])>
+                    @if ($balance->isNegative())
+                        Paid ahead — this is credit in their favour
+                    @elseif ($open->isEmpty())
+                        {{ $owes ? 'Older credit, not tied to a bill' : 'Nothing owing' }}
+                    @else
+                        {{ $open->count() }} unpaid {{ Str::plural('bill', $open->count()) }} · oldest {{ $open->max('age') }} {{ Str::plural('day', $open->max('age')) }}
+                    @endif
                 </p>
             </div>
 
-            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-gray-400">Last payment</p>
-                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">
-                    {{ $lastPaid ? $rs($lastPaid->credit) : '—' }}
-                </p>
-                <p class="mt-0.5 text-xs text-gray-500">
-                    {{ $lastPaid ? $lastPaid->business_date->format('j M Y') : 'never paid' }}
+            <div @class(['rounded-lg border px-4 py-4', 'border-red-200 bg-red-50' => $overdue->isPositive(), 'border-line bg-white' => ! $overdue->isPositive()])>
+                <dt @class(['text-xs font-medium uppercase tracking-wide', 'text-red-700' => $overdue->isPositive(), 'text-gray-500' => ! $overdue->isPositive()])>Overdue</dt>
+                <dd @class(['mt-1 text-xl font-semibold tabular-nums xl:text-2xl', 'text-red-800' => $overdue->isPositive(), 'text-gray-400' => ! $overdue->isPositive()])>Rs. {{ $rs($overdue) }}</dd>
+                <p @class(['mt-1 text-xs', 'text-red-700' => $overdue->isPositive(), 'text-gray-500' => ! $overdue->isPositive()])>
+                    Past {{ $pharmacy->credit_days ? $pharmacy->credit_days . ' days' : 'the day of sale' }}
                 </p>
             </div>
+
+            <x-stat label="Last payment" :value="$lastPaid ? 'Rs. '.$rs($lastPaid->credit) : '—'"
+                    :hint="$lastPaid ? $lastPaid->business_date->format('j M Y') : 'Never paid'" />
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-3">
+        <div class="grid gap-6 xl:grid-cols-5">
             {{-- What the balance is made of. --}}
-            <div class="xl:col-span-1">
-                <x-panel title="Still owed, bill by bill">
+            <div class="xl:col-span-2">
+                <x-panel title="Their bills" description="Every bill, newest first. What is still owing is in amber.">
                     @if ($ageing->isNotEmpty())
                         <div class="flex flex-wrap gap-x-6 gap-y-2 border-b border-gray-100 px-4 py-3 text-sm sm:px-6">
                             @foreach (['This week', '8–30 days', 'Over 30 days'] as $band)
@@ -102,44 +95,55 @@
                         </div>
                     @endif
 
-                    <table class="min-w-full divide-y divide-gray-200 text-sm">
-                        <tbody class="divide-y divide-gray-100">
-                            @forelse ($open as $row)
+                    {{-- Ten bills high; the rest scroll inside. --}}
+                    <div class="max-h-[25.25rem] overflow-y-auto">
+                        <table class="min-w-full divide-y divide-gray-200 text-sm">
+                            <thead class="sticky top-0 bg-gray-50">
                                 <tr>
-                                    <td class="px-4 py-2 sm:px-6">
-                                        <a href="{{ route('businesses.pos.receipt', [$business, $row['bill']]) }}"
-                                           class="font-mono text-xs font-medium text-gray-900 hover:text-emerald-700">{{ $row['bill']->reference() }}</a>
-                                        <p class="text-xs text-gray-500">
-                                            {{ $row['bill']->business_date->format('j M Y') }} ·
-                                            {{ $row['age'] === 0 ? 'today' : $row['age'] . ' ' . Str::plural('day', $row['age']) }}
-                                        </p>
-                                    </td>
-                                    <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6">
-                                        {{ $rs($row['owed']) }}
-                                        @unless ($row['owed']->equals($row['bill']->total))
-                                            <span class="block text-xs font-normal text-gray-400">of {{ $rs($row['bill']->total) }}</span>
-                                        @endunless
-                                    </td>
+                                    <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Bill</th>
+                                    <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Day</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Lines</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Total</th>
+                                    <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Owing</th>
                                 </tr>
-                            @empty
-                                <tr>
-                                    <td class="px-6 py-8 text-center text-sm text-gray-500">
-                                        Nothing outstanding on a bill.
-                                        @unless ($balance->isZero())
-                                            <span class="mt-1 block text-xs">
-                                                The {{ $rs($balance) }} balance is older credit that was never tied to a bill.
-                                            </span>
-                                        @endunless
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 bg-white">
+                                @forelse ($bills as $bill)
+                                    <tr class="hover:bg-gray-50">
+                                        <td class="whitespace-nowrap px-4 py-2 sm:px-6">
+                                            <a href="{{ route('businesses.pos.bills.edit', [$business, $bill]) }}"
+                                               class="font-mono font-medium text-gray-900 hover:text-emerald-700">{{ $bill->reference() }}</a>
+                                            @if ($bill->returns->isNotEmpty())
+                                                <span class="ml-1 text-xs text-gray-500">returned</span>
+                                            @endif
+                                        </td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-gray-600">{{ $bill->business_date->format('j M Y') }}</td>
+                                        <td class="px-3 py-2 text-right tabular-nums text-gray-600">{{ $bill->lines_count }}</td>
+                                        <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $rs($bill->total) }}</td>
+                                        <td @class(['whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums sm:px-6', 'font-semibold text-amber-700' => $bill->owing->isPositive(), 'text-gray-400' => ! $bill->owing->isPositive()])>
+                                            {{ $bill->owing->isPositive() ? $rs($bill->owing) : 'paid' }}
+                                        </td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="5" class="px-6 py-8 text-center text-sm text-gray-500">
+                                            No bills yet.
+                                            @unless ($balance->isZero())
+                                                <span class="mt-1 block text-xs">
+                                                    The {{ $rs($balance) }} balance is older credit that was never tied to a bill.
+                                                </span>
+                                            @endunless
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
                 </x-panel>
             </div>
 
             {{-- And how it got there. --}}
-            <div class="xl:col-span-2">
+            <div class="xl:col-span-3">
                 <x-panel>
                     <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-6">
                         <div>
@@ -149,13 +153,12 @@
                             </p>
                         </div>
 
-                        <form method="GET" class="flex flex-wrap items-center gap-2 text-sm">
+                        <x-filter-bar submit="Show">
                             <input type="date" name="from" value="{{ $from->toDateString() }}"
-                                   class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                   class="rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             <span class="text-gray-400">to</span>
                             <input type="date" name="to" value="{{ $to->toDateString() }}"
-                                   class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Show</button>
+                                   class="rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             <a href="{{ route('businesses.pharmacies.show', [$business, $pharmacy, 'period' => 'all']) }}"
                                class="text-sm {{ $period === 'all' ? 'font-semibold text-emerald-700' : 'text-gray-500 hover:text-gray-800' }}">Everything</a>
                             {{-- Corrections are hidden, not deleted: a day amended five
@@ -168,7 +171,7 @@
                                class="text-sm {{ $showReversals ? 'font-semibold text-emerald-700' : 'text-gray-500 hover:text-gray-800' }}">
                                 {{ $showReversals ? 'Hide corrections' : 'Show corrections' }}
                             </a>
-                        </form>
+                        </x-filter-bar>
                     </div>
 
                     <div class="overflow-x-auto">

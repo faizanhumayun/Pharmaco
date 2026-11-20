@@ -26,16 +26,26 @@ class DailyEntryController extends Controller
 {
     public function __construct(private readonly DailyEntryPreview $preview) {}
 
-    public function index(Business $business): View
+    public function index(Request $request, Business $business): View
     {
         $this->authorize('viewAny', [DailyEntry::class, $business]);
 
+        // Either end may be left open: "from the 1st", "up to the 15th".
+        $from = $request->date('from');
+        $to = $request->date('to');
+
         return view('business.daily.index', [
             'business' => $business,
+            'from' => $from,
+            'to' => $to,
+            'total' => DailyEntry::forBusiness($business)->count(),
             'entries' => DailyEntry::forBusiness($business)
+                ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
+                ->when($to, fn ($q) => $q->where('business_date', '<=', $to->toDateString()))
                 ->with(['creator', 'poster'])
                 ->orderByDesc('business_date')
-                ->paginate(30),
+                ->paginate(30)
+                ->withQueryString(),
         ]);
     }
 

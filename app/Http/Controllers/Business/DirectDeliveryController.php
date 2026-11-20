@@ -54,10 +54,15 @@ class DirectDeliveryController extends Controller
                 ])
                 ->values(),
             'today' => $business->today(),
+            // Shown on the add-a-product dialog, so the code is known before
+            // the product exists rather than discovered after it.
+            'nextCode' => $this->nextCode($business),
             // A shop selling to the public must know its own price; a
             // distributor quotes per customer and can fill it in later.
-            'sellRequired' => $business->business_type === BusinessType::Pharmacy,
-            'sellLabel' => $business->business_type === BusinessType::Pharmacy ? 'Retail' : 'Trade',
+            // A pharmacy sells at the MRP, so the delivery asks for that and
+            // has no selling-price column; a distributor is asked its trade price.
+            'sellRequired' => $business->sellsAtMrp(),
+            'sellLabel' => 'Trade',
             'dayClosed' => $business->isDayClosed($business->today()),
         ]);
     }
@@ -88,8 +93,18 @@ class DirectDeliveryController extends Controller
 
         $company = Company::forBusiness($business)->findOrFail($data['company_id']);
 
+        $typed = trim((string) ($data['code'] ?? ''));
+
+        /*
+         * The match key is built from the code the company uses, never from one
+         * we made up. A generated code identifies the product here; it means
+         * nothing on their price list, so keying on it would leave the next
+         * import unable to recognise the product and creating a second copy of
+         * it. With no code of theirs, the name, strength and pack are the
+         * identity — exactly as they are for a product that arrives by import.
+         */
         $key = MatchKey::make(
-            $data['code'] ?? null,
+            $typed ?: null,
             $data['brand_name'],
             $data['strength'] ?? null,
             $data['pack_size'] ?? null,
@@ -106,7 +121,10 @@ class DirectDeliveryController extends Controller
             'business_id' => $business->id,
             'company_id' => $company->id,
             'match_key' => $key,
-            'code' => $data['code'] ?? null,
+            // Theirs if they have one, ours otherwise — a product with nothing
+            // to call it cannot be scanned, searched for, or put on a bill line
+            // that anyone can check afterwards.
+            'code' => $typed ?: $this->nextCode($business),
             'brand_name' => $data['brand_name'],
             'strength' => $data['strength'] ?? null,
             'pack_size' => $data['pack_size'] ?? null,
@@ -119,6 +137,7 @@ class DirectDeliveryController extends Controller
         $prices->handle($product, $request->user());
 
         return response()->json([
+            'next_code' => $this->nextCode($business),
             'id' => $product->id,
             'company_id' => $product->company_id,
             'name' => $product->label(),
@@ -126,6 +145,26 @@ class DirectDeliveryController extends Controller
             'rate' => (float) ($product->purchase_rate?->toDecimal() ?? 0),
             'case' => $product->case_size,
         ]);
+    }
+
+    /**
+     * The next code of our own, as PRD-000123.
+     *
+     * Per business and taken from the highest already issued, so it cannot
+     * collide with one in use. Lettered on purpose: a company's own codes are
+     * barcodes and article numbers, and a glance should say which is which.
+     */
+    private function nextCode(Business $business): string
+    {
+        $highest = CompanyProduct::forBusiness($business)
+            ->where('code', 'like', 'PRD-%')
+            ->orderByRaw('LENGTH(code) DESC')
+            ->orderByDesc('code')
+            ->value('code');
+
+        $next = $highest === null ? 1 : ((int) substr($highest, 4)) + 1;
+
+        return 'PRD-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
     }
 
     public function store(
@@ -139,19 +178,25 @@ class DirectDeliveryController extends Controller
 
         $data = $request->validate([
             'company_id' => ['required', 'integer'],
-            'invoice_no' => ['nullable', 'string', 'max:60'],
+            // Their bill's number is what ties this delivery to their account.
+            'invoice_no' => ['required', 'string', 'max:60'],
             'paid' => ['nullable', 'string'],
             'notes' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.company_product_id' => ['required', 'integer'],
             'lines.*.packs' => ['required', 'integer', 'min:1'],
             'lines.*.rate' => ['nullable', 'string'],
-            'lines.*.mrp' => ['nullable', 'string'],
-            // A shop that sells to the public has to know what it sells at; a
-            // distributor quotes per customer and may leave it for later.
-            'lines.*.trade' => [$business->business_type === BusinessType::Pharmacy ? 'required' : 'nullable', 'string'],
+            // What a pharmacy sells at, so a pharmacy cannot leave it blank.
+            'lines.*.mrp' => [$business->sellsAtMrp() ? 'required' : 'nullable', 'string'],
+            // A month is enough: cartons are printed "09/2027", not to the day.
+            'lines.*.expires_on' => ['nullable', 'date_format:Y-m'],
+            // The batch printed on the carton, beside its expiry.
+            'lines.*.batch_no' => ['nullable', 'string', 'max:60'],
+            // A distributor's own selling price; it quotes per customer and
+            // may leave it for later. A pharmacy has none.
+            'lines.*.trade' => ['nullable', 'string'],
         ], [
-            'lines.*.trade.required' => 'Every line needs the price you will sell it at.',
+            'lines.*.mrp.required' => 'Every line needs the MRP printed on the pack — it is the price you sell at.',
         ]);
 
         try {

@@ -60,7 +60,7 @@ class DayWriter
         return DailyEntry::forBusiness($business)
             ->where('business_date', $date->toDateString())
             ->with(['purchaseLines.company', 'saleLines.pharmacy', 'expenseLines.category',
-                'collectionLines.pharmacy', 'collectionLines.allocations'])
+                'collectionLines.pharmacy', 'collectionLines.allocations', 'returnLines.pharmacy'])
             ->first();
     }
 
@@ -97,12 +97,22 @@ class DayWriter
             'invoice_no' => $l->invoice_no ?? '',
             'amount' => $l->amount->toDecimal(),
             'received' => $l->received->toDecimal(),
+            // How it was paid; null is cash.
+            'via' => $l->business_payment_method_id,
+        ])->values()->all();
+
+        $data['returns'] = $entry->returnLines->map(fn ($l) => [
+            'pharmacy' => $l->pharmacy?->name ?? $l->pharmacy_name ?? '',
+            'reference' => $l->reference,
+            'amount' => $l->amount->toDecimal(),
+            'refunded' => $l->refunded->toDecimal(),
         ])->values()->all();
 
         $data['collections'] = $entry->collectionLines->map(fn ($l) => [
             'pharmacy' => $l->pharmacy?->name ?? $l->pharmacy_name ?? '',
             'amount' => $l->amount->toDecimal(),
             'note' => $l->note,
+            'via' => $l->business_payment_method_id,
             // Carried so an amendment can put the allocations back exactly as
             // they were; a rewritten line would otherwise lose which bills it
             // paid and leave them looking unpaid.
@@ -130,6 +140,7 @@ class DayWriter
             'purchases' => [],
             'sales' => [],
             'collections' => [],
+            'returns' => [],
             'expenses' => [],
         ];
     }

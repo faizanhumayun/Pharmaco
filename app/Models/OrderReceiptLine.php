@@ -20,11 +20,13 @@ class OrderReceiptLine extends Model
         'order_id', 'order_line_id', 'company_product_id', 'position',
         'code', 'brand_name', 'generic_name', 'strength', 'dosage_form', 'pack_size',
         'case_size', 'cartons', 'packs', 'rate', 'discount_percent', 'note',
+        'expires_on', 'batch_no',
     ];
 
     protected function casts(): array
     {
         return [
+            'expires_on' => 'date',
             'case_size' => 'integer',
             'cartons' => 'integer',
             'packs' => 'integer',

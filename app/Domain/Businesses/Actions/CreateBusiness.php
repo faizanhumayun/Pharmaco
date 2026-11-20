@@ -26,14 +26,6 @@ class CreateBusiness
                 // its opening balance is finalized in Phase 4.
                 'status' => BusinessStatus::Setup,
                 'currency' => $data['currency'] ?? 'PKR',
-                // How this business counts stock; the usual way for its kind
-                // unless the App Owner says otherwise.
-                'stock_unit' => $data['stock_unit']
-                    ?? \App\Enums\StockUnit::defaultFor(BusinessType::from($data['business_type'] ?? BusinessType::Distributor->value))->value,
-                // Likewise what it prints a bill on: a sheet for a distributor,
-                // a till slip for a counter.
-                'receipt_format' => $data['receipt_format']
-                    ?? \App\Enums\ReceiptFormat::defaultFor(BusinessType::from($data['business_type'] ?? BusinessType::Distributor->value))->value,
                 'timezone' => $data['timezone'] ?? 'Asia/Karachi',
                 'address' => $data['address'] ?? null,
                 'phone' => $data['phone'] ?? null,

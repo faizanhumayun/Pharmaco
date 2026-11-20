@@ -79,6 +79,9 @@ class ReceiveOrder
                     'case_size' => $line->case_size,
                     'cartons' => $this->cartons($packs, $line->case_size),
                     'packs' => $packs,
+                    'expires_on' => $this->expiry($row['expires_on'] ?? null),
+                    // As printed on the carton, so a recall can find the goods.
+                    'batch_no' => trim((string) ($row['batch_no'] ?? '')) ?: null,
                     'rate' => $line->rate,
                     'discount_percent' => $line->discount_percent,
                     'note' => $this->note($row['note'] ?? null),
@@ -209,6 +212,36 @@ class ReceiveOrder
         }
     }
 
+    /**
+     * A date typed on a delivery, or nothing.
+     *
+     * Cartons are printed to the month — "09/2027" — and the goods are good
+     * through the whole of it, so a month becomes its last day. Taking the
+     * first would write off a month of perfectly good stock.
+     *
+     * Not everything expires, so a blank is an answer rather than an omission.
+     * An unreadable date is treated the same way: one nobody can parse is
+     * worse than none, because it would be believed.
+     */
+    private function expiry(mixed $value): ?string
+    {
+        $value = trim((string) $value);
+
+        if ($value === '') {
+            return null;
+        }
+
+        try {
+            $date = \Illuminate\Support\Carbon::parse($value);
+
+            return preg_match('/^\d{4}-\d{2}$/', $value)
+                ? $date->endOfMonth()->toDateString()
+                : $date->toDateString();
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     private function extras(Order $order, array $rows): array
     {
         if ($rows === []) {
@@ -258,6 +291,9 @@ class ReceiveOrder
                 'case_size' => $caseSize,
                 'cartons' => $this->cartons($packs, $caseSize),
                 'packs' => $packs,
+                'expires_on' => $this->expiry($row['expires_on'] ?? null),
+                    // As printed on the carton, so a recall can find the goods.
+                    'batch_no' => trim((string) ($row['batch_no'] ?? '')) ?: null,
                 'rate' => $rate,
                 'discount_percent' => null,
                 'note' => $this->note($row['note'] ?? null),

@@ -1,0 +1,377 @@
+/*
+ * PHARMACO THEME — THE ONE PLACE.
+ *
+ * Every colour, font, corner and gap the product uses is defined in this file
+ * and nowhere else. Change a value here, rebuild (npm run build, or let
+ * npm run dev pick it up), and every page follows: the landing page, sign-in,
+ * the back office, every workspace screen, the till and the charts.
+ *
+ * How the rest of the project reads it:
+ *   - tailwind.config.js holds no values of its own. Its gray, emerald, red…
+ *     utilities all point at the variables below.
+ *   - landing.css and login.css are layout only; any colour in them is one of
+ *     these variables.
+ *   - Charts read the --chart-* variables when they draw.
+ *
+ * Colours are written as three numbers (red green blue) so they can be used
+ * with transparency: rgb(var(--ink-rgb) / 0.5). The plain names underneath
+ * (--ink, --paper…) are the same colours ready to use as they are.
+ *
+ * The one thing that cannot live here is the font download itself: if a font
+ * family below is changed to a different typeface, also change the link in
+ * resources/views/partials/pharmaco-fonts.blade.php.
+ *
+ * The rules for using these — which colour is for what — are in
+ * docs/brand-book.md.
+ */
+:root {
+  /* ---- 1. Brand colours ------------------------------------------------ */
+  --paper-rgb: 251 249 245;            /* Warm ledger paper: the landing and sign-in pages. */
+  --surface-rgb: 255 255 255;          /* Cards, receipts, tables and form fields. */
+  --ink-rgb: 21 33 29;                 /* Headings, body text, the primary button. */
+  --muted-rgb: 86 97 91;               /* Secondary text and captions. */
+  --line-rgb: 218 213 200;             /* Hairline rules, table rows, card borders. Never text. */
+  --pharmacy-rgb: 11 110 99;           /* Pharmacy side: labels, links, solid fills. */
+  --pharmacy-tint-rgb: 223 240 235;    /* Background of the pharmacy column and chips. */
+  --distributor-rgb: 91 56 160;        /* Distributor side: labels, links, solid fills. */
+  --distributor-tint-rgb: 240 235 250; /* Background of the distributor column and chips. */
+  --alert-rgb: 179 38 30;              /* Overdue, shortage and negative figures only. */
+
+  /* ---- 2. Application surfaces ----------------------------------------- */
+  --app-background-rgb: 255 255 255;   /* The page behind every back-office, workspace and till screen. */
+
+  /* ---- 3. Neutrals: paper → ink, in the steps the screens ask for --------
+     Table headers (50), row dividers and chips (100), borders (200, 300),
+     faint to strong text (400 → 900). Three of them are the brand colours
+     above, so changing line, muted or ink moves these with it. */
+  --neutral-50: 248 245 238;
+  --neutral-100: 240 236 226;
+  --neutral-200: var(--line-rgb);
+  --neutral-300: 201 195 180;
+  --neutral-400: 126 136 130;
+  --neutral-500: var(--muted-rgb);
+  --neutral-600: 70 81 75;
+  --neutral-700: 52 64 58;
+  --neutral-800: 34 46 41;
+  --neutral-900: var(--ink-rgb);
+  --neutral-950: 13 22 19;
+
+  /* ---- 4. Alert scale: tints and shades of the alert colour ------------- */
+  --alert-50: 251 236 235;
+  --alert-100: 246 213 210;
+  --alert-200: 237 174 170;
+  --alert-300: 224 127 121;
+  --alert-400: 207 82 74;
+  --alert-500: 192 56 47;
+  --alert-600: var(--alert-rgb);
+  --alert-700: 156 31 24;
+  --alert-800: 127 26 20;
+  --alert-900: 99 21 16;
+  --alert-950: 58 11 8;
+
+  /* ---- 5. Accent: buttons, links, active tabs ---------------------------
+     Ink by default — sign-in and the back office belong to neither side.
+     A workspace sets side-pharmacy or side-distributor on <body> and takes
+     that side's scale, defined just below. */
+  --accent-50: 239 235 225;
+  --accent-100: 230 225 213;
+  --accent-200: var(--line-rgb);
+  --accent-300: 196 191 177;
+  --accent-400: 126 136 130;
+  --accent-500: var(--muted-rgb);
+  --accent-600: 52 64 58;
+  --accent-700: var(--ink-rgb);
+  --accent-800: 13 22 19;
+  --accent-900: 8 14 12;
+  --accent-950: 4 8 7;
+
+  /* ---- 6. Charts --------------------------------------------------------
+     Chosen to stay distinguishable for colour-blind readers. */
+  --chart-1: 42 120 214;
+  --chart-2: 235 104 52;
+  --chart-3: 27 175 122;
+  --chart-4: 142 91 208;
+  --chart-5: var(--muted-rgb);
+  --chart-grid: var(--neutral-100);
+
+  /* ---- 7. Type ---------------------------------------------------------- */
+  --font-display: Newsreader, Georgia, serif;                         /* Headlines. */
+  --font-sans: "IBM Plex Sans", system-ui, sans-serif;                /* Everything a person reads. */
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;              /* Every figure from the books. */
+
+  /* ---- 8. Spacing -------------------------------------------------------- */
+  --space-1: 8px;  /* Gap between an icon or label and its text. */
+  --space-2: 16px; /* Gap between the two columns; gap between list items. */
+  --space-3: 32px; /* Padding inside a column or card. */
+  --space-4: 64px; /* Vertical gap between landing page sections. */
+
+  /* ---- 9. Corners -------------------------------------------------------- */
+  --radius-sm: 4px;  /* Chips, inputs and small tags. */
+  --radius-md: 8px;  /* Buttons and cards. */
+  --radius-lg: 16px; /* The two landing page columns. */
+
+  /* ---- The brand colours again, ready to use as they are ---------------- */
+  --paper: rgb(var(--paper-rgb));
+  --surface: rgb(var(--surface-rgb));
+  --ink: rgb(var(--ink-rgb));
+  --muted: rgb(var(--muted-rgb));
+  --line: rgb(var(--line-rgb));
+  --pharmacy: rgb(var(--pharmacy-rgb));
+  --pharmacy-tint: rgb(var(--pharmacy-tint-rgb));
+  --distributor: rgb(var(--distributor-rgb));
+  --distributor-tint: rgb(var(--distributor-tint-rgb));
+  --alert: rgb(var(--alert-rgb));
+}
+
+/* The accent inside a pharmacy's workspace. */
+.side-pharmacy {
+  --accent-50: var(--pharmacy-tint-rgb);
+  --accent-100: 201 230 222;
+  --accent-200: 163 210 198;
+  --accent-300: 111 181 166;
+  --accent-400: 58 148 133;
+  --accent-500: 23 128 111;
+  --accent-600: 15 118 105;
+  --accent-700: var(--pharmacy-rgb);
+  --accent-800: 9 90 81;
+  --accent-900: 7 70 63;
+  --accent-950: 4 43 39;
+}
+
+/* The accent inside a distributor's workspace: violet, well away from the
+   pharmacy's green and the receiving screen's blue. */
+.side-distributor {
+  --accent-50: var(--distributor-tint-rgb);
+  --accent-100: 225 215 245;
+  --accent-200: 200 184 235;
+  --accent-300: 168 144 220;
+  --accent-400: 137 106 201;
+  --accent-500: 113 78 184;
+  --accent-600: 101 65 172;
+  --accent-700: var(--distributor-rgb);
+  --accent-800: 73 44 130;
+  --accent-900: 58 35 103;
+  --accent-950: 36 21 66;
+}
+
+/* The colours a business may choose for its own screens in Settings
+   (App\Enums\AccentColour). Written after the two sides so a choice wins
+   over the usual colour, and before the receiving screen so that stays blue.
+   To offer another colour, add its scale here and its name to the enum. */
+.accent-teal {
+  --accent-50: 223 240 235;
+  --accent-100: 201 230 222;
+  --accent-200: 163 210 198;
+  --accent-300: 111 181 166;
+  --accent-400: 58 148 133;
+  --accent-500: 23 128 111;
+  --accent-600: 15 118 105;
+  --accent-700: 11 110 99;
+  --accent-800: 9 90 81;
+  --accent-900: 7 70 63;
+  --accent-950: 4 43 39;
+}
+.accent-violet {
+  --accent-50: 240 235 250;
+  --accent-100: 225 215 245;
+  --accent-200: 200 184 235;
+  --accent-300: 168 144 220;
+  --accent-400: 137 106 201;
+  --accent-500: 113 78 184;
+  --accent-600: 101 65 172;
+  --accent-700: 91 56 160;
+  --accent-800: 73 44 130;
+  --accent-900: 58 35 103;
+  --accent-950: 36 21 66;
+}
+.accent-forest {
+  --accent-50: 232 242 233;
+  --accent-100: 208 229 211;
+  --accent-200: 168 208 173;
+  --accent-300: 121 180 129;
+  --accent-400: 76 148 87;
+  --accent-500: 46 122 59;
+  --accent-600: 36 107 49;
+  --accent-700: 28 92 41;
+  --accent-800: 22 74 33;
+  --accent-900: 17 58 26;
+  --accent-950: 10 36 16;
+}
+.accent-wine {
+  --accent-50: 249 235 239;
+  --accent-100: 242 213 222;
+  --accent-200: 229 173 190;
+  --accent-300: 211 125 150;
+  --accent-400: 188 80 113;
+  --accent-500: 164 49 86;
+  --accent-600: 146 37 73;
+  --accent-700: 126 29 61;
+  --accent-800: 102 23 50;
+  --accent-900: 80 18 40;
+  --accent-950: 49 10 24;
+}
+.accent-copper {
+  --accent-50: 251 233 210;
+  --accent-100: 247 217 180;
+  --accent-200: 240 190 135;
+  --accent-300: 229 156 86;
+  --accent-400: 211 122 44;
+  --accent-500: 190 98 20;
+  --accent-600: 177 86 12;
+  --accent-700: 163 74 7;
+  --accent-800: 133 60 6;
+  --accent-900: 104 47 6;
+  --accent-950: 64 28 3;
+}
+.accent-graphite {
+  --accent-50: 238 240 242;
+  --accent-100: 222 226 230;
+  --accent-200: 192 199 206;
+  --accent-300: 152 162 172;
+  --accent-400: 110 122 134;
+  --accent-500: 82 94 106;
+  --accent-600: 68 79 90;
+  --accent-700: 54 64 74;
+  --accent-800: 43 51 60;
+  --accent-900: 33 40 47;
+  --accent-950: 20 25 30;
+}
+
+/* The accent on the receiving screen, where stock comes in. Blue, so it can
+   never be mistaken for the till, whichever side the business is on. Written
+   after the two sides so that it wins on a page that carries both classes. */
+.mode-receiving {
+  --accent-50: 234 241 251;
+  --accent-100: 212 226 247;
+  --accent-200: 171 200 239;
+  --accent-300: 122 167 227;
+  --accent-400: 76 135 212;
+  --accent-500: 44 110 196;
+  --accent-600: 34 94 176;
+  --accent-700: 27 78 150;
+  --accent-800: 22 63 121;
+  --accent-900: 18 50 96;
+  --accent-950: 11 31 61;
+}
+
+/* The calendar (Vanilla Calendar Pro, the one FlyonUI ships) in the product's
+   own colours: the day chosen is the accent, the days between two ends its
+   tint, today is marked in the accent. It follows the business's colour like
+   everything else. */
+.vc {
+  --vc-bg: rgb(var(--surface-rgb));
+  --vc-color: rgb(var(--ink-rgb));
+  --vc-header-color: rgb(var(--ink-rgb));
+  --vc-title-color: rgb(var(--ink-rgb));
+  --vc-title-color-hover: rgb(var(--accent-700));
+  --vc-week-day-color: rgb(var(--muted-rgb));
+  --vc-week-day-off-color: rgb(var(--muted-rgb));
+  --vc-date-color: rgb(var(--ink-rgb));
+  --vc-date-weekend-color: rgb(var(--ink-rgb));
+  --vc-date-outside-color: rgb(var(--neutral-300));
+  --vc-date-disabled-color: rgb(var(--neutral-300));
+  --vc-date-weekend-disabled-color: rgb(var(--neutral-300));
+  --vc-date-hover-bg: rgb(var(--accent-50));
+  --vc-date-weekend-hover-bg: rgb(var(--accent-50));
+  --vc-date-today-color: rgb(var(--accent-700));
+  --vc-date-weekend-today-color: rgb(var(--accent-700));
+  --vc-date-selected-bg: rgb(var(--accent-700));
+  --vc-date-selected-color: rgb(var(--surface-rgb));
+  --vc-date-weekend-selected-bg: rgb(var(--accent-700));
+  --vc-date-weekend-selected-color: rgb(var(--surface-rgb));
+  --vc-date-range-middle-bg: rgb(var(--accent-50));
+  --vc-date-range-middle-color: rgb(var(--accent-900));
+  --vc-date-range-middle-weekend-bg: rgb(var(--accent-50));
+  --vc-date-range-middle-weekend-color: rgb(var(--accent-900));
+  --vc-months-years-bg-hover: rgb(var(--accent-50));
+  --vc-months-years-bg-selected: rgb(var(--accent-700));
+  --vc-months-years-color: rgb(var(--ink-rgb));
+  --vc-months-years-color-selected: rgb(var(--surface-rgb));
+  --vc-focus-outline-color: rgb(var(--accent-500));
+  font-family: var(--font-sans);
+}
+
+/* Text styles: one class per style */
+.text-display {
+  font-family: var(--font-display);
+  font-size: 64px;
+  line-height: 68px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+} /* Hero headline, once per page. */
+.text-heading {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 42px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+} /* Section headings. */
+.text-subheading {
+  font-family: var(--font-display);
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+} /* Column and card titles. */
+.text-body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 26px;
+  font-weight: 400;
+} /* Paragraphs and list items. */
+.text-small {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+} /* Captions, footers, button labels (weight 500). */
+.text-figure {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 500;
+} /* Money, stock counts and any number that comes from the books. */
+.text-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+} /* Uppercase eyebrow above headings and column labels. */
+
+/* Page defaults */
+body.pharmaco {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 26px;
+}
+
+/* The two-column pattern: pharmacy left, distributor right, stacking on narrow screens */
+.ph-columns { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.ph-column {
+  flex: 1 1 320px; min-width: 0; box-sizing: border-box;
+  padding: var(--space-3); border-radius: var(--radius-lg);
+  display: flex; flex-direction: column; gap: var(--space-2);
+}
+.ph-column--pharmacy { background: var(--pharmacy-tint); }
+.ph-column--distributor { background: var(--distributor-tint); }
+.ph-column--pharmacy .text-label { color: var(--pharmacy); }
+.ph-column--distributor .text-label { color: var(--distributor); }
+
+/* Buttons */
+.ph-button {
+  display: inline-flex; align-items: center; align-self: flex-start;
+  min-height: 44px; box-sizing: border-box; padding: 10px 20px;
+  border: 0; border-radius: var(--radius-md);
+  background: var(--ink); color: var(--paper);
+  font-family: var(--font-sans); font-size: 14px; line-height: 20px; font-weight: 500;
+  text-decoration: none; cursor: pointer;
+}
+.ph-button--pharmacy { background: var(--pharmacy); color: var(--surface); }
+.ph-button--distributor { background: var(--distributor); color: var(--surface); }
+
+/* Cards on paper: hairline, not shadow */
+.ph-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--space-2); }

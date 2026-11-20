@@ -196,9 +196,26 @@ class PharmacyController extends Controller
             ? $balances->asAt($business, $pharmacy->account->code)
             : Money::zero();
 
+        // Every bill of theirs, newest first, with what is still owing on
+        // each — the same list the bill page shows beside one of them.
+        $bills = \App\Models\PosBill::forBusiness($business)
+            ->where('pharmacy_id', $pharmacy->id)
+            ->with('returns')
+            ->withCount('lines')
+            ->orderByDesc('business_date')
+            ->orderByDesc('id')
+            ->get()
+            ->each(function ($bill) use ($outstanding, $collected) {
+                $bill->setAttribute('collected', $collected[$bill->id] ?? Money::zero());
+                $bill->setAttribute('owing', $outstanding->onBill($bill));
+            });
+
         return view('business.pharmacies.show', [
             'business' => $business,
             'pharmacy' => $pharmacy,
+            'bills' => $bills,
+            'bought' => Money::sum($bills->pluck('total')),
+            'owingOnBills' => Money::sum($bills->pluck('owing')),
             'rows' => $rows,
             'entries' => $entries,
             'broughtForward' => $broughtForward,

@@ -73,6 +73,7 @@ class StockVerificationController extends Controller
             'periodKey' => $request->query('period', 'all'),
             'deliveries' => $deliveries,
             'receivedValue' => $received->value($deliveries),
+            'soldValue' => $received->soldValue($business, $period['from']),
 
             // What is held, product by product.
             'onHand' => $onHand,

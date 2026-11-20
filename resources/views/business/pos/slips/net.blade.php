@@ -14,6 +14,17 @@
      undefined — and naming that directive inside a comment breaks it too. --}}
 @php
     $rs = fn ($m) => $m->format();
+
+    /*
+     * A price written the way a code is: five figures wide, zeros in front.
+     * 100.00 reads 00100, 83.00 reads 00083. Paisa are kept when there are
+     * any, because dropping them would print a price nobody was charged.
+     */
+    $padded = function ($money) {
+        [$rupees, $paisa] = explode('.', $money->toDecimal());
+
+        return str_pad($rupees, 5, '0', STR_PAD_LEFT).($paisa === '00' ? '' : '.'.$paisa);
+    };
     $customer = $customer ?? null;
     $owed = $owed ?? null;
     $percent = \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT;
@@ -25,17 +36,22 @@
      * net come out right, which is why the net can never drift from the sale.
      */
     $rows = $bill->lines->map(function ($line) use ($percent) {
-        $rate = $line->unit_price->beforeDiscount($percent);
+        $mrp = $line->product?->mrp ?? \App\Support\Money::zero();
+        $gross = $mrp->times($line->quantity);
+        $off = $gross->percent($percent);
 
         return [
             'line' => $line,
-            'rate' => $rate,
-            'amount' => $rate->times($line->quantity),
+            'mrp' => $mrp,
+            'gross' => $gross,
+            'off' => $off,
+            'amount' => $gross->minus($off),
         ];
     });
 
-    $gross = \App\Support\Money::sum($rows->pluck('amount'));
-    $off = $gross->minus($bill->total);
+    $gross = \App\Support\Money::sum($rows->pluck('gross'));
+    $off = \App\Support\Money::sum($rows->pluck('off'));
+    $after = \App\Support\Money::sum($rows->pluck('amount'));
 @endphp
 
 <div class="slip mx-auto w-full max-w-[210mm] bg-white p-8 text-gray-900 shadow-sm ring-1 ring-slate-200 print:m-0 print:max-w-none print:p-0 print:shadow-none print:ring-0">
@@ -81,8 +97,9 @@
             <tr class="border-y border-gray-300 bg-gray-50 text-left">
                 <th class="w-44 px-2 py-2 font-semibold">Code · price</th>
                 <th class="px-2 py-2 font-semibold">Product</th>
-                <th class="w-20 px-2 py-2 text-center font-semibold">{{ Str::ucfirst($business->unit()->many()) }}</th>
-                <th class="w-28 px-2 py-2 text-right font-semibold">Rate</th>
+                <th class="w-16 px-2 py-2 text-center font-semibold">{{ Str::ucfirst($business->unit()->many()) }}</th>
+                <th class="w-28 px-2 py-2 text-right font-semibold">MRP</th>
+                <th class="w-28 px-2 py-2 text-right font-semibold">Less {{ $percent }}%</th>
                 <th class="w-32 px-2 py-2 text-right font-semibold">Amount</th>
             </tr>
         </thead>
@@ -92,13 +109,15 @@
                     {{-- The code, and under it the price the goods are actually
                          being sold at — the rate column opposite is that price
                          quoted before the trade discount. --}}
-                    <td class="px-2 py-2">
-                        <span class="block font-mono text-xs text-gray-600">{{ $row['line']->product?->code ?? '—' }}</span>
-                        <span class="block font-mono text-xs tabular-nums text-gray-900">{{ $rs($row['line']->unit_price) }}</span>
-                    </td>
+                    {{-- Code and price run together as one figure, the price
+                         padded to a fixed width so the join always falls in the
+                         same place: 8512402291389 and 100.00 read as
+                         851240229138900100. --}}
+                    <td class="whitespace-nowrap px-2 py-2 font-mono text-xs text-gray-900">{{ ($row['line']->product?->code ?? '') . $padded($row['line']->unit_price) }}</td>
                     <td class="px-2 py-2">{{ $row['line']->name }}</td>
-                    <td class="px-2 py-2 text-center tabular-nums">{{ $row['line']->quantity }}</td>
-                    <td class="px-2 py-2 text-right tabular-nums">{{ $rs($row['rate']) }}</td>
+                    <td class="px-2 py-2 text-center tabular-nums">{{ $row['line']->quantityLabel() }}</td>
+                    <td class="px-2 py-2 text-right tabular-nums">{{ $rs($row['mrp']) }}</td>
+                    <td class="px-2 py-2 text-right tabular-nums text-gray-600">− {{ $rs($row['off']) }}</td>
                     <td class="px-2 py-2 text-right tabular-nums">{{ $rs($row['amount']) }}</td>
                 </tr>
             @endforeach
@@ -110,7 +129,7 @@
              when checking a delivery off against the bill. --}}
         <tfoot>
             <tr class="border-t-2 border-gray-900">
-                <td class="px-2 py-2.5" colspan="2">
+                <td class="px-2 py-2.5" colspan="3">
                     <span class="font-semibold">Total items {{ $bill->lines->count() }}</span>
                     <span class="font-normal text-gray-500">· {{ $bill->lines->sum('quantity') }} {{ $business->unit()->many() }} ·</span>
                     {{-- The figure that changes hands, beside the count. --}}
@@ -121,7 +140,7 @@
                 <td class="px-2 py-2.5 text-right text-base font-bold tabular-nums">{{ $rs($gross) }}</td>
             </tr>
             <tr>
-                <td class="px-2 pb-2 text-xs text-gray-500" colspan="5">
+                <td class="px-2 pb-2 text-xs text-gray-500" colspan="6">
                     Total amount is before the {{ $percent }}% trade discount; the figure beside the
                     item count is what is receivable.
                 </td>
@@ -137,31 +156,21 @@
 
         <dl class="w-72 shrink-0 text-sm">
             <div class="flex justify-between py-1">
-                <dt class="text-gray-600">Gross</dt>
+                <dt class="text-gray-600">MRP total</dt>
                 <dd class="tabular-nums">{{ $rs($gross) }}</dd>
             </div>
             <div class="flex justify-between py-1">
                 <dt class="text-gray-600">Less {{ $percent }}%</dt>
                 <dd class="tabular-nums">− {{ $rs($off) }}</dd>
             </div>
+            <div class="mt-1 flex justify-between border-y-2 border-gray-900 py-2 text-lg font-bold">
+                <dt>Amount</dt>
+                <dd class="tabular-nums">Rs. {{ $rs($after) }}</dd>
+            </div>
             @unless ($bill->discount->isZero())
                 <div class="flex justify-between py-1">
                     <dt class="text-gray-600">Further discount</dt>
                     <dd class="tabular-nums">− {{ $rs($bill->discount) }}</dd>
-                </div>
-            @endunless
-            <div class="mt-1 flex justify-between border-y-2 border-gray-900 py-2 text-lg font-bold">
-                <dt>Net payable</dt>
-                <dd class="tabular-nums">Rs. {{ $rs($bill->total) }}</dd>
-            </div>
-            <div class="flex justify-between py-1">
-                <dt class="text-gray-600">Received</dt>
-                <dd class="tabular-nums">{{ $rs($bill->received) }}</dd>
-            </div>
-            @unless ($bill->credit()->isZero())
-                <div class="flex justify-between border-t border-gray-300 py-1 font-semibold">
-                    <dt>Balance on this bill</dt>
-                    <dd class="tabular-nums">{{ $rs($bill->credit()) }}</dd>
                 </div>
             @endunless
             @if ($owed !== null)

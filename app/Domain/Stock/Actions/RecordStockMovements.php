@@ -34,6 +34,14 @@ class RecordStockMovements
     public function forDelivery(Order $order, User $by): int
     {
         return DB::transaction(function () use ($order, $by) {
+            // What the delivery held before it is rewritten, so a quantity
+            // corrected downwards is checked against what has since been sold.
+            $before = StockMovement::forBusiness($order->business_id)
+                ->where('source_type', Order::class)
+                ->where('source_id', $order->id)
+                ->pluck('company_product_id')
+                ->all();
+
             $this->clearDelivery($order);
 
             $date = ($order->received_at ?? $order->business_date)->toDateString();
@@ -52,6 +60,10 @@ class RecordStockMovements
                     'business_date' => $date,
                     'type' => StockMovementType::Delivery,
                     'packs' => $line->packs,
+                    // So the count knows what goes out of date and when,
+                    // without tracing every pack back to its delivery.
+                    'expires_on' => $line->expires_on?->toDateString(),
+                    'batch_no' => $line->batch_no,
                     'unit_cost' => $line->rate,
                     'source_type' => Order::class,
                     'source_id' => $order->id,
@@ -61,6 +73,10 @@ class RecordStockMovements
 
                 $written++;
             }
+
+            // Stock cannot go below zero: a delivery cannot be reduced past
+            // what has already gone out of it.
+            app(\App\Domain\Stock\StockLedger::class)->assertNotNegative($order->business, $before);
 
             return $written;
         });
@@ -90,8 +106,11 @@ class RecordStockMovements
         ?string $note,
         User $by,
         ?string $date = null,
+        int $loose = 0,
+        ?string $expiresOn = null,
+        ?string $batchNo = null,
     ): StockMovement {
-        if ($packs === 0) {
+        if ($packs === 0 && $loose === 0) {
             throw new RuntimeException('An adjustment of nothing is not an adjustment.');
         }
 
@@ -105,6 +124,12 @@ class RecordStockMovements
             'business_date' => $date ?? $business->today()->toDateString(),
             'type' => $type,
             'packs' => $packs,
+            // Pieces out of an opened pack, where a count found those off too.
+            'loose' => $loose,
+            // Known for stock brought over from an old system, which wrote
+            // the date and batch against the product.
+            'expires_on' => $expiresOn,
+            'batch_no' => $batchNo,
             'unit_cost' => $product->purchase_rate ?? $product->trade_price ?? Money::zero(),
             'note' => $note,
             'created_by' => $by->id,
@@ -118,11 +143,12 @@ class RecordStockMovements
             ->withProperties([
                 'product' => $product->label(),
                 'packs' => $packs,
+                'loose' => $loose,
                 'kind' => $type->label(),
                 'reason' => $note,
             ])
             ->event('stock.adjusted')
-            ->log($packs > 0 ? 'Stock added by hand' : 'Stock removed by hand');
+            ->log($packs > 0 || ($packs === 0 && $loose > 0) ? 'Stock added by hand' : 'Stock removed by hand');
 
         return $movement;
     }

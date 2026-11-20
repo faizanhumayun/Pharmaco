@@ -25,14 +25,17 @@ class StockMovement extends Model
     protected $fillable = [
         'business_id', 'company_product_id', 'business_date', 'type',
         'packs', 'unit_cost', 'source_type', 'source_id', 'note', 'created_by',
+        'expires_on', 'loose', 'batch_no',
     ];
 
     protected function casts(): array
     {
         return [
+            'expires_on' => 'date',
             'business_date' => 'date',
             'type' => StockMovementType::class,
             'packs' => 'integer',
+            'loose' => 'integer',
             'unit_cost' => MoneyCast::class,
         ];
     }
@@ -59,7 +62,7 @@ class StockMovement extends Model
 
     public function isIncoming(): bool
     {
-        return $this->packs > 0;
+        return $this->packs > 0 || ($this->packs === 0 && $this->loose > 0);
     }
 
     /** What this movement was worth, when a cost is known for it. */

@@ -19,6 +19,7 @@ use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 
 /**
  * The spending side of CompanyController, in the same shape.
@@ -28,6 +29,20 @@ use Illuminate\Http\Request;
  */
 class ExpenseCategoryController extends Controller
 {
+    /** A page of an in-memory list, with the page links the rest of the app has. */
+    private function paginate(\Illuminate\Support\Collection $rows, Request $request, int $perPage = 50): LengthAwarePaginator
+    {
+        $page = max(1, (int) $request->integer('page', 1));
+
+        return new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
+    }
+
     public function index(Request $request, Business $business): View
     {
         $this->authorize('configure', $business);
@@ -82,8 +97,57 @@ class ExpenseCategoryController extends Controller
                 ->sum('amount')),
         ]);
 
+        /*
+         * Money spent but never filed under a head.
+         *
+         * A day entered as plain totals has an expenses figure and no lines,
+         * and the posting sends it to the unallocated expenses ledger. It is
+         * real money and it was invisible here, because this page lists lines
+         * and there are none — so the day's own figure stands in for one.
+         */
+        $unfiled = DailyEntry::forBusiness($business)
+            ->where('expenses_cash', '>', 0)
+            ->whereDoesntHave('expenseLines')
+            ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
+            ->when($to, fn ($q) => $q->where('business_date', '<=', $to->toDateString()))
+            ->with('creator')
+            ->orderByDesc('business_date')
+            ->get();
+
+        $unfiledTotal = Money::sum($unfiled->pluck('expenses_cash'));
+
+        /*
+         * The two are shown as one list, because to the person reading it they
+         * are one thing: money spent on a day. They come from different tables
+         * — a filed expense is a line, an unfiled one is only the day's own
+         * figure — so they are brought to a common shape and sorted together
+         * rather than joined in SQL, which would mean reaching past the scopes
+         * that keep one business's days out of another's.
+         */
+        $filedRows = ($head !== null ? $expenses->get() : (clone $expenses)->get())->map(fn (ExpenseLine $line) => [
+            'entry' => $line->dailyEntry,
+            'head' => $line->category?->name,
+            'what' => $line->description,
+            'amount' => $line->amount,
+        ]);
+
+        $rows = $filedRows
+            ->concat($head === null ? $unfiled->map(fn (DailyEntry $day) => [
+                'entry' => $day,
+                'head' => null,
+                'what' => null,
+                'amount' => $day->expenses_cash,
+            ]) : [])
+            ->sortByDesc(fn (array $row) => [$row['entry']->business_date->toDateString(), $row['entry']->id])
+            ->values();
+
         return view('business.expenses.index', [
+            'rows' => $this->paginate($rows, $request),
             'business' => $business,
+            // Hidden when a particular head is being looked at: these belong
+            // to none of them.
+            'unfiled' => $head === null ? $unfiled : collect(),
+            'unfiledTotal' => $head === null ? $unfiledTotal : Money::zero(),
             'categories' => $categories,
             'balances' => $headTotals,
             'expenses' => $expenses->paginate(50)->withQueryString(),
@@ -198,6 +262,11 @@ class ExpenseCategoryController extends Controller
 
             return ['entry' => $entry, 'running' => $running];
         });
+
+        // Newest first on the screen. The running balance was worked out oldest
+        // first, as it has to be, so each row still shows the balance as it
+        // stood after that entry.
+        $rows = $rows->reverse()->values();
 
         return view('business.expenses.show', [
             'business' => $business,

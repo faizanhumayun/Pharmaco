@@ -194,6 +194,11 @@ class CompanyController extends Controller
             return ['entry' => $entry, 'running' => $running];
         });
 
+        // Newest first on the screen. The running balance was worked out oldest
+        // first, as it has to be, so each row still shows the balance as it
+        // stood after that entry.
+        $rows = $rows->reverse()->values();
+
         return view('business.companies.show', [
             'purchases' => app(CompanyPurchases::class)->totals($business)
                 ->get($company->id, CompanyPurchases::none()),

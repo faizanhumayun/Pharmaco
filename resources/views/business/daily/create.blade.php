@@ -220,7 +220,7 @@
                                 <div class="flex items-center gap-3 rounded-md border border-gray-200 px-3 py-2">
                                     <div class="min-w-0 flex-1">
                                         <p class="truncate text-sm font-medium text-gray-900"
-                                           x-text="row.pharmacy || 'Unnamed pharmacy'"></p>
+                                           x-text="row.pharmacy || @js($business->sellsAtMrp() ? 'Walk-in customer' : 'Unnamed pharmacy')"></p>
                                         <p class="truncate text-xs text-gray-500" x-text="saleNote(row)"></p>
                                     </div>
 
@@ -254,11 +254,11 @@
                         <div class="flex flex-wrap items-center gap-3">
                             <button type="button" @click="newSale()"
                                     class="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                                + Add a pharmacy sale
+                                + Add a {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }} sale
                             </button>
                             <p class="text-xs text-gray-500">
-                                Optional. A new pharmacy name is created with its own ledger. Taking more
-                                than an invoice is worth recovers that pharmacy's earlier credit — leave the
+                                Optional. A new {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }} name is created with its own ledger. Taking more
+                                than an invoice is worth recovers that {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }}'s earlier credit — leave the
                                 amount blank to record a recovery on its own.
                             </p>
                         </div>
@@ -530,13 +530,13 @@
                  so the next screen that needs a record entered gets the same
                  panel by naming it. --}}
             <x-drawer name="pharmacy-sale" max-width="md"
-                      title="Pharmacy sale"
-                      subtitle="One invoice. Whatever is not received today becomes that pharmacy's credit.">
+                      :title="$business->sellsAtMrp() ? 'Customer sale' : 'Pharmacy sale'"
+                      :subtitle="$business->sellsAtMrp() ? 'One bill. Leave the name blank for a walk-in customer. Whatever is not received today becomes that customer\'s credit.' : 'One invoice. Whatever is not received today becomes that pharmacy\'s credit.'">
                 <div class="space-y-5" @keydown.enter.prevent="commitSale()">
                     <div>
-                        <x-input-label for="draft_pharmacy" value="Pharmacy" />
+                        <x-input-label for="draft_pharmacy" :value="$business->sellsAtMrp() ? 'Customer' : 'Pharmacy'" />
                         <input id="draft_pharmacy" type="text" list="pharmacy-names" x-model="draft.pharmacy"
-                               placeholder="Al-Shifa Medical Store"
+                               placeholder="{{ $business->sellsAtMrp() ? 'Walk-in customer' : 'Al-Shifa Medical Store' }}"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                         <p class="mt-1 text-xs text-gray-500">
                             A name that does not exist yet is created with its own ledger when the day is saved.

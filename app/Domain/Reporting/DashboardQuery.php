@@ -18,6 +18,71 @@ class DashboardQuery
         private readonly AlertEngine $alerts,
     ) {}
 
+    /**
+     * The things a shopkeeper acts on rather than reads.
+     *
+     * Each is a count and a figure, deliberately cheap: the dashboard is the
+     * first page of every day and must not become the slowest.
+     *
+     * @return array<string, mixed>
+     */
+    private function watch(Business $business, Carbon $date): array
+    {
+        $watch = app(\App\Domain\Stock\ExpiryWatch::class);
+        $stock = app(\App\Domain\Stock\StockLedger::class);
+        $outstanding = app(\App\Domain\Market\Outstanding::class);
+
+        $onHand = $stock->onHandByProduct($business);
+        $costs = \App\Models\CompanyProduct::forBusiness($business)
+            ->pluck('purchase_rate', 'id');
+
+        $expired = Money::zero();
+        $expiring = Money::zero();
+        $expiredCount = 0;
+        $expiringCount = 0;
+
+        foreach ($watch->soonestByProduct($business) as $productId => $batch) {
+            $packs = max(0, (int) ($onHand[$productId] ?? 0));
+
+            if ($packs === 0) {
+                continue;
+            }
+
+            $value = Money::of($costs[$productId] ?? 0)->times($packs);
+
+            match ($watch->stateFor($business, $batch['expires_on'])) {
+                'expired' => [$expired = $expired->plus($value), $expiredCount++],
+                'expiring' => [$expiring = $expiring->plus($value), $expiringCount++],
+                default => null,
+            };
+        }
+
+        $collectedBill = $outstanding->collectedByBill($business);
+        $openBills = $outstanding->bills($business)
+            ->each(fn ($bill) => $bill->setAttribute('collected', $collectedBill[$bill->id] ?? Money::zero()))
+            ->filter(fn ($bill) => $outstanding->onBill($bill)->isPositive());
+
+        $schedule = app(\App\Domain\Stock\CountSchedule::class)->ranked($business);
+
+        return [
+            'expired' => ['count' => $expiredCount, 'value' => $expired],
+            'expiring' => ['count' => $expiringCount, 'value' => $expiring],
+            'collection' => [
+                'bills' => $openBills->count(),
+                'customers' => $openBills->pluck('customer_name')->filter()->unique()->count(),
+                'value' => Money::sum($openBills->map(fn ($bill) => $outstanding->onBill($bill))),
+            ],
+            'audit' => [
+                'due' => $schedule->where('due', true)->count(),
+                'products' => $schedule->count(),
+                'countedToday' => \App\Models\StockCount::forBusiness($business)
+                    ->whereDate('business_date', $date->toDateString())->count(),
+                'open' => \App\Models\StockCount::forBusiness($business)
+                    ->where('status', \App\Models\StockCount::FOUND)->count(),
+            ],
+        ];
+    }
+
     public function build(Business $business, ?Carbon $date = null): array
     {
         $date ??= $business->today();
@@ -62,6 +127,13 @@ class DashboardQuery
                 'payableDelta' => $payables
                     ->minus($this->balances->asAt($business, AccountCode::CompanyPayables, $previous)),
             ],
+
+            /*
+             * The operational headlines — what is running out of time, what is
+             * owed, and how far round the shelves the counting has got. Money
+             * answers "how are we doing"; these answer "what needs doing".
+             */
+            'watch' => $this->watch($business, $date),
 
             'confidence' => $this->confidence->for($business),
             'alerts' => $this->alerts->for($business),

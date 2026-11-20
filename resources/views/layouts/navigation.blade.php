@@ -25,6 +25,9 @@
                         <x-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">
                             Users
                         </x-nav-link>
+                        <x-nav-link :href="route('admin.payment-methods.index')" :active="request()->routeIs('admin.payment-methods.*')">
+                            Payment methods
+                        </x-nav-link>
                     @else
                         {{-- Members land here only between workspaces: each business
                              opens in its own window with its own chrome. --}}
@@ -82,6 +85,7 @@
                 <x-responsive-nav-link :href="route('admin.dashboard')" :active="request()->routeIs('admin.dashboard')">Overview</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.businesses.index')" :active="request()->routeIs('admin.businesses.*')">Businesses</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">Users</x-responsive-nav-link>
+                <x-responsive-nav-link :href="route('admin.payment-methods.index')" :active="request()->routeIs('admin.payment-methods.*')">Payment methods</x-responsive-nav-link>
             @else
                 @foreach ($user?->activeBusinesses ?? [] as $business)
                     <x-responsive-nav-link :href="route('businesses.show', $business)">{{ $business->name }}</x-responsive-nav-link>

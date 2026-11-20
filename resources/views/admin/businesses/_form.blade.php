@@ -1,19 +1,16 @@
 @php($b = $business ?? null)
 
 {{--
-    The kind of business and how it counts stock are one decision made twice:
-    picking Pharmacy moves the counting to loose items, until someone says
-    otherwise — after which their choice stands.
+    How stock is counted is not asked for: a distributor moves whole packs and
+    cartons, a pharmacy breaks them open. It follows from the kind of business,
+    so picking the type decides it.
 --}}
 <div class="grid gap-6 p-4 sm:grid-cols-2 sm:p-6 xl:grid-cols-3"
      x-data="{
          type: @js(old('business_type', $b?->business_type?->value ?? 'distributor')),
-         unit: @js(old('stock_unit', $b?->stock_unit?->value ?? \App\Enums\StockUnit::defaultFor($b?->business_type ?? \App\Enums\BusinessType::Distributor)->value)),
          paper: @js(old('receipt_format', $b?->receipt_format?->value ?? \App\Enums\ReceiptFormat::defaultFor($b?->business_type ?? \App\Enums\BusinessType::Distributor)->value)),
-         chosen: false,
          chosePaper: false,
          follow() {
-             if (! this.chosen) this.unit = this.type === 'pharmacy' ? 'item' : 'pack';
              if (! this.chosePaper) this.paper = this.type === 'pharmacy' ? 'thermal' : 'a4';
          },
      }">
@@ -73,27 +70,6 @@
         side read as a pair, where a tall block wedged into one column of three
         leaves the other two stranded above a gap.
     --}}
-    <div class="sm:col-span-2 xl:col-span-3">
-        <x-input-label for="stock_unit" value="How stock is counted" />
-        <div class="mt-1 grid gap-3 sm:grid-cols-2">
-            @foreach (\App\Enums\StockUnit::cases() as $unit)
-                {{-- The chosen card is marked as you pick it, not only after saving. --}}
-                <label class="flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5"
-                       :class="unit === @js($unit->value)
-                           ? 'border-emerald-600 bg-emerald-50/60 ring-1 ring-emerald-600'
-                           : 'border-gray-200 hover:border-gray-300'">
-                    <input type="radio" name="stock_unit" value="{{ $unit->value }}" x-model="unit"
-                           x-on:change="chosen = true"
-                           class="mt-0.5 text-emerald-700 focus:ring-emerald-600">
-                    <span>
-                        <span class="block text-sm font-medium text-gray-900">{{ $unit->label() }}</span>
-                        <span class="block text-xs leading-snug text-gray-500">{{ $unit->description() }}</span>
-                    </span>
-                </label>
-            @endforeach
-        </div>
-        <x-input-error :messages="$errors->get('stock_unit')" class="mt-2" />
-    </div>
 
     {{-- What a bill prints on. Follows the business type the same way, and for
          the same reason: a distributor's bill is filed, a counter's is pocketed. --}}

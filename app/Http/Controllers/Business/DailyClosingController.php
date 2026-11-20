@@ -29,16 +29,26 @@ class DailyClosingController extends Controller
         private readonly ClosingGuard $guard,
     ) {}
 
-    public function index(Business $business): View
+    public function index(Request $request, Business $business): View
     {
         $this->authorize('viewAny', [DailyClosing::class, $business]);
 
+        // Either end may be left open: "from the 1st", "up to the 15th".
+        $from = $request->date('from');
+        $to = $request->date('to');
+
         return view('business.closing.index', [
             'business' => $business,
+            'from' => $from,
+            'to' => $to,
+            'total' => DailyClosing::forBusiness($business)->count(),
             'closings' => DailyClosing::forBusiness($business)
+                ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
+                ->when($to, fn ($q) => $q->where('business_date', '<=', $to->toDateString()))
                 ->with('finalizer')
                 ->orderByDesc('business_date')
-                ->paginate(30),
+                ->paginate(30)
+                ->withQueryString(),
         ]);
     }
 

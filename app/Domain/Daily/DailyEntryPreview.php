@@ -36,12 +36,16 @@ class DailyEntryPreview
                 ->minus($entry->purchase_paid)
                 ->minus($entry->company_payment_cash)
                 ->minus($entry->expenses_cash)
-                ->minus($entry->owner_drawing),
+                ->minus($entry->owner_drawing)
+                // Paid by wallet or bank never reached the drawer, and a cash
+                // refund for returned goods left it.
+                ->minus($entry->receivedByTransfer())
+                ->minus($entry->refundedInCash()),
 
             AccountCode::MarketReceivables->value => $entry->sale_credit
                 ->minus($entry->collection_cash)
                 ->minus($saleExcess)
-                ->minus($entry->sales_return)
+                ->minus($entry->sales_return->minus($entry->refundedInCash()))
                 ->minus($entry->discount_allowed)
                 ->minus($entry->bad_debt),
 

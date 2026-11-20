@@ -18,7 +18,7 @@ class UpdateBusiness
         $business->fill(array_filter(
             $data,
             fn ($key) => in_array($key, [
-                'name', 'business_type', 'currency', 'timezone', 'stock_unit', 'receipt_format',
+                'name', 'business_type', 'currency', 'timezone', 'receipt_format', 'accent', 'receipt_footer', 'pos_net_bill', 'pos_print', 'pos_balance', 'expiry_alert_months',
                 'address', 'phone', 'email', 'ntn', 'notes',
             ], true),
             ARRAY_FILTER_USE_KEY

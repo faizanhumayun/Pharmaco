@@ -1,6 +1,6 @@
 @props(['title' => null, 'description' => null])
 
-<div {{ $attributes->merge(['class' => 'overflow-hidden bg-white shadow-sm sm:rounded-lg']) }}>
+<div {{ $attributes->merge(['class' => 'overflow-hidden border-y border-line bg-white sm:rounded-lg sm:border']) }}>
     @if ($title)
         <div class="border-b border-gray-200 px-4 py-4 sm:px-6">
             <h2 class="text-base font-semibold text-gray-900">{{ $title }}</h2>

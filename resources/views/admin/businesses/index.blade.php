@@ -23,7 +23,7 @@
         <x-flash />
         <x-input-error :messages="$errors->get('status')" class="mb-4" />
 
-        <form method="GET" class="mb-4 flex flex-wrap gap-3">
+        <x-filter-bar submit="Filter" :active="($filters['q'] ?? '') !== '' || ($filters['status'] ?? '') !== ''" clear="{{ route('admin.businesses.index') }}" class="mb-4">
             <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search by name"
                    class="w-64 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
             <select name="status" class="rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
@@ -34,10 +34,7 @@
                     </option>
                 @endforeach
             </select>
-            <button class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                Filter
-            </button>
-        </form>
+        </x-filter-bar>
 
         <x-panel>
             <div class="overflow-x-auto">

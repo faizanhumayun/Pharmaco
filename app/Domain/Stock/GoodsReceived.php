@@ -60,6 +60,27 @@ class GoodsReceived
     }
 
     /**
+     * What the stock sold in the period cost — the other side of what was
+     * received. Sales at the till less goods that came back, each at the cost
+     * it was sold at, with loose pieces counted as their share of a pack.
+     */
+    public function soldValue(Business $business, ?Carbon $from): Money
+    {
+        return \App\Models\StockMovement::forBusiness($business)
+            ->whereIn('type', [\App\Enums\StockMovementType::Sale, \App\Enums\StockMovementType::SaleReturn])
+            ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
+            ->with('product:id,units_per_pack')
+            ->get()
+            ->reduce(function (Money $total, $movement) {
+                $per = max(1, (int) ($movement->product?->units_per_pack ?? 1));
+                // Sales are written as packs going out, so they are negative.
+                $packs = -($movement->packs + $movement->loose / $per);
+
+                return $total->plus(($movement->unit_cost ?? Money::zero())->times($packs));
+            }, Money::zero());
+    }
+
+    /**
      * A row per product: what is held now, and what came in this period.
      *
      * Products that have never moved are left out — a catalogue of thousands
@@ -70,6 +91,8 @@ class GoodsReceived
     public function onHand(Business $business, StockLedger $ledger, ?Carbon $from): Collection
     {
         $held = $ledger->onHandByProduct($business);
+        // Pieces left in opened packs, to read beside the whole ones.
+        $loose = $ledger->looseByProduct($business);
 
         if ($held->isEmpty()) {
             return collect();
@@ -84,7 +107,7 @@ class GoodsReceived
             ->keyBy('id');
 
         return $held
-            ->map(function (int $packs, int $productId) use ($products, $received) {
+            ->map(function (int $packs, int $productId) use ($products, $received, $loose) {
                 $product = $products->get($productId);
 
                 if ($product === null) {
@@ -96,6 +119,7 @@ class GoodsReceived
                 return [
                     'product' => $product,
                     'packs' => $packs,
+                    'loose' => (int) ($loose[$productId] ?? 0),
                     'received' => (int) ($received->get($productId)['packs'] ?? 0),
                     // At what a pack costs today, which is a sound enough
                     // estimate to check against the book value and is not a

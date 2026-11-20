@@ -18,6 +18,10 @@
                    class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
                     Open workspace ↗
                 </a>
+                <a href="{{ route('admin.businesses.import.create', $business) }}"
+                   class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                    Import from old POS
+                </a>
                 <a href="{{ route('admin.businesses.edit', $business) }}"
                    class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
                     Edit

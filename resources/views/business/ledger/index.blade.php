@@ -78,29 +78,28 @@
                 @endif
             </p>
 
-            <form method="GET" x-data="{ at: @js($at) }" class="flex flex-wrap items-center gap-2">
-                <label for="at" class="sr-only">As at</label>
-                <select id="at" name="at" x-model="at"
-                        class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            <x-filter-bar submit="Apply" :active="$at !== 'today'" clear="{{ route('businesses.ledger', $business) }}" x-data="{ at: {{ Illuminate\Support\Js::from($at) }} }">
+                <div>
+                    <x-input-label for="at" value="As at" />
+                    <select id="at" name="at" x-model="at"
+                        class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     @foreach ($points as $value => $label)
                         <option value="{{ $value }}" @selected($at === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
+                </div>
 
                 <template x-if="at === 'custom'">
                     <span>
-                        <label for="as_at" class="sr-only">Date</label>
-                        <input id="as_at" name="as_at" type="date" value="{{ $asAt->toDateString() }}"
+                        <div>
+                            <x-input-label for="as_at" value="Date" />
+                            <input id="as_at" name="as_at" type="date" value="{{ $asAt->toDateString() }}"
                                min="{{ $business->opening_date?->toDateString() }}" max="{{ $business->today()->toDateString() }}"
-                               class="rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                               class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        </div>
                     </span>
                 </template>
-
-                <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Apply</button>
-                @if ($at !== 'today')
-                    <a href="{{ route('businesses.ledger', $business) }}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
-                @endif
-            </form>
+            </x-filter-bar>
         </div>
 
         <dl class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">

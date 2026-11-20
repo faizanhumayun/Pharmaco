@@ -1,6 +1,33 @@
+/* Every colour, font, corner and gap comes from pharmaco/tokens.css — the one
+   place to change the look of the whole product. The two files after it are
+   page layout only (landing and sign-in) and take their colours from it. */
+@import './pharmaco/tokens.css';
+@import './pharmaco/landing.css';
+@import './pharmaco/login.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Alpine: hide elements until Alpine has initialised, so modals do not flash. */
 [x-cloak] { display: none !important; }
+
+@layer base {
+    /* Page and section titles in the display face, like a printed statement. */
+    h1, h2 { font-family: var(--font-display); }
+
+    /* Figures line up in columns wherever the mono is used. */
+    .font-mono { font-variant-numeric: tabular-nums; }
+}
+
+/*
+ * The landing page uses the whole browser width, as the rest of the product
+ * does. The design system's own file caps it at 1200px; this is the one place
+ * the page departs from it, kept here so that file can be replaced untouched.
+ */
+.pharmaco .ph-wrap { max-width: none; }
+@media (min-width: 1024px) { .pharmaco .ph-wrap { padding-left: 32px; padding-right: 32px; } }
+/* At full width the six shared facts would wrap four and two; keep them three and three. */
+@media (min-width: 1024px) { .pharmaco .ph-shared__grid div { flex-basis: 30%; } }
+/* The headline block runs the full width too, rather than stopping part-way across. */
+.pharmaco .ph-hero-text, .pharmaco .ph-lede { max-width: none; }

@@ -12,6 +12,22 @@
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         <x-flash />
 
+        {{-- Days between two dates; either end may be left open. --}}
+        <x-filter-bar class="mb-4" submit="Show" :active="$from !== null || $to !== null"
+                      :clear="route('businesses.daily.index', $business)">
+            <div>
+                <x-input-label for="from" value="From" />
+                <input id="from" name="from" type="date" value="{{ $from?->toDateString() }}" max="{{ $business->today()->toDateString() }}"
+                       class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            </div>
+            <div>
+                <x-input-label for="to" value="To" />
+                <input id="to" name="to" type="date" value="{{ $to?->toDateString() }}" max="{{ $business->today()->toDateString() }}"
+                       class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            </div>
+            <x-slot name="count">{{ number_format($entries->total()) }} of {{ number_format($total) }} days entered</x-slot>
+        </x-filter-bar>
+
         <x-panel>
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">

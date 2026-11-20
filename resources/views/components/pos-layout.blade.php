@@ -1,7 +1,9 @@
-@props(['business'])
+@props(['business', 'title' => 'Counter', 'mode' => null])
 
 {{--
-    The counter's own screen.
+    The counter's own screen — and, with a mode, any other screen that is
+    stood at and worked through: receiving stock uses it in its own colour
+    (mode="receiving", see tokens.css).
 
     No workspace tabs: at a till the whole screen is the till, and the only way
     out is deliberate. Fills the viewport exactly, so the bill scrolls and the
@@ -14,16 +16,15 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>Counter — {{ $business->name }}</title>
+        <title>{{ $title }} — {{ $business->name }}</title>
 
-        <link rel="preconnect" href="https://fonts.bunny.net">
-        <link href="https://fonts.bunny.net/css?family=figtree:400,500,600,700&display=swap" rel="stylesheet" />
+        @include('partials.pharmaco-fonts')
 
         @vite(['resources/css/app.css', 'resources/js/app.js'])
 
         @stack('head')
     </head>
-    <body class="h-full bg-slate-100 font-sans antialiased">
+    <body class="side-{{ $business->business_type->value }} accent-{{ $business->accentColour()->value }} {{ $mode ? 'mode-'.$mode : '' }} h-full bg-app font-sans antialiased">
         <div class="flex h-full flex-col overflow-hidden">
             {{ $slot }}
         </div>

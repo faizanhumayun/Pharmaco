@@ -81,11 +81,19 @@
         </div>
     </header>
 
-    @if (session('status'))
-        <div class="bg-emerald-600 px-4 py-2 text-center text-sm font-medium text-white print:hidden sm:px-6">{{ session('status') }}</div>
-    @endif
+    <x-flash />
 
     @include('business.pos.partials.print-portal')
+
+    {{-- Opened from the bill history to print again: print as soon as the
+         slip is on the page, rather than making the counter click twice. --}}
+    @if (request()->boolean('print'))
+        @push('scripts')
+            <script>
+                window.addEventListener('load', function () { window.printSlip(); });
+            </script>
+        @endpush
+    @endif
 
     <div class="flex-1 overflow-y-auto p-6 print:overflow-visible print:p-0">
         <div class="print-area">

@@ -32,7 +32,7 @@ class RecordDirectDelivery
     /**
      * @param  array<string, mixed>  $data  company_id, invoice_no, paid, notes
      *                                      and lines[] of company_product_id,
-     *                                      packs, rate, note
+     *                                      packs, rate, expires_on, note
      */
     public function handle(Business $business, array $data, User $by, ?Carbon $date = null): Order
     {

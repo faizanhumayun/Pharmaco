@@ -1,0 +1,62 @@
+/* Pharmaco landing page layout. Needs tokens.css loaded first. */
+.pharmaco p, .pharmaco h1, .pharmaco h2, .pharmaco h3 { margin: 0; }
+.pharmaco a { color: var(--ink); }
+.text-mono { font-family: var(--font-mono); font-weight: 500; }
+.text-label { color: var(--muted); }
+.is-alert, .text-label.is-alert { color: var(--alert); }
+
+.ph-wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; box-sizing: border-box; }
+.ph-main { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.ph-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.ph-section--loose { gap: var(--space-3); }
+.ph-rows { display: flex; flex-direction: column; gap: var(--space-4); }
+
+/* Header and footer */
+.ph-header { border-bottom: 1px solid var(--line); }
+.ph-header__inner { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 32px; padding-top: 16px; padding-bottom: 16px; }
+.ph-wordmark { font-family: var(--font-display); font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.01em; text-decoration: none; }
+.ph-wordmark--small { font-size: 22px; line-height: 28px; }
+.ph-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 32px; }
+.ph-nav a:not(.ph-button) { display: inline-flex; align-items: center; min-height: 44px; font-size: 14px; line-height: 20px; font-weight: 500; text-decoration: none; }
+.ph-nav a:not(.ph-button):hover { color: var(--muted); }
+.ph-nav .ph-button { color: var(--paper); }
+.ph-footer { border-top: 1px solid var(--line); }
+.ph-footer__inner { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 32px; padding-top: 24px; padding-bottom: 32px; }
+.ph-footer .text-small { color: var(--muted); }
+
+/* Hero */
+.ph-hero-text { display: flex; flex-direction: column; gap: var(--space-2); max-width: 880px; }
+.ph-hero-title { font-family: var(--font-display); font-size: clamp(2.5rem, 5vw, 4rem); line-height: 1.06; font-weight: 600; letter-spacing: -0.02em; }
+.ph-lede { max-width: 680px; color: var(--muted); }
+.ph-column .ph-button--pharmacy, .ph-column .ph-button--distributor { color: var(--surface); }
+
+/* Sample cards in the hero */
+.ph-vignette { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); padding: 16px 20px; margin-top: 8px; font-size: 14px; line-height: 20px; }
+.ph-vignette__head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding-bottom: 10px; font-weight: 500; }
+.ph-vignette__head .text-label { color: var(--muted); }
+.ph-vignette__row { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+.ph-vignette__row span:first-child { color: var(--muted); }
+.ph-vignette__foot { padding-top: 10px; border-top: 1px solid var(--line); }
+.ph-column--pharmacy .ph-vignette__foot { color: var(--pharmacy); }
+
+/* The four things strip */
+.ph-four { display: flex; flex-wrap: wrap; border-top: 1px solid var(--ink); border-bottom: 1px solid var(--line); }
+.ph-four div { flex: 1 1 200px; min-width: 0; padding: 16px 16px 16px 0; font-family: var(--font-display); font-size: 22px; line-height: 28px; font-weight: 600; }
+
+/* Feature rows */
+.ph-row-head { display: flex; align-items: baseline; gap: var(--space-2); border-top: 1px solid var(--line); padding-top: var(--space-2); }
+.ph-row-title { font-family: var(--font-display); font-size: 28px; line-height: 34px; font-weight: 600; letter-spacing: -0.01em; }
+.ph-list { list-style: none; margin: 0; padding: 0; }
+.ph-list li { padding: 12px 0; border-top: 1px solid rgb(var(--ink-rgb) / 0.14); }
+.ph-chip { align-self: flex-start; font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid currentColor; border-radius: var(--radius-sm); padding: 4px 8px; }
+.ph-column--pharmacy .ph-chip { color: var(--pharmacy); }
+.ph-column--distributor .ph-chip { color: var(--distributor); }
+
+/* What both sides share */
+.ph-shared { background: var(--ink); color: var(--paper); padding: var(--space-4) 0; }
+.ph-shared .ph-wrap { display: flex; flex-direction: column; gap: var(--space-2); }
+.ph-shared .text-label { color: var(--paper); }
+.ph-shared__grid { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-top: var(--space-2); }
+.ph-shared__grid div { flex: 1 1 300px; min-width: 0; border-top: 1px solid rgb(var(--paper-rgb) / 0.3); padding-top: var(--space-2); display: flex; flex-direction: column; gap: var(--space-1); }
+
+.ph-demo { padding-top: var(--space-4); padding-bottom: var(--space-4); }

@@ -71,7 +71,7 @@
                 <tr class="border-b border-gray-200 align-top">
                     <td class="px-2 py-2 text-center tabular-nums text-gray-500">{{ $loop->iteration }}</td>
                     <td class="px-2 py-2">{{ $line->name }}</td>
-                    <td class="px-2 py-2 text-center tabular-nums">{{ $line->quantity }}</td>
+                    <td class="px-2 py-2 text-center tabular-nums">{{ $line->quantityLabel() }}</td>
                     <td class="px-2 py-2 text-right tabular-nums">{{ $rs($line->unit_price) }}</td>
                     <td class="px-2 py-2 text-right tabular-nums">{{ $rs($line->line_total) }}</td>
                 </tr>
@@ -80,30 +80,38 @@
     </table>
 
     <div class="mt-5 flex items-start justify-between gap-8">
-        <p class="max-w-xs text-xs leading-relaxed text-gray-500">
-            {{ $bill->lines->count() }} {{ Str::plural('item', $bill->lines->count()) }},
-            {{ $bill->lines->sum('quantity') }} {{ $business->unit()->many() }} in total.
-            Goods once sold are checked at the counter. Please quote the invoice
-            number on payment.
-        </p>
+        <div class="max-w-sm text-xs leading-relaxed text-gray-500">
+            <p>{{ $bill->lines->count() }} {{ Str::plural('item', $bill->lines->count()) }} on this bill.</p>
+            {{-- The business's own words, from Settings — the same foot as the
+                 till slip — or the usual line when it has written none. Cut
+                 down to line breaks, bullets, bold, italic and underline
+                 (App\Support\SlipText). --}}
+            <div class="mt-1 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">{!! $business->receiptFooter('Goods once sold are checked at the counter. Please quote the invoice number on payment.') !!}</div>
+        </div>
 
+        {{-- The money, top to bottom the way it is worked out — the same
+             lines as the till slip. --}}
+        @php($billTotal = $bill->total->plus($bill->discount))
         <dl class="w-72 shrink-0 text-sm">
             <div class="flex justify-between py-1">
-                <dt class="text-gray-600">Subtotal</dt>
-                <dd class="tabular-nums">{{ $rs($bill->total->plus($bill->discount)) }}</dd>
+                <dt class="text-gray-600">Bill total</dt>
+                <dd class="tabular-nums">{{ $rs($billTotal) }}</dd>
             </div>
             @unless ($bill->discount->isZero())
                 <div class="flex justify-between py-1">
-                    <dt class="text-gray-600">Discount</dt>
+                    {{-- The percentage is said only where it is a round one. --}}
+                    @php($pct = $billTotal->isPositive() ? round((float) $bill->discount->toDecimal() / (float) $billTotal->toDecimal() * 100, 2) : 0)
+                    <dt class="text-gray-600">Discount{{ abs($pct - round($pct, 1)) < 0.006 ? ' (' . rtrim(rtrim(number_format($pct, 1), '0'), '.') . '%)' : '' }}</dt>
                     <dd class="tabular-nums">− {{ $rs($bill->discount) }}</dd>
                 </div>
             @endunless
             <div class="mt-1 flex justify-between border-y-2 border-gray-900 py-2 text-lg font-bold">
-                <dt>Total</dt>
+                <dt>{{ $bill->discount->isZero() ? 'Total' : 'To pay' }}</dt>
                 <dd class="tabular-nums">Rs. {{ $rs($bill->total) }}</dd>
             </div>
             <div class="flex justify-between py-1">
-                <dt class="text-gray-600">Received</dt>
+                {{-- Says how it was paid. --}}
+                <dt class="text-gray-600">Received{{ $bill->received->isPositive() ? ' · ' . ($bill->paymentMethod?->label() ?? 'Cash') : '' }}</dt>
                 <dd class="tabular-nums">{{ $rs($bill->received) }}</dd>
             </div>
             @unless ($bill->change()->isZero())

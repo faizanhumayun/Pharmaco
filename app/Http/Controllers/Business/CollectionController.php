@@ -101,6 +101,7 @@ class CollectionController extends Controller
             'amount' => ['required', 'string'],
             'pos_bill_id' => ['nullable', 'integer'],
             'note' => ['nullable', 'string', 'max:255'],
+            'via' => ['nullable', 'integer'],
         ]);
 
         $pharmacy = Pharmacy::forBusiness($business)->findOrFail($data['pharmacy_id']);
@@ -116,6 +117,9 @@ class CollectionController extends Controller
                 $request->user(),
                 against: $bill,
                 note: $data['note'] ?? null,
+                via: ! empty($data['via'])
+                    ? \App\Models\BusinessPaymentMethod::forBusiness($business)->active()->find((int) $data['via'])
+                    : null,
             );
         } catch (LedgerException $e) {
             throw ValidationException::withMessages(['amount' => $e->getMessage()]);

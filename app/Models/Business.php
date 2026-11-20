@@ -21,7 +21,7 @@ class Business extends Model
 
     protected $fillable = [
         'name', 'slug', 'business_type', 'status', 'currency', 'timezone', 'stock_unit',
-        'receipt_format',
+        'receipt_format', 'accent', 'receipt_footer', 'pos_net_bill', 'pos_print', 'pos_balance', 'expiry_alert_months',
         'address', 'phone', 'email', 'ntn', 'notes', 'created_by',
     ];
 
@@ -36,6 +36,10 @@ class Business extends Model
             'business_type' => BusinessType::class,
             'stock_unit' => StockUnit::class,
             'receipt_format' => \App\Enums\ReceiptFormat::class,
+            'accent' => \App\Enums\AccentColour::class,
+            'pos_net_bill' => 'boolean',
+            'pos_print' => 'boolean',
+            'pos_balance' => 'boolean',
             'status' => BusinessStatus::class,
             'opening_date' => 'date',
             'locked_through_date' => 'date',
@@ -186,9 +190,93 @@ class Business extends Model
      * How this business counts stock — packs, or the loose items inside them.
      * Screens ask here rather than saying "packs" and hoping.
      */
+    /**
+     * Its stock counts.
+     *
+     * Needed by the scoped route binding as much as by anything reading them:
+     * without it a count could be reached through another business's URL, which
+     * is exactly what the scoping is there to prevent.
+     */
+    public function stockCounts(): HasMany
+    {
+        return $this->hasMany(StockCount::class);
+    }
+
+    /**
+     * How this business counts one of something.
+     *
+     * Not a setting: a distributor moves whole packs and cartons, and a
+     * pharmacy breaks them open and sells singles. It follows from the kind of
+     * business, so there is nothing to choose and nothing to get wrong.
+     */
     public function unit(): StockUnit
     {
-        return $this->stock_unit ?? StockUnit::defaultFor($this->business_type);
+        return StockUnit::defaultFor($this->business_type);
+    }
+
+    /**
+     * Whether this business sells at the price printed on the pack.
+     *
+     * A pharmacy does: the patient pays the MRP, and anything less is a
+     * discount given at the counter. So a pharmacy keeps no selling price of
+     * its own — its products have an MRP and a purchase rate, and that is all.
+     *
+     * A distributor does not: it sells to pharmacies at a trade price below
+     * the MRP, and needs both figures on every product.
+     */
+    public function sellsAtMrp(): bool
+    {
+        return $this->business_type === BusinessType::Pharmacy;
+    }
+
+    /**
+     * Whether this business opens packs and sells what is inside.
+     *
+     * A pharmacy does: five tablets out of a strip of ten, and the other five
+     * stay on the shelf as loose stock. A distributor never does — it sells
+     * the strip, the box, the carton, whole.
+     */
+    public function sellsLoose(): bool
+    {
+        return $this->business_type === BusinessType::Pharmacy;
+    }
+
+    /**
+     * How far ahead expiring stock is flagged, in months.
+     *
+     * Null when the business has asked not to be warned at all, which is a
+     * different answer from zero.
+     */
+    public function expiryAlertMonths(): ?int
+    {
+        return $this->expiry_alert_months === null ? null : (int) $this->expiry_alert_months;
+    }
+
+    /** The date beyond which a batch is not yet worth flagging. */
+    public function expiryHorizon(): ?\Illuminate\Support\Carbon
+    {
+        $months = $this->expiryAlertMonths();
+
+        return $months === null ? null : $this->today()->copy()->addMonths($months)->endOfDay();
+    }
+
+    /** The colour of this business's screens — its own choice, or the usual one. */
+    public function accentColour(): \App\Enums\AccentColour
+    {
+        return $this->accent ?? \App\Enums\AccentColour::defaultFor($this->business_type);
+    }
+
+    /** The line a till slip ends on when the business has not written its own. */
+    public const DEFAULT_RECEIPT_FOOTER = 'Thank you — get well soon.';
+
+    /**
+     * What a till slip ends on, as HTML: the business's own lines, or the
+     * usual one. Cleaned again on the way out, so nothing but the editor's
+     * own few tags can reach a bill whatever is in the column.
+     */
+    public function receiptFooter(?string $usual = null): string
+    {
+        return \App\Support\SlipText::clean($this->receipt_footer) ?? e($usual ?? self::DEFAULT_RECEIPT_FOOTER);
     }
 
     /** What a bill prints on here — the choice made, or the usual one. */

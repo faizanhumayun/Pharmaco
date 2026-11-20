@@ -86,9 +86,32 @@ class OpeningBalanceController extends Controller
             throw ValidationException::withMessages(['notes' => $e->getMessage()]);
         }
 
+        /*
+         * A business moved in from an old POS has each customer's and
+         * company's balance waiting by name. Now that the books can take
+         * postings, they go onto their own accounts — the totals just
+         * finalised do not change. If it cannot be done, finalising still
+         * stands, and the import's own page offers it again.
+         */
+        $named = '';
+
+        try {
+            $brought = app(\App\Domain\Migration\ImportOldPos::class)->bringOverKept($business->fresh(), $request->user());
+
+            if ($brought['customer_balances'] + $brought['company_balances'] > 0) {
+                $named = sprintf(
+                    ' Balances from the old POS were put on their own accounts: %d customers and %d companies.',
+                    $brought['customer_balances'], $brought['company_balances']
+                );
+            }
+        } catch (\Throwable $e) {
+            report($e);
+            $named = ' Balances from the old POS could not be brought over automatically — use the button on the import\'s page.';
+        }
+
         return redirect()
             ->route('admin.businesses.opening.show', $business)
-            ->with('status', 'Opening balance finalized. This business can now record activity.');
+            ->with('status', 'Opening balance finalized. This business can now record activity.'.$named);
     }
 
     public function show(Business $business): View

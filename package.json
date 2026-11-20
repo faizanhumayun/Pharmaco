@@ -19,6 +19,7 @@
         "vite": "^7.0.7"
     },
     "dependencies": {
-        "html2canvas": "^1.4.1"
+        "html2canvas": "^1.4.1",
+        "vanilla-calendar-pro": "^3.4.0"
     }
 }

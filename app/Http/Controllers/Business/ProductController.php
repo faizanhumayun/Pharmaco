@@ -69,6 +69,7 @@ class ProductController extends Controller
             'total' => CompanyProduct::forBusiness($business)->count(),
             // One query for the page, rather than one per row.
             'onHand' => $onHand,
+            'looseOnHand' => $stock->looseByProduct($business),
             'belowZero' => $belowZero,
         ]);
     }
@@ -79,16 +80,148 @@ class ProductController extends Controller
 
         return view('business.products.show', [
             'business' => $business,
-            'product' => $product->load('company', 'lastImport.uploader'),
+            'product' => $product->load('company.account', 'lastImport.uploader'),
 
             // Held now, and every movement that made it so.
             'onHand' => $stock->onHand($business, $product),
-            'movements' => $stock->history($business, $product),
+            // Everyone it has come from, cheapest first.
+            'suppliers' => $this->suppliersOf($business, $product),
+            // Pieces left in an opened pack, for products sold loose.
+            'looseOnHand' => $stock->looseOnHand($business, $product),
+            // Every change made to the product by hand, newest first.
+            'changes' => \Spatie\Activitylog\Models\Activity::query()
+                ->where('subject_type', $product->getMorphClass())
+                ->where('subject_id', $product->id)
+                ->where('event', 'product.updated')
+                ->with('causer')
+                ->latest('id')
+                ->limit(50)
+                ->get(),
+            // Newest first; each row carries the count as it stood after it.
+            'movements' => $stock->history($business, $product)->reverse()->values(),
             // The record of what this product has cost, newest first. Each row
             // is an import that moved a figure; the gaps are the lists that
             // repeated what was already on file.
             'history' => $product->prices()->with('import')->get(),
         ]);
+    }
+
+    /**
+     * Everyone this product has come from.
+     *
+     * A product sits in one company's catalogue, but the goods themselves can
+     * arrive from anyone: the same medicine is bought wherever it is in stock
+     * or cheapest that week. So the list is read from the deliveries — each
+     * company that has delivered it, with what they last charged — and the
+     * catalogue company is on it whether or not it has delivered yet.
+     *
+     * Cheapest first, so the best rate is the first thing read.
+     *
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function suppliersOf(Business $business, CompanyProduct $product): \Illuminate\Support\Collection
+    {
+        $seesAccounts = request()->user()->can('configure', $business);
+        $balances = app(\App\Domain\Ledger\BalanceService::class);
+
+        $deliveries = \App\Models\StockMovement::forBusiness($business)
+            ->where('company_product_id', $product->id)
+            ->where('type', StockMovementType::Delivery)
+            ->where('source_type', (new \App\Models\Order)->getMorphClass())
+            ->with('source.company.account')
+            ->orderBy('business_date')
+            ->orderBy('id')
+            ->get()
+            ->filter(fn ($movement) => $movement->source?->company !== null)
+            ->groupBy(fn ($movement) => $movement->source->company_id);
+
+        $row = function (\App\Models\Company $company, $movements) use ($product, $business, $seesAccounts, $balances) {
+            $last = $movements->last();
+
+            return [
+                'company' => $company,
+                'catalogue' => $company->id === $product->company_id,
+                'deliveries' => $movements->count(),
+                'received' => (int) $movements->sum('packs'),
+                'last_on' => $last?->business_date,
+                'rate' => $last?->unit_cost,
+                'link' => $seesAccounts,
+                'owed' => $seesAccounts && $company->account !== null
+                    ? $balances->directBalance($business, $company->account->code)
+                    : null,
+            ];
+        };
+
+        $rows = $deliveries->map(fn ($movements) => $row($movements->first()->source->company, $movements));
+
+        if ($product->company !== null && ! $rows->has($product->company_id)) {
+            $rows->put($product->company_id, $row($product->company, collect()));
+        }
+
+        $rows = $rows->sortBy(fn ($r) => $r['rate'] === null ? PHP_FLOAT_MAX : (float) $r['rate']->toDecimal())->values();
+        $best = $rows->first(fn ($r) => $r['rate'] !== null);
+
+        return $rows->map(fn ($r) => [...$r, 'best' => $best !== null && $rows->where('rate', '!==', null)->count() > 1 && $r['company']->id === $best['company']->id]);
+    }
+
+    public function edit(Business $business, CompanyProduct $product): View
+    {
+        $this->authorize('editProducts', $business);
+
+        return view('business.products.edit', [
+            'business' => $business,
+            'product' => $product->load('company'),
+            'forms' => \App\Enums\DosageForm::cases(),
+            'packTypes' => \App\Enums\PackType::cases(),
+        ]);
+    }
+
+    public function update(
+        Request $request,
+        Business $business,
+        CompanyProduct $product,
+        \App\Domain\Products\Actions\UpdateProduct $action,
+    ): RedirectResponse {
+        $this->authorize('editProducts', $business);
+
+        $money = ['nullable', 'string', 'regex:/^[\d,]*\.?\d{0,2}$/'];
+
+        $data = $request->validate([
+            'brand_name' => ['required', 'string', 'max:200'],
+            'generic_name' => ['nullable', 'string', 'max:255'],
+            'code' => ['nullable', 'string', 'max:60'],
+            'strength' => ['nullable', 'string', 'max:80'],
+            'dosage_form' => ['nullable', 'string', 'max:40'],
+            'pack_size' => ['nullable', 'string', 'max:60'],
+            'pack_type' => ['nullable', 'string', 'max:40'],
+            'mrp' => $money,
+            'trade_price' => $money,
+            'purchase_rate' => $money,
+            'case_size' => ['nullable', 'integer', 'min:1', 'max:100000'],
+            'reorder_level' => ['nullable', 'integer', 'min:0', 'max:10000000'],
+            'units_per_pack' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'is_active' => ['nullable', 'boolean'],
+        ]);
+
+        // A pharmacy has no trade price to set; whatever the form sent for
+        // it is ignored rather than trusted.
+        if ($business->sellsAtMrp()) {
+            unset($data['trade_price']);
+        }
+
+        $data['is_active'] = $request->boolean('is_active');
+        $data['reorder_level'] = (int) ($data['reorder_level'] ?? 0);
+        $data['units_per_pack'] = (int) ($data['units_per_pack'] ?? 1) ?: 1;
+
+        try {
+            $action->handle($product, $data, $request->user());
+        } catch (\App\Exceptions\LedgerException $e) {
+            return back()->withInput()->withErrors(['brand_name' => $e->getMessage()]);
+        }
+
+        return redirect()
+            ->route('businesses.products.show', [$business, $product])
+            ->with('status', 'Product saved. What changed is listed under "Changes made by hand".');
     }
 
     /**
@@ -114,6 +247,7 @@ class ProductController extends Controller
         ]);
 
         try {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($movements, $business, $product, $validated, $request) {
             $movements->adjust(
                 $business,
                 $product,
@@ -122,6 +256,10 @@ class ProductController extends Controller
                 $validated['note'] ?? null,
                 $request->user(),
             );
+
+            // Stock cannot go below zero: you cannot take out more than is there.
+            app(StockLedger::class)->assertNotNegative($business, [$product->id]);
+            });
         } catch (RuntimeException $e) {
             return back()->withErrors(['packs' => $e->getMessage()]);
         }

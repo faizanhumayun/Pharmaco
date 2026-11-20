@@ -17,6 +17,7 @@ it('renders every business screen', function () {
 
     foreach ([
         route('businesses.show', $business),
+        route('businesses.attention', $business),
         route('businesses.daily.index', $business),
         route('businesses.daily.show', [$business, $entry]),
         route('businesses.closing.index', $business),
@@ -52,6 +53,7 @@ it('keeps every business screen out of reach of an outsider', function () {
 
     foreach ([
         route('businesses.show', $business),
+        route('businesses.attention', $business),
         route('businesses.daily.index', $business),
         route('businesses.closing.index', $business),
         route('businesses.stock.index', $business),

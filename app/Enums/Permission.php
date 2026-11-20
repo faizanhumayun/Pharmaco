@@ -48,6 +48,8 @@ enum Permission: string
     // Company catalogue and price-list imports
     case ProductView = 'product.view';
     case ProductImport = 'product.import';
+    // Changing a product by hand: its name, prices, reorder level, pack contents.
+    case ProductEdit = 'product.edit';
 
     // Order forms sent to companies
     case OrderView = 'order.view';
@@ -56,6 +58,10 @@ enum Permission: string
 
     // Selling at the counter (Phase 11)
     case PosSell = 'pos.sell';
+    // Taking goods back against a bill: stock comes in, money or credit goes out.
+    case PosReturn = 'pos.return';
+    // Correcting a bill after it was saved. Every edit is kept as a revision.
+    case PosEditBill = 'pos.edit_bill';
 
     // Reporting
     case ReportView = 'report.view';
@@ -88,7 +94,7 @@ enum Permission: string
             self::ExpenseCreate,
             self::ProductView,
             self::OrderView, self::OrderCreate, self::OrderSend,
-            self::PosSell,
+            self::PosSell, self::PosReturn,
             self::ReportView,
         ];
 
@@ -99,7 +105,8 @@ enum Permission: string
             self::ClosingFinalize, self::ClosingReopen,
             self::TransactionAdjust, self::TransactionReverse,
             self::StockVerify,
-            self::ProductImport,
+            self::ProductImport, self::ProductEdit,
+            self::PosEditBill,
             self::OwnerEquityRecord, self::BadDebtWriteOff,
             self::ReportViewPosition, self::ReportExport,
             self::AuditView,

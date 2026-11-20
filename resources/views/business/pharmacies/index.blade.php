@@ -32,15 +32,13 @@
                 @endunless
             </p>
 
-            <form method="GET" class="flex flex-wrap items-center gap-2">
-                <label for="q" class="sr-only">Search</label>
-                <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search name, area or phone"
-                       class="w-56 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                <button class="rounded-md bg-gray-900 px-3 py-1.5 text-sm font-semibold text-white hover:bg-gray-800">Search</button>
-                @if ($search !== '')
-                    <a href="{{ route('businesses.pharmacies.index', $business) }}" class="text-sm text-gray-500 hover:text-gray-800">Clear</a>
-                @endif
-            </form>
+            <x-filter-bar submit="Search" :active="$search !== ''" clear="{{ route('businesses.pharmacies.index', $business) }}">
+                <div>
+                    <x-input-label for="q" value="Search" />
+                    <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search name, area or phone"
+                       class="mt-1 block w-56 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                </div>
+            </x-filter-bar>
         </div>
 
         <div class="grid gap-6">

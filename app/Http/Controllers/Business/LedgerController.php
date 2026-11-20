@@ -137,6 +137,11 @@ class LedgerController extends Controller
             return ['entry' => $entry, 'running' => $running];
         });
 
+        // Newest first on the screen. The running balance was worked out oldest
+        // first, as it has to be, so each row still shows the balance as it
+        // stood after that entry.
+        $rows = $rows->reverse()->values();
+
         return view('business.ledger.show', [
             'business' => $business,
             'account' => $account,

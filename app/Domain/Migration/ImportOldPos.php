@@ -30,6 +30,11 @@ use Illuminate\Support\Facades\DB;
  * the ledger poster — and the whole of it in one transaction, so a file that
  * fails half way leaves nothing behind.
  *
+ * Balances are optional, and chosen separately for customers and for
+ * companies: an old system's running balances are often stale, so the names
+ * can come across without them. A balance that is not chosen is not posted,
+ * not kept for later and not written into the opening balance draft.
+ *
  * Balances are not new money. The business's opening position already states,
  * or will state, what the market owes and what is owed to companies in total;
  * what the old system adds is who. So each balance is moved from the control
@@ -48,7 +53,7 @@ class ImportOldPos
 
     /**
      * @param  array<string, mixed>  $plan  from {@see OldPosPlan::build()}, built just now — never one kept from an earlier page
-     * @param  array{companies: bool, customers: bool, products: bool, stock: bool, balances: bool}  $take
+     * @param  array{companies: bool, customers: bool, products: bool, stock: bool, customer_balances: bool, company_balances: bool}  $take
      * @return array<string, int|string>
      */
     public function handle(Business $business, array $plan, array $take, User $by, string $fileName): array
@@ -126,7 +131,7 @@ class ImportOldPos
                 }
             }
 
-            if ($take['balances'] && $business->acceptsTransactions()) {
+            if ($take['customer_balances'] && $business->acceptsTransactions()) {
                 [$done['customer_balances'], $done['owed_by_customers']] = $this->allocate(
                     $business, $by, AccountCode::MarketReceivables,
                     Pharmacy::forBusiness($business)->with('account')->get()->keyBy(fn ($c) => mb_strtolower($c->name)),
@@ -134,7 +139,9 @@ class ImportOldPos
                     'Balances brought over from the old POS — what each customer owed',
                     $fileName,
                 );
+            }
 
+            if ($take['company_balances'] && $business->acceptsTransactions()) {
                 [$done['company_balances'], $done['owed_to_companies']] = $this->allocate(
                     $business, $by, AccountCode::CompanyPayables,
                     Company::forBusiness($business)->with('account')->get()->keyBy(fn ($c) => mb_strtolower($c->name)),
@@ -177,6 +184,11 @@ class ImportOldPos
             return false;
         }
 
+        // Names only: nothing from the file belongs in the opening balance.
+        if (! $take['stock'] && ! $take['customer_balances'] && ! $take['company_balances']) {
+            return false;
+        }
+
         // The draft as it stands, so nothing already entered is lost.
         $data = ['opening_date' => $opening?->opening_date?->toDateString() ?? $business->today()->toDateString()];
 
@@ -190,10 +202,21 @@ class ImportOldPos
             $data[AccountCode::Stock->value] = $t['stock_value'];
         }
 
-        $data[AccountCode::MarketReceivables->value] = $t['owed_by_customers'];
-        $data[AccountCode::CompanyPayables->value] = $t['owed_to_companies'];
+        $filled = $take['stock'] ? ['stock'] : [];
 
-        $note = 'Stock, market receivables and company payables were filled in from the old POS file '
+        // Only what was asked for. Balances left behind as old data leave
+        // these two figures for the App Owner to enter from statements.
+        if ($take['customer_balances']) {
+            $data[AccountCode::MarketReceivables->value] = $t['owed_by_customers'];
+            $filled[] = 'market receivables';
+        }
+
+        if ($take['company_balances']) {
+            $data[AccountCode::CompanyPayables->value] = $t['owed_to_companies'];
+            $filled[] = 'company payables';
+        }
+
+        $note = ucfirst(\Illuminate\Support\Arr::join($filled, ', ', ' and ')).' '.(count($filled) === 1 ? 'was' : 'were').' filled in from the old POS file '
             .$fileName.' on '.$business->today()->format('j M Y').'. Check each against statements before finalising.';
         $data['notes'] = trim(($opening?->notes ? $opening->notes."\n" : '').$note);
 
@@ -208,17 +231,23 @@ class ImportOldPos
      * they can be brought over once its opening balance is finalised without
      * uploading the file again.
      *
+     * Only the lists that were chosen are kept; the other comes back empty.
+     *
      * @param  array<string, mixed>  $plan
+     * @param  array<string, bool>  $take
      * @return array{customers: list<array{name: string, balance: string}>, companies: list<array{name: string, balance: string}>}
      */
-    public function balancesFrom(array $plan): array
+    public function balancesFrom(array $plan, array $take): array
     {
         $keep = fn (array $rows) => array_values(array_map(
             fn ($r) => ['name' => $r['name'], 'balance' => $r['balance']],
             array_filter($rows, fn ($r) => Money::of($r['balance'])->isPositive())
         ));
 
-        return ['customers' => $keep($plan['customers']), 'companies' => $keep($plan['companies'])];
+        return [
+            'customers' => $take['customer_balances'] ? $keep($plan['customers']) : [],
+            'companies' => $take['company_balances'] ? $keep($plan['companies']) : [],
+        ];
     }
 
     /**

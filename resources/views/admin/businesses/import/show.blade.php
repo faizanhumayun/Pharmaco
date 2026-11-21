@@ -42,17 +42,19 @@
             @csrf
             <x-panel title="This is going to be imported"
                      description="Untick anything you do not want. Rows already in the business are never changed or added twice.">
-                <div class="grid gap-px bg-gray-100 sm:grid-cols-2 xl:grid-cols-5">
+                @php($later = $plan['balances_possible'] ? '' : ' Kept until the opening balance is finalised.')
+                <div class="grid gap-px bg-gray-100 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
                     @foreach ([
                         ['companies', 'Companies', number_format($t['companies_new']).' new', $t['companies_exist'] ? number_format($t['companies_exist']).' already here' : 'Each gets its own account', true],
                         ['customers', 'Customers', number_format($t['customers_new']).' new', $t['customers_exist'] ? number_format($t['customers_exist']).' already here' : 'Each gets its own account', true],
                         ['products', 'Products', number_format($t['products_new']).' new', trim(($t['products_exist'] ? number_format($t['products_exist']).' already here' : '').($t['products_skipped'] ? ' · '.number_format($t['products_skipped']).' left out' : ''), ' ·') ?: ($trade ? 'Trade price and MRP' : 'MRP only — a pharmacy has no trade price'), true],
                         ['stock', 'Stock', number_format($t['stock_packs']).' in '.number_format($t['stock_lines']).' products', 'Worth Rs. '.$rs($t['stock_value']).' at cost, with expiry and batch', true],
-                        ['balances', 'Balances', number_format($t['customer_balances'] + $t['company_balances']).' accounts', 'Customers owe Rs. '.$rs($t['owed_by_customers']).' · companies are owed Rs. '.$rs($t['owed_to_companies']), $plan['balances_possible']],
+                        ['customer_balances', 'What customers owe', 'Rs. '.$rs($t['owed_by_customers']), number_format($t['customer_balances']).' customers with a balance. Leave unticked to bring the names only.'.$later, true],
+                        ['company_balances', 'What companies are owed', 'Rs. '.$rs($t['owed_to_companies']), number_format($t['company_balances']).' companies with a balance. Leave unticked to bring the names only.'.$later, true],
                     ] as [$key, $title, $figure, $note, $possible])
                         <label @class(['flex items-start gap-3 bg-white px-4 py-4', 'cursor-pointer' => $possible, 'opacity-60' => ! $possible])>
                             <input type="hidden" name="{{ $key }}" value="0">
-                            <input type="checkbox" name="{{ $key }}" value="1" @checked($possible && $key !== 'balances') @disabled(! $possible)
+                            <input type="checkbox" name="{{ $key }}" value="1" @checked($possible && ! str_ends_with($key, '_balances')) @disabled(! $possible)
                                    @if ($key === 'products') x-model="products" @endif
                                    @if ($key === 'stock') :disabled="! products" @endif
                                    class="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
@@ -66,21 +68,25 @@
                 </div>
 
                 <div class="space-y-2 border-t border-gray-200 px-4 py-3 text-sm sm:px-6">
-                    @unless ($plan['balances_possible'])
-                        <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
-                            <strong>Balances cannot be brought over yet.</strong>
-                            This business has no finalised opening balance, so nothing can be posted to its books.
-                            Import the lists and stock now, finalise the opening balance, then upload the file again for the balances.
+                    <p class="text-gray-600">
+                        <strong class="text-gray-900">Balances are not ticked to begin with, so only the names come across.</strong>
+                        An old system's running balance is often out of date. Tick “What customers owe” or
+                        “What companies are owed” only after checking that total against statements; each can be
+                        taken without the other. Unticked, the balances are left behind: nothing is posted, nothing
+                        is kept for later and the opening balance draft is not filled in with them.
+                    </p>
+                    @if ($plan['balances_possible'])
+                        <p class="text-gray-600">
+                            Ticked, each balance is moved from “Unallocated” onto that customer's or company's own
+                            account; the totals owed, and the net position, stay exactly as they are.
                         </p>
                     @else
-                        <p class="text-gray-600">
-                            <strong class="text-gray-900">Balances are not ticked to begin with.</strong>
-                            Check the two totals above against the customers' and companies' statements first —
-                            an old system's running balance is not always what is really owed. Ticked, each balance
-                            is moved from “Unallocated” onto that customer's or company's own account; the totals
-                            owed, and the net position, stay exactly as they are.
+                        <p class="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                            This business has no finalised opening balance, so nothing can be posted to its books yet.
+                            Balances you tick are kept by name, their totals are put in the opening balance draft, and
+                            they are brought over when the opening balance is finalised.
                         </p>
-                    @endunless
+                    @endif
                     <p class="text-gray-600">
                         Stock comes in as a count only. Its value — Rs. {{ $rs($t['stock_value']) }} at cost — belongs in the opening balance.
                     </p>
@@ -176,7 +182,7 @@
                                     <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums {{ \App\Support\Money::of($row['balance'])->isZero() ? 'text-gray-400' : 'text-gray-900' }}">{{ $rs($row['balance']) }}</td>
                                     <td class="px-3 py-2 text-xs">
                                         @if ($row['balance_importable'])
-                                            <span class="font-medium text-emerald-700">Will be brought over</span>
+                                            <span class="font-medium text-emerald-700">Can be brought over</span>
                                         @elseif ($row['balance_note'])
                                             <span class="text-amber-700">{{ $row['balance_note'] }}</span>
                                         @else

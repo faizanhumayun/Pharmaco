@@ -122,7 +122,19 @@ class OldPosReader
     {
         $process = new Process([$this->binary($tool), ...$arguments]);
         $process->setTimeout(120);
-        $process->run();
+
+        try {
+            $process->run();
+        } catch (\Throwable) {
+            // The server will not start programs at all (proc_open switched off).
+            throw new OldPosException(self::NOT_INSTALLED);
+        }
+
+        // 126 and 127 are the shell saying the program could not be run or
+        // was not found — the tool is missing, not the file unreadable.
+        if (in_array($process->getExitCode(), [126, 127], true)) {
+            throw new OldPosException(self::NOT_INSTALLED);
+        }
 
         if (! $process->isSuccessful()) {
             throw new OldPosException(
@@ -134,18 +146,32 @@ class OldPosReader
         return $process->getOutput();
     }
 
-    /** mdbtools is not always on the web server's own path, so it is looked for. */
+    private const NOT_INSTALLED = 'The tool that reads old POS databases (mdbtools) is not installed on this server. '
+        .'Install it — "brew install mdbtools" on a Mac, "apt install mdbtools" on Linux — and try again. '
+        .'If it is installed somewhere unusual, set MDBTOOLS_PATH to its folder.';
+
+    /**
+     * mdbtools is not always on the web server's own path, so it is looked for.
+     *
+     * A hosting panel may forbid PHP from looking outside the site's own
+     * folder (open_basedir). Looking is then refused with a warning, though
+     * running the program is still allowed — so the check is silenced, and
+     * when no folder could be confirmed the bare name is handed to the system
+     * to find on its own path.
+     */
     private function binary(string $tool): string
     {
         foreach (array_filter([config('services.mdbtools.path'), '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin']) as $dir) {
-            if (is_executable($dir.'/'.$tool)) {
+            if (@is_executable($dir.'/'.$tool)) {
                 return $dir.'/'.$tool;
             }
         }
 
-        throw new OldPosException(
-            'The tool that reads old POS databases (mdbtools) is not installed on this server. '
-            .'Install it — "brew install mdbtools" on a Mac, "apt install mdbtools" on Linux — and try again.'
-        );
+        // An explicit folder is trusted even when it cannot be looked into.
+        if ($dir = config('services.mdbtools.path')) {
+            return rtrim($dir, '/').'/'.$tool;
+        }
+
+        return $tool;
     }
 }

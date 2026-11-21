@@ -35,4 +35,12 @@ return [
         ],
     ],
 
+    /*
+     * mdbtools reads the old POS's .mdb file during an import. Only needed
+     * when it is installed outside the usual folders.
+     */
+    'mdbtools' => [
+        'path' => env('MDBTOOLS_PATH'),
+    ],
+
 ];

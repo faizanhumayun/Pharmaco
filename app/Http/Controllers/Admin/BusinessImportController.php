@@ -209,7 +209,11 @@ class BusinessImportController extends Controller
             'products' => $request->boolean('products'),
             // Stock belongs to the products that come in with it.
             'stock' => $request->boolean('products') && $request->boolean('stock'),
-            'balances' => $request->boolean('balances'),
+            // What each customer owed and what each company was owed, chosen
+            // apart from the names and apart from each other: an old system's
+            // balances are often stale, and the names are still wanted.
+            'customer_balances' => $request->boolean('customer_balances'),
+            'company_balances' => $request->boolean('company_balances'),
         ];
 
         if (! in_array(true, $take, true)) {
@@ -226,10 +230,15 @@ class BusinessImportController extends Controller
             // in from the same file, to be checked and finalised.
             $done['opening_prefilled'] = $action->prefillOpening($business, $plan, $take, $request->user(), $import->original_name);
 
-            // Balances that could not be posted yet are kept by name, so they
-            // can be brought over later without the file.
-            if (! $take['balances'] || ! $business->acceptsTransactions()) {
-                $done['kept_balances'] = $action->balancesFrom($plan);
+            // Balances that were asked for but could not be posted yet are
+            // kept by name, and brought over when the opening balance is
+            // finalised. Balances that were not asked for are not kept at all.
+            if (! $business->acceptsTransactions()) {
+                $kept = $action->balancesFrom($plan, $take);
+
+                if ($kept['customers'] !== [] || $kept['companies'] !== []) {
+                    $done['kept_balances'] = $kept;
+                }
             }
         } catch (OldPosException|LedgerException $e) {
             return back()->withErrors(['status' => $e->getMessage()]);

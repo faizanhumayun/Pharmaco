@@ -134,6 +134,22 @@ class BusinessController extends Controller
             ->with('status', "{$summary['name']} deleted.{$detail}");
     }
 
+    /** Everything recorded in the business goes; the business, its settings and its people stay. */
+    public function clearData(Business $business, DeleteBusiness $action): RedirectResponse
+    {
+        $this->authorize('clearData', $business);
+
+        $summary = $action->clear($business, request()->user());
+
+        return redirect()
+            ->route('admin.businesses.index')
+            ->with('status', sprintf(
+                'All data deleted from %s: %d products, %d transactions, %d days. The business, its settings and its %d %s were kept; it is back in setup.',
+                $summary['name'], $summary['products'], $summary['transactions'], $summary['entries'],
+                $summary['members_kept'], $summary['members_kept'] === 1 ? 'member' : 'members'
+            ));
+    }
+
     /** @return array<string> */
     private function timezones(): array
     {

@@ -73,6 +73,13 @@ class PosController extends Controller
             ->map(fn (CompanyProduct $p) => [
                 'id' => $p->id,
                 'name' => $p->label(),
+                // The list shows the name and, beside it, the type in a chip
+                // of its own. 'name' keeps the type in it: that is what goes
+                // on the bill and what the search reads.
+                'short' => \App\Domain\Products\ProductLabel::make($p->brand_name, $p->strength),
+                'form' => ($form = trim((string) $p->dosage_form)) === ''
+                    ? null
+                    : ($p->dosageForm()?->label() ?? \Illuminate\Support\Str::title(mb_strtolower($form))),
                 'code' => $p->code,
                 'company' => $p->company?->name,
                 // What this business sells at: the MRP for a pharmacy, the
@@ -365,7 +372,8 @@ class PosController extends Controller
 
         return view('business.pos.receipt', [
             'business' => $business,
-            'bill' => $posBill->load(['lines', 'creator']),
+            // The product with each line: the receipt names what a loose piece is.
+            'bill' => $posBill->load(['lines.product', 'creator']),
             'format' => $format,
             'net' => $net,
             'customer' => $customer,

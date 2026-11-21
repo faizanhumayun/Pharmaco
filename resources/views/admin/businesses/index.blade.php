@@ -14,7 +14,10 @@
             open: false,
             target: {},
             typed: '',
-            ask(business) {
+            // 'business' removes the business itself; 'data' empties it and keeps it.
+            mode: 'business',
+            ask(business, mode = 'business') {
+                this.mode = mode;
                 this.target = business;
                 this.typed = '';
                 this.open = true;
@@ -93,6 +96,18 @@
                                                 class="text-sm font-medium text-red-700 hover:text-red-900">
                                             Delete
                                         </button>
+                                        <button type="button"
+                                                @click="ask({{ Js::from([
+                                                    'name' => $business->name,
+                                                    'slug' => $business->slug,
+                                                    'hasHistory' => $business->hasFinancialHistory(),
+                                                    'transactions' => $business->transactions_count,
+                                                    'entries' => $business->entries_count,
+                                                    'closings' => $business->closings_count,
+                                                ]) }}, 'data')"
+                                                class="whitespace-nowrap text-sm font-medium text-red-700 hover:text-red-900">
+                                            Delete data
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -114,16 +129,37 @@
 
             <div class="relative w-full max-w-lg rounded-lg bg-white shadow-xl"
                  role="dialog" aria-modal="true">
-                <form method="POST" :action="`{{ url('admin/businesses') }}/${target.slug}`">
+                <form method="POST" :action="`{{ url('admin/businesses') }}/${target.slug}` + (mode === 'data' ? '/data' : '')">
                     @csrf
                     @method('DELETE')
 
                     <div class="px-6 py-5">
                         <h2 class="text-lg font-semibold text-gray-900">
-                            Delete <span x-text="target.name"></span>?
+                            <span x-text="mode === 'data' ? 'Delete all data in' : 'Delete'"></span> <span x-text="target.name"></span>?
                         </h2>
 
-                        <template x-if="target.hasHistory">
+                        {{-- Emptying a business: what goes and what stays. --}}
+                        <template x-if="mode === 'data'">
+                            <div class="mt-3 space-y-2 text-sm">
+                                <div class="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-red-900">
+                                    <p class="font-semibold">Everything recorded in this business is destroyed.</p>
+                                    <p class="mt-1">
+                                        Products, stock, companies, customers, imports, the opening balance, and
+                                        <strong x-text="target.transactions"></strong> ledger transactions,
+                                        <strong x-text="target.entries"></strong> recorded days and
+                                        <strong x-text="target.closings"></strong> closings.
+                                        Nothing can reconstruct them afterwards.
+                                    </p>
+                                </div>
+                                <p class="text-gray-600">
+                                    <strong class="text-gray-900">Kept:</strong> the business itself, its settings, and its
+                                    members with their roles. It goes back to setup, ready for a new import and a new
+                                    opening balance.
+                                </p>
+                            </div>
+                        </template>
+
+                        <template x-if="mode === 'business' && target.hasHistory">
                             <div class="mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
                                 <p class="font-semibold">This business has financial history.</p>
                                 <p class="mt-1">
@@ -140,7 +176,7 @@
                             </div>
                         </template>
 
-                        <template x-if="! target.hasHistory">
+                        <template x-if="mode === 'business' && ! target.hasHistory">
                             <p class="mt-2 text-sm text-gray-600">
                                 This business has no financial history, so nothing is lost but its setup:
                                 the chart of accounts, expense categories, member access and any draft.
@@ -164,7 +200,7 @@
                                 class="text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
                         <button type="submit" :disabled="typed !== target.name"
                                 class="rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-gray-300">
-                            Delete permanently
+                            <span x-text="mode === 'data' ? 'Delete the data' : 'Delete permanently'"></span>
                         </button>
                     </div>
                 </form>

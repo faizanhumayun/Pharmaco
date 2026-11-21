@@ -146,20 +146,29 @@ class CompanyProduct extends Model
             return $whole;
         }
 
+        $noun = $this->pieceNoun();
+
+        $pieces = number_format($loose).' loose '.($loose === 1 ? $noun : $noun.'s');
+
+        return $packs === 0 ? $pieces : $whole.' and '.$pieces;
+    }
+
+    /**
+     * What one piece out of an opened pack is called: a tablet, a capsule, a
+     * sachet, or a piece when the form does not say.
+     */
+    public function pieceNoun(): string
+    {
         // Read from the text as stored, whatever its capitals: imported
         // catalogues write "Tablet", "TABLET" and "tablet" for the same thing.
         $form = mb_strtolower(trim((string) $this->dosage_form));
 
-        $noun = match (true) {
+        return match (true) {
             str_starts_with($form, 'tab') => 'tablet',
             str_starts_with($form, 'cap') => 'capsule',
             str_starts_with($form, 'sachet') => 'sachet',
             default => 'piece',
         };
-
-        $pieces = number_format($loose).' loose '.($loose === 1 ? $noun : $noun.'s');
-
-        return $packs === 0 ? $pieces : $whole.' and '.$pieces;
     }
 
     public function dosageForm(): ?DosageForm

@@ -28,7 +28,7 @@
             <x-stat label="Customers added" :value="number_format($r['customers'] ?? 0)" />
             <x-stat label="Products added" :value="number_format($r['products'] ?? 0)" />
             <x-stat label="Stock brought in" :value="number_format($r['stock_packs'] ?? 0)"
-                    :hint="number_format($r['stock_lines'] ?? 0).' products'" />
+                    :hint="'packs'.(($r['stock_loose'] ?? 0) ? ' + '.number_format($r['stock_loose']).' loose' : '').' · '.number_format($r['stock_lines'] ?? 0).' products'" />
             <x-stat label="Balances named" :value="number_format(($r['customer_balances'] ?? 0) + ($r['company_balances'] ?? 0))"
                     :hint="'Customers Rs. '.$rs($r['owed_by_customers'] ?? '0').' · companies Rs. '.$rs($r['owed_to_companies'] ?? '0')" />
         </div>

@@ -173,6 +173,12 @@ class BusinessPolicy
         return $user->isPlatformAdmin();
     }
 
+    /** Emptying a business of everything recorded in it, and keeping the business. */
+    public function clearData(User $user, Business $business): bool
+    {
+        return $user->isPlatformAdmin();
+    }
+
     public function archive(User $user, Business $business): bool
     {
         return $user->isPlatformAdmin() && $business->opening_date === null;

@@ -7,7 +7,11 @@ use App\Exceptions\LedgerException;
 use App\Domain\Products\Actions\ApplyDeliveryPrices;
 use App\Enums\BusinessType;
 use App\Domain\Products\Actions\RecordProductPrice;
+use App\Domain\Products\Actions\UpdateProduct;
 use App\Domain\Products\MatchKey;
+use App\Enums\DosageForm;
+use App\Support\PackSize;
+use Illuminate\Validation\Rule;
 use Illuminate\Http\JsonResponse;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
@@ -51,8 +55,13 @@ class DirectDeliveryController extends Controller
                     'mrp' => $p->mrp?->toDecimal(),
                     'trade' => $p->trade_price?->toDecimal(),
                     'case' => $p->case_size,
+                    // Shown on the line to be confirmed against the carton,
+                    // or corrected there and then.
+                    'pack' => $p->pack_size,
                 ])
                 ->values(),
+            // What a new product can be: tablet, syrup, injection…
+            'forms' => array_map(fn (DosageForm $form) => $form->label(), DosageForm::cases()),
             'today' => $business->today(),
             // Shown on the add-a-product dialog, so the code is known before
             // the product exists rather than discovered after it.
@@ -84,6 +93,9 @@ class DirectDeliveryController extends Controller
         $data = $request->validate([
             'company_id' => ['required', 'integer'],
             'brand_name' => ['required', 'string', 'max:200'],
+            // Tablet, syrup, injection… Asked for, because it decides how the
+            // product is named, filtered and — for loose stock — counted.
+            'dosage_form' => ['required', Rule::in(array_map(fn (DosageForm $form) => $form->label(), DosageForm::cases()))],
             'code' => ['nullable', 'string', 'max:60'],
             'pack_size' => ['nullable', 'string', 'max:60'],
             'strength' => ['nullable', 'string', 'max:60'],
@@ -126,6 +138,7 @@ class DirectDeliveryController extends Controller
             // that anyone can check afterwards.
             'code' => $typed ?: $this->nextCode($business),
             'brand_name' => $data['brand_name'],
+            'dosage_form' => $data['dosage_form'],
             'strength' => $data['strength'] ?? null,
             'pack_size' => $data['pack_size'] ?? null,
             'purchase_rate' => $data['purchase_rate'] ?: null,
@@ -143,8 +156,53 @@ class DirectDeliveryController extends Controller
             'name' => $product->label(),
             'code' => $product->code,
             'rate' => (float) ($product->purchase_rate?->toDecimal() ?? 0),
+            'mrp' => $product->mrp?->toDecimal(),
+            'trade' => $product->trade_price?->toDecimal(),
             'case' => $product->case_size,
+            'pack' => $product->pack_size,
         ]);
+    }
+
+    /**
+     * Pack sizes corrected on the delivery, written onto the products.
+     *
+     * The carton in someone's hands is the best evidence there is of what a
+     * pack holds, so a size typed here replaces the one on file. A blank box
+     * means "no change". Where the business opens packs and the new size
+     * says how many pieces it holds, that count follows it — through the same
+     * action the product form uses, so the rule that pieces already moved
+     * cannot be recounted applies here too.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     */
+    private function applyPackSizes(Business $business, array $lines, \App\Models\User $by, UpdateProduct $update): void
+    {
+        $entered = collect($lines)
+            ->mapWithKeys(fn ($line) => [(int) $line['company_product_id'] => trim((string) ($line['pack_size'] ?? ''))])
+            ->filter(fn ($pack) => $pack !== '');
+
+        if ($entered->isEmpty()) {
+            return;
+        }
+
+        $products = CompanyProduct::forBusiness($business)->whereIn('id', $entered->keys())->get();
+
+        foreach ($products as $product) {
+            $pack = $entered[$product->id];
+
+            if ($pack === (string) $product->pack_size) {
+                continue;
+            }
+
+            $changes = ['pack_size' => $pack];
+            $pieces = PackSize::pieces($pack);
+
+            if ($business->sellsLoose() && $pieces > 1 && $pieces !== (int) $product->units_per_pack) {
+                $changes['units_per_pack'] = $pieces;
+            }
+
+            $update->handle($product, $changes, $by);
+        }
     }
 
     /**
@@ -172,6 +230,7 @@ class DirectDeliveryController extends Controller
         Business $business,
         RecordDirectDelivery $action,
         ApplyDeliveryPrices $prices,
+        UpdateProduct $update,
     ): RedirectResponse
     {
         $this->authorize('manageOrders', $business);
@@ -192,6 +251,8 @@ class DirectDeliveryController extends Controller
             'lines.*.expires_on' => ['nullable', 'date_format:Y-m'],
             // The batch printed on the carton, beside its expiry.
             'lines.*.batch_no' => ['nullable', 'string', 'max:60'],
+            // The pack as printed on the carton: confirmed, or corrected.
+            'lines.*.pack_size' => ['nullable', 'string', 'max:60'],
             // A distributor's own selling price; it quotes per customer and
             // may leave it for later. A pharmacy has none.
             'lines.*.trade' => ['nullable', 'string'],
@@ -200,6 +261,9 @@ class DirectDeliveryController extends Controller
         ]);
 
         try {
+            // First, so the stock that follows is counted in the right packs.
+            $this->applyPackSizes($business, $data['lines'], $request->user(), $update);
+
             /*
              * Before the delivery, not after: receiving writes the product's
              * price history, so every figure has to be on the product by then

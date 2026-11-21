@@ -67,6 +67,10 @@ Route::middleware(['auth', 'platform.admin'])
         // destroy is allowed only while a business is still setup data; the policy
         // refuses it the moment anything has been posted.
         Route::resource('businesses', BusinessController::class);
+        // Empties a business and keeps it: for starting one again after a
+        // wrong import or opening balance, without setting it up again.
+        Route::delete('businesses/{business}/data', [BusinessController::class, 'clearData'])
+            ->name('businesses.data.destroy');
         Route::patch('businesses/{business}/status', [BusinessController::class, 'changeStatus'])
             ->name('businesses.status');
 

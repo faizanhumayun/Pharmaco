@@ -61,7 +61,7 @@ class ImportOldPos
         return DB::transaction(function () use ($business, $plan, $take, $by, $fileName) {
             $done = [
                 'companies' => 0, 'customers' => 0, 'products' => 0,
-                'stock_lines' => 0, 'stock_packs' => 0,
+                'stock_lines' => 0, 'stock_packs' => 0, 'stock_loose' => 0,
                 'customer_balances' => 0, 'company_balances' => 0,
                 'owed_by_customers' => '0.00', 'owed_to_companies' => '0.00',
             ];
@@ -113,20 +113,26 @@ class ImportOldPos
                         'trade_price' => $row['trade'],
                         'purchase_rate' => $row['cost'],
                         'reorder_level' => $row['reorder'],
+                        // How many pieces make the pack, where the old system
+                        // said. The model keeps it only for a business that
+                        // opens packs.
+                        'units_per_pack' => $row['units'],
                         'match_key' => $row['match_key'],
                         'is_active' => true,
                         'priced_on' => $business->today()->toDateString(),
                     ]);
                     $done['products']++;
 
-                    if ($take['stock'] && $row['qty'] > 0) {
+                    if ($take['stock'] && ($row['qty'] > 0 || $row['loose'] > 0)) {
                         $this->movements->adjust(
                             $business, $product, $row['qty'], StockMovementType::Opening,
                             'Opening stock from the old POS ('.$fileName.')', $by,
+                            loose: $row['loose'],
                             expiresOn: $row['expires_on'], batchNo: $row['batch_no'],
                         );
                         $done['stock_lines']++;
                         $done['stock_packs'] += $row['qty'];
+                        $done['stock_loose'] += $row['loose'];
                     }
                 }
             }

@@ -39,14 +39,25 @@
         </thead>
         <tbody>
             @foreach ($bill->lines as $line)
-                <tr class="align-top">
-                    {{-- A long medicine name wraps onto its own lines rather than
-                         squeezing the figures, which must stay readable. --}}
-                    <td class="py-1 pr-1.5 leading-snug">{{ $line->name }}</td>
-                    <td class="py-1 text-center tabular-nums">{{ $line->quantityLabel() }}</td>
-                    <td class="py-1 text-right tabular-nums">{{ $rs($line->unit_price) }}</td>
-                    <td class="py-1 pl-2 text-right tabular-nums">{{ $rs($line->line_total) }}</td>
-                </tr>
+                {{-- Whole packs and tablets out of a pack print as rows of
+                     their own, each at its own rate, so quantity times rate
+                     is the amount beside it. --}}
+                @foreach ($line->printedRows() as $row)
+                    <tr class="align-top">
+                        {{-- A long medicine name wraps onto its own lines rather than
+                             squeezing the figures, which must stay readable. --}}
+                        <td class="py-1 pr-1.5 leading-snug">
+                            @if ($row['first']) {{ $line->name }} @endif
+                            {{-- What the quantity counts, when it is not whole packs. --}}
+                            @if ($row['unit'])
+                                <span class="block text-[10px] text-gray-600">{{ $row['unit'] }}</span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-1 py-1 text-center tabular-nums">{{ $row['qty'] }}</td>
+                        <td class="py-1 text-right tabular-nums">{{ $rs($row['rate']) }}</td>
+                        <td class="py-1 pl-2 text-right tabular-nums">{{ $rs($row['amount']) }}</td>
+                    </tr>
+                @endforeach
             @endforeach
         </tbody>
     </table>

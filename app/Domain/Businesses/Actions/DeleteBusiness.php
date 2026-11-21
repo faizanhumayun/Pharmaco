@@ -2,9 +2,12 @@
 
 namespace App\Domain\Businesses\Actions;
 
+use App\Domain\Ledger\ChartOfAccounts;
+use App\Enums\BusinessStatus;
 use App\Models\Business;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Spatie\Activitylog\Models\Activity;
 
 /**
@@ -19,9 +22,81 @@ use Spatie\Activitylog\Models\Activity;
  * refuse to delete posted records, and that guard is right everywhere except
  * here. Keeping the exception in a single, clearly-named class is what stops it
  * becoming a general-purpose escape hatch.
+ *
+ * {@see self::clear()} is the same teardown stopped one step short: everything
+ * recorded in the business goes, and the business itself — its name, its
+ * settings and the people who work in it — stays, back where a new business
+ * starts. It exists for a business whose first import or opening figures were
+ * wrong, so it can be started again without being set up again.
  */
 class DeleteBusiness
 {
+    /** What a cleared business keeps: who works there, and in what role. */
+    private const KEPT_ON_CLEAR = ['business_user', 'model_has_roles', 'model_has_permissions', 'roles'];
+
+    /**
+     * Empties a business and leaves it standing.
+     *
+     * Kept: the business and its settings, its members and their roles.
+     * Gone: products, stock, companies, customers, days, bills, orders,
+     * imports, the opening balance and every ledger entry. The chart of
+     * accounts is laid down again, the opening date is taken off, and the
+     * business goes back to setup — exactly where a new one begins.
+     *
+     * @return array<string, mixed>
+     */
+    public function clear(Business $business, User $by): array
+    {
+        $id = $business->id;
+
+        $summary = [
+            'name' => $business->name,
+            'slug' => $business->slug,
+            'transactions' => DB::table('transactions')->where('business_id', $id)->count(),
+            'entries' => DB::table('daily_entries')->where('business_id', $id)->count(),
+            'closings' => DB::table('daily_closings')->where('business_id', $id)->count(),
+            'products' => DB::table('company_products')->where('business_id', $id)->count(),
+            'members_kept' => DB::table('business_user')->where('business_id', $id)->count(),
+        ];
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        try {
+            DB::transaction(function () use ($business, $id, $by, $summary) {
+                // The audit trail of what is being removed stays with the
+                // platform, as it does when a business is deleted outright.
+                Activity::where('business_id', $id)->update(['business_id' => null]);
+
+                $this->purge($id, self::KEPT_ON_CLEAR);
+
+                // Back to the state a new business is created in.
+                DB::table('businesses')->where('id', $id)->update([
+                    'opening_date' => null,
+                    'locked_through_date' => null,
+                    'status' => $business->status === BusinessStatus::Active ? BusinessStatus::Setup->value : $business->status->value,
+                    'updated_at' => now(),
+                ]);
+
+                app(ChartOfAccounts::class)->seed($business->fresh());
+
+                activity()
+                    ->performedOn($business)
+                    ->causedBy($by)
+                    ->withProperties(['business' => $summary])
+                    ->event('business.data_deleted')
+                    ->log("All data deleted from {$summary['name']}; the business was kept");
+            });
+        } finally {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+
+        // Files uploaded for it: old POS databases and price lists.
+        Storage::disk('local')->deleteDirectory('imports/'.$id);
+        Storage::disk('local')->deleteDirectory('price-lists/'.$id);
+
+        return $summary;
+    }
+
     public function handle(Business $business, User $by): array
     {
         $id = $business->id;
@@ -52,26 +127,7 @@ class DeleteBusiness
                 // The audit trail survives the business it described.
                 Activity::where('business_id', $id)->update(['business_id' => null]);
 
-                /*
-                 * Everything else that belongs to the business goes, found from
-                 * the schema rather than from a list kept here: a list has to be
-                 * remembered every time a table is added, and the first one
-                 * forgotten is the one that stops the delete half way.
-                 *
-                 * Two kinds of table hold a tenant's rows. Those with a
-                 * business_id are emptied by it. Those without one — the lines
-                 * of a day, of an order, of an import — belong to a row that
-                 * has one, and are followed down from it first.
-                 */
-                $owned = $this->tablesWithBusinessId();
-
-                foreach ($owned as $table) {
-                    $this->purgeChildren($table, fn () => DB::table($table)->where('business_id', $id)->select('id'), $owned);
-                }
-
-                foreach ($owned as $table) {
-                    DB::table($table)->where('business_id', $id)->delete();
-                }
+                $this->purge($id);
 
                 DB::table('businesses')->where('id', $id)->delete();
             });
@@ -80,6 +136,33 @@ class DeleteBusiness
         }
 
         return $summary;
+    }
+
+    /**
+     * Removes every row that belongs to a business, found from the schema
+     * rather than from a list kept here: a list has to be remembered every
+     * time a table is added, and the first one forgotten is the one that
+     * stops the delete half way.
+     *
+     * Two kinds of table hold a tenant's rows. Those with a business_id are
+     * emptied by it. Those without one — the lines of a day, of an order, of
+     * an import — belong to a row that has one, and are followed down from it
+     * first.
+     *
+     * @param  list<string>  $keep  tables with a business_id to leave as they are
+     */
+    private function purge(int $id, array $keep = []): void
+    {
+        $owned = $this->tablesWithBusinessId();
+        $going = array_values(array_diff($owned, $keep));
+
+        foreach ($going as $table) {
+            $this->purgeChildren($table, fn () => DB::table($table)->where('business_id', $id)->select('id'), $owned);
+        }
+
+        foreach ($going as $table) {
+            DB::table($table)->where('business_id', $id)->delete();
+        }
     }
 
     /**

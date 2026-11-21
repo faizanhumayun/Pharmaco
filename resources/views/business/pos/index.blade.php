@@ -245,7 +245,12 @@
              Not halves: the bill carries columns of figures and the search
              carries a name and a price, so the room goes where it is needed.
              minmax(0,…) so a long medicine name cannot push the column wider. --}}
-        @php($cols = 'grid-cols-[minmax(0,1fr)_10rem_6rem_7rem_7rem_2rem]')
+        {{-- A pharmacy sells at the MRP, so its bill has one price column, not
+             the MRP and the same figure again beside it. A distributor keeps
+             both: the MRP on the pack, and the trade price it charges. --}}
+        @php($cols = $business->sellsAtMrp()
+            ? 'grid-cols-[minmax(0,1fr)_10rem_7rem_7rem_2rem]'
+            : 'grid-cols-[minmax(0,1fr)_10rem_6rem_7rem_7rem_2rem]')
         <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6.5fr)] sm:px-6">
 
             {{-- The shelf. --}}
@@ -292,7 +297,12 @@
                                  moves on, which is most of a counter's work. --}}
                             <button type="button" x-on:click="ask(p)" class="min-w-0 text-left">
                                 <span class="block break-words text-base font-medium leading-snug"
-                                      :class="piecesHeld(p) > 0 ? 'text-slate-900' : 'text-slate-600'" x-text="p.name"></span>
+                                      :class="piecesHeld(p) > 0 ? 'text-slate-900' : 'text-slate-600'">
+                                    <span x-text="p.form ? p.short : p.name"></span>
+                                    {{-- Tablet, syrup, injection: told apart at a glance. --}}
+                                    <span x-show="p.form" x-text="p.form"
+                                          class="ml-1 inline-block rounded-md bg-slate-100 px-1.5 py-0.5 align-middle text-[11px] font-semibold uppercase tracking-wide text-slate-600 ring-1 ring-inset ring-slate-200"></span>
+                                </span>
                                 <span x-show="p.pack" class="block truncate text-xs text-slate-500" x-text="'Pack ' + p.pack"></span>
                                 <template x-if="p.expiry_state">
                                     <span class="mt-0.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] font-semibold"
@@ -362,8 +372,10 @@
                 <div class="{{ $label }} {{ $cols }} grid shrink-0 items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-600">
                     <span>On this bill</span>
                     <span class="text-center">Qty</span>
-                    <span class="text-right">MRP</span>
-                    <span class="text-right">Price</span>
+                    @unless ($business->sellsAtMrp())
+                        <span class="text-right">MRP</span>
+                    @endunless
+                    <span class="text-right">Pack price</span>
                     <span class="text-right">Total</span>
                     <span></span>
                 </div>
@@ -399,12 +411,17 @@
 
                             {{-- Read only: the pack price is the manufacturer's, not
                                  something the counter sets. --}}
-                            <span class="text-right font-mono text-sm tabular-nums text-slate-500"
-                                  x-text="line.mrp > 0 ? money(line.mrp) : '—'"></span>
+                            @unless ($business->sellsAtMrp())
+                                <span class="text-right font-mono text-sm tabular-nums text-slate-500"
+                                      x-text="line.mrp > 0 ? money(line.mrp) : '—'"></span>
+                            @endunless
 
                             {{-- The price can be typed over; it only looks like a
                                  box once the pointer or the cursor is on it. --}}
-                            <input type="text" inputmode="decimal" x-model.number="line.price" title="Price of one pack — type to change it"
+                            <input type="text" inputmode="decimal" x-model.number="line.price"
+                                   :title="line.mrp > 0 && Number(line.price) !== Number(line.mrp)
+                                       ? 'MRP is ' + money(line.mrp) + ' — type to change the price'
+                                       : 'Price of one pack — type to change it'"
                                    :class="belowCost(line.price, line.cost)
                                        ? 'border-red-400 bg-red-50 text-red-800 focus:border-red-500 focus:ring-red-500'
                                        : 'border-transparent bg-transparent text-slate-900 hover:border-slate-300 focus:border-emerald-700 focus:ring-emerald-600'"

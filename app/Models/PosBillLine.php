@@ -86,6 +86,42 @@ class PosBillLine extends Model
             : "{$this->loose_quantity} loose";
     }
 
+    /**
+     * The line as a customer reads it on the receipt: one row for whole packs
+     * and one for tablets out of a pack, each with the quantity, the rate for
+     * one of them and what that comes to — so quantity times rate is always
+     * the amount beside it. Five tablets at the pack's rate of 300 would read
+     * as a bill of 1,500 for anyone checking the arithmetic.
+     *
+     * The quantity is a bare number; `unit` says what it counts when that is
+     * not whole packs ("tablet"), and is printed under the name.
+     *
+     * @return list<array{first: bool, qty: string, unit: ?string, rate: Money, amount: Money}>
+     */
+    public function printedRows(): array
+    {
+        $packs = $this->unit_price->times($this->quantity);
+        $rows = [];
+
+        if ($this->quantity > 0 || $this->loose_quantity === 0) {
+            $rows[] = ['first' => true, 'qty' => (string) $this->quantity, 'unit' => null, 'rate' => $this->unit_price, 'amount' => $this->loose_quantity === 0 ? $this->line_total : $packs];
+        }
+
+        if ($this->loose_quantity > 0) {
+            $rows[] = [
+                'first' => $rows === [],
+                'qty' => (string) $this->loose_quantity,
+                'unit' => $this->product?->pieceNoun() ?? 'piece',
+                'rate' => $this->piecePrice(),
+                // Whatever the packs did not account for, so the two rows
+                // always add up to the line exactly.
+                'amount' => $this->line_total->minus($this->quantity > 0 ? $packs : Money::zero()),
+            ];
+        }
+
+        return $rows;
+    }
+
     /** Sold beyond what the books held — the count needs looking at. */
     public function soldShort(): bool
     {

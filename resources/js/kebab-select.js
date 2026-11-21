@@ -10,6 +10,10 @@
  *
  * To leave one as the browser draws it, mark it: <select data-native>.
  *
+ * A long list can be searched: a box at the top of the menu narrows it as you
+ * type, and Enter takes the first match. It appears by itself once a select
+ * has more than ten choices, or always on one marked <select data-search>.
+ *
  * The classes here are Tailwind's, read from the same tokens as every page
  * (tailwind.config.js scans this file).
  */
@@ -73,6 +77,67 @@ function fill(select, menu, button) {
 
         menu.append(item);
     }
+
+    if ('search' in select.dataset || select.options.length > SEARCH_FROM) addSearch(menu);
+}
+
+// More choices than this and the menu gets a search box of its own.
+const SEARCH_FROM = 10;
+
+/**
+ * A search box pinned to the top of an open menu. It lives in the menu, which
+ * is outside every form, so what is typed is never submitted and nothing
+ * bound to the page hears it.
+ */
+function addSearch(menu) {
+    const items = [...menu.children];
+
+    const bar = document.createElement('div');
+    bar.className = 'sticky top-0 z-10 border-b border-gray-200 bg-white p-2';
+
+    const input = document.createElement('input');
+    input.type = 'search';
+    input.placeholder = 'Search…';
+    input.autocomplete = 'off';
+    input.setAttribute('aria-label', 'Search this list');
+    input.className = 'block w-full rounded-md border-gray-300 py-1.5 text-sm focus:border-emerald-600 focus:ring-emerald-600';
+
+    const none = document.createElement('p');
+    none.className = 'hidden px-3 py-2 text-sm text-gray-500';
+    none.textContent = 'Nothing matches.';
+
+    const shown = () => items.filter(item => ! item.classList.contains('hidden') && ! item.disabled);
+
+    input.addEventListener('input', event => {
+        // Kept to the menu: the page's own listeners have nothing to do with it.
+        event.stopPropagation();
+
+        const words = input.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+        for (const item of items) {
+            const text = item.textContent.toLowerCase();
+            item.classList.toggle('hidden', ! words.every(word => text.includes(word)));
+        }
+
+        none.classList.toggle('hidden', items.some(item => ! item.classList.contains('hidden')));
+    });
+
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            shown()[0]?.click();
+        } else if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            shown()[0]?.focus();
+        }
+    });
+
+    bar.append(input);
+    menu.prepend(bar);
+    menu.append(none);
+
+    // Ready to type as soon as the menu is on the screen.
+    setTimeout(() => input.focus());
 }
 
 function enhance(select) {
@@ -155,7 +220,9 @@ function enhance(select) {
 
         button.setAttribute('aria-expanded', 'true');
         openMenu = { menu, button };
-        menu.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+        // Not while there is a search box: scrolling to the chosen row would
+        // push the box out of sight in a browser that has no sticky rows.
+        if (! menu.querySelector('input')) menu.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
     });
 
     select.addEventListener('change', sync);

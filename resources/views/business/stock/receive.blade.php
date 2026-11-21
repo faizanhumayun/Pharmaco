@@ -11,8 +11,8 @@
 @php($label = 'font-mono text-[11px] uppercase tracking-widest')
 @php($many = $business->sellsLoose() ? 'packs' : $business->unit()->many())
 @php($cols = $business->sellsAtMrp()
-    ? 'grid-cols-[minmax(0,1fr)_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_2rem]'
-    : 'grid-cols-[minmax(0,1fr)_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_6.5rem_2rem]')
+    ? 'grid-cols-[minmax(0,1fr)_6.5rem_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_2rem]'
+    : 'grid-cols-[minmax(0,1fr)_6.5rem_5.5rem_8.5rem_7.5rem_6.5rem_6.5rem_6.5rem_2rem]')
 <x-pos-layout :business="$business" title="Receive stock" mode="receiving">
     <div class="flex h-full flex-col" x-data="delivery({
         products: @js($products),
@@ -64,7 +64,7 @@
         <x-flash any />
 
         <form method="POST" action="{{ route('businesses.stock.receive.store', $business) }}"
-              class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit="if (! canSave) $event.preventDefault()">
+              class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit="if (! canSave) { $event.preventDefault(); tried = true }">
             @csrf
 
             <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,7.5fr)] sm:px-6">
@@ -76,7 +76,7 @@
                         {{-- Who it came from: the list below is their catalogue. --}}
                         <label class="flex items-center gap-3">
                             <span class="{{ $label }} shrink-0 text-slate-500">Company</span>
-                            <select id="company_id" name="company_id" x-model="companyId" required
+                            <select id="company_id" name="company_id" x-model="companyId" required data-search
                                     class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
                                 <option value="">Choose the company…</option>
                                 @foreach ($companies as $company)
@@ -151,7 +151,8 @@
                             <span class="{{ $label }} text-slate-500">Invoice no.</span>
                             <input id="invoice_no" name="invoice_no" type="text" x-model="invoiceNo" x-ref="invoice" required
                                    placeholder="Required — as printed on their bill" maxlength="60"
-                                   :class="lines.length > 0 && ! invoiceNo.trim() ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
+                                   :class="tried && ! invoiceNo.trim() ? 'border-red-500 bg-red-50' : (lines.length > 0 && ! invoiceNo.trim() ? 'border-amber-400 bg-amber-50' : 'border-slate-300')"
+                                   :aria-invalid="tried && ! invoiceNo.trim()"
                                    class="block w-64 rounded-lg py-2 font-mono text-sm placeholder:font-sans focus:border-emerald-700 focus:ring-emerald-600">
                         </label>
                         <label class="flex items-center gap-3">
@@ -163,6 +164,7 @@
 
                     <div class="{{ $label }} {{ $cols }} grid shrink-0 items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-600">
                         <span>On this delivery</span>
+                        <span>Pack size</span>
                         <span class="text-center">Qty</span>
                         <span>Expiry · batch</span>
                         <span class="text-right">Cost</span>
@@ -188,6 +190,18 @@
                                               x-text="(priceMove(line).up ? '▲ ' : '▼ ') + priceMove(line).percent.toFixed(0) + '% on last cost of ' + priceMove(line).was.toFixed(2)"></span>
                                     </template>
                                     <input type="hidden" :name="`lines[${i}][company_product_id]`" :value="line.id">
+                                </span>
+
+                                {{-- The pack on file, to check against the carton
+                                     and correct here if it differs. --}}
+                                <span>
+                                    <input type="text" x-model="line.pack" :name="`lines[${i}][pack_size]`"
+                                           placeholder="10/10" maxlength="60" title="Pack size — change it if the carton says otherwise"
+                                           class="block w-full rounded-lg border-slate-300 px-2 py-2 text-center font-mono text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                                    @if ($business->sellsLoose())
+                                        <span class="mt-0.5 block text-center text-[11px] leading-tight text-slate-500"
+                                              x-show="piecesFromPack(line.pack) > 1" x-text="piecesFromPack(line.pack) + ' to a pack'"></span>
+                                    @endif
                                 </span>
 
                                 <input type="text" inputmode="numeric" x-model.number="line.packs" :name="`lines[${i}][packs]`"
@@ -280,11 +294,17 @@
                        x-text="'Rs. ' + money(onAccount)"></p>
                 </div>
 
-                <button type="submit" :disabled="! canSave"
-                        class="flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
-                    Put it into stock
-                    <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
-                </button>
+                {{-- Always there to be pressed. If something is missing it
+                     says what, rather than sitting greyed out with no reason. --}}
+                <div class="flex flex-col items-end gap-2">
+                    <p x-show="tried && problem" x-cloak x-text="problem" role="alert"
+                       class="rounded-md bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700"></p>
+                    <button type="button" x-on:click="save()"
+                            class="flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800">
+                        Put it into stock
+                        <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
+                    </button>
+                </div>
             </footer>
         </form>
 
@@ -311,13 +331,31 @@
 
                     <div class="grid grid-cols-2 gap-3">
                         <div>
-                            <x-input-label value="Pack size" />
-                            <x-text-input x-model="draft.pack_size" type="text" class="mt-1 block w-full" placeholder="10x10" maxlength="60" />
+                            <x-input-label for="draft_form" value="Type" />
+                            <select id="draft_form" x-model="draft.dosage_form"
+                                    class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                                <option value="">Choose — tablet, syrup…</option>
+                                @foreach ($forms as $form)
+                                    <option value="{{ $form }}">{{ $form }}</option>
+                                @endforeach
+                            </select>
                         </div>
                         <div>
                             <x-input-label value="Strength" />
                             <x-text-input x-model="draft.strength" type="text" class="mt-1 block w-full" placeholder="500mg" maxlength="60" />
                         </div>
+                    </div>
+
+                    <div>
+                        <x-input-label value="Pack size" />
+                        <x-text-input x-model="draft.pack_size" type="text" class="mt-1 block w-full" placeholder="10/10" maxlength="60" />
+                        <p class="mt-1 text-xs text-gray-500">
+                            Strips × tablets, as on the box: “10/10”, “1/14”. Leave it blank for a bottle or a single item.
+                            @if ($business->sellsLoose())
+                                <span class="font-medium text-gray-700" x-show="piecesFromPack(draft.pack_size) > 1"
+                                      x-text="'That is ' + piecesFromPack(draft.pack_size) + ' to a pack.'"></span>
+                            @endif
+                        </p>
                     </div>
 
                     <div class="grid grid-cols-2 gap-3">
@@ -361,6 +399,17 @@
 
     @push('scripts')
         <script>
+            /* How many pieces a printed pack size means. The same rule as
+               App\Support\PackSize and the product form; keep them in step. */
+            function piecesFromPack(text) {
+                const t = String(text || '').trim().toLowerCase();
+                let m = t.match(/^(\d+)\s*[\/\\x×*]\s*(\d+)/);
+                if (m) return Math.max(1, Number(m[1]) * Number(m[2]));
+                m = t.match(/^(\d+)\s*('s|s\b|tab|cap|pcs|pieces?)/);
+                if (m) return Math.max(1, Number(m[1]));
+                return 1;
+            }
+
             function delivery({ products }) {
                 return {
                     products,
@@ -373,7 +422,7 @@
                     savingNew: false,
                     draftError: '',
                     nextCode: @js($nextCode),
-                    draft: { brand_name: '', pack_size: '', strength: '', purchase_rate: '', mrp: '' },
+                    draft: { brand_name: '', dosage_form: '', pack_size: '', strength: '', purchase_rate: '', mrp: '' },
 
                     /* Only the chosen company's goods: a delivery comes from one
                        supplier, and their invoice is what is being recorded. */
@@ -403,7 +452,7 @@
 
                     openNew() {
                         this.draftError = '';
-                        this.draft = { brand_name: this.query.trim(), pack_size: '', strength: '', purchase_rate: '', mrp: '' };
+                        this.draft = { brand_name: this.query.trim(), dosage_form: '', pack_size: '', strength: '', purchase_rate: '', mrp: '' };
                         this.adding = true;
                     },
 
@@ -418,6 +467,11 @@
 
                         if (this.draft.brand_name.trim() === '') {
                             this.draftError = 'It needs a name.';
+                            return;
+                        }
+
+                        if (! this.draft.dosage_form) {
+                            this.draftError = 'Choose its type — tablet, syrup, injection…';
                             return;
                         }
 
@@ -474,6 +528,8 @@
                                 trade: product.trade ?? '',
                                 expires_on: '',
                                 batch_no: '',
+                                // As on file; sent back only to be compared.
+                                pack: product.pack ?? '',
                                 // What it cost before this delivery, so a rate
                                 // typed differently shows as a change.
                                 list_rate: product.rate,
@@ -577,11 +633,36 @@
 
                     /** Whether the delivery can be put into stock as it stands. */
                     get canSave() {
-                        return this.lines.length > 0 && !! this.companyId && this.invoiceNo.trim() !== '' && this.missingSellPrice === 0 && ! @js($dayClosed);
+                        return this.problem === '';
                     },
+
+                    /** The first thing standing in the way of saving, in words; empty when nothing is. */
+                    get problem() {
+                        if (@js($dayClosed)) return 'Today is closed. Reopen the day before recording a delivery.';
+                        if (! this.companyId) return 'Choose the company first.';
+                        if (this.lines.length === 0) return 'Add at least one product.';
+                        if (! this.invoiceNo.trim()) return 'Invoice number is required.';
+                        if (this.missingSellPrice > 0) {
+                            return this.missingSellPrice + ' ' + (this.missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP.';
+                        }
+
+                        return '';
+                    },
+
+                    // Whether saving has been asked for: what is missing is
+                    // only pointed out once somebody has tried.
+                    tried: false,
+
                     save() {
-                        if (this.lines.length > 0 && ! this.invoiceNo.trim()) return this.$refs.invoice.focus();
-                        if (this.canSave) this.$refs.form.requestSubmit();
+                        this.tried = true;
+
+                        if (this.problem) {
+                            if (this.companyId && this.lines.length > 0 && ! this.invoiceNo.trim()) this.$refs.invoice.focus();
+
+                            return;
+                        }
+
+                        this.$refs.form.requestSubmit();
                     },
                 };
             }

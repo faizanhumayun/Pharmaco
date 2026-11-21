@@ -48,7 +48,7 @@
                         ['companies', 'Companies', number_format($t['companies_new']).' new', $t['companies_exist'] ? number_format($t['companies_exist']).' already here' : 'Each gets its own account', true],
                         ['customers', 'Customers', number_format($t['customers_new']).' new', $t['customers_exist'] ? number_format($t['customers_exist']).' already here' : 'Each gets its own account', true],
                         ['products', 'Products', number_format($t['products_new']).' new', trim(($t['products_exist'] ? number_format($t['products_exist']).' already here' : '').($t['products_skipped'] ? ' · '.number_format($t['products_skipped']).' left out' : ''), ' ·') ?: ($trade ? 'Trade price and MRP' : 'MRP only — a pharmacy has no trade price'), true],
-                        ['stock', 'Stock', number_format($t['stock_packs']).' in '.number_format($t['stock_lines']).' products', 'Worth Rs. '.$rs($t['stock_value']).' at cost, with expiry and batch', true],
+                        ['stock', 'Stock', number_format($t['stock_packs']).' packs'.($t['stock_loose'] ? ' + '.number_format($t['stock_loose']).' loose' : ''), 'In '.number_format($t['stock_lines']).' products. Worth Rs. '.$rs($t['stock_value']).' at cost, with expiry and batch', true],
                         ['customer_balances', 'What customers owe', 'Rs. '.$rs($t['owed_by_customers']), number_format($t['customer_balances']).' customers with a balance. Leave unticked to bring the names only.'.$later, true],
                         ['company_balances', 'What companies are owed', 'Rs. '.$rs($t['owed_to_companies']), number_format($t['company_balances']).' companies with a balance. Leave unticked to bring the names only.'.$later, true],
                     ] as [$key, $title, $figure, $note, $possible])
@@ -87,6 +87,10 @@
                             they are brought over when the opening balance is finalised.
                         </p>
                     @endif
+                    <p class="text-gray-600">
+                        Where the old system priced and counted by the tablet, each product comes in as its pack:
+                        the pack's price, how many to a pack, and stock as whole packs plus what is loose.
+                    </p>
                     <p class="text-gray-600">
                         Stock comes in as a count only. Its value — Rs. {{ $rs($t['stock_value']) }} at cost — belongs in the opening balance.
                     </p>
@@ -143,14 +147,20 @@
                                     @endforeach
                                 </td>
                                 <td class="whitespace-nowrap px-3 py-2 font-mono text-xs text-gray-600">{{ $p['code'] ?? '—' }}</td>
-                                <td class="whitespace-nowrap px-3 py-2 text-gray-600">{{ $p['pack'] ?? '—' }}</td>
+                                <td class="whitespace-nowrap px-3 py-2 text-gray-600">
+                                    {{ $p['pack'] ?? '—' }}
+                                    @if ($p['units'] > 1) <span class="block text-xs text-gray-400">{{ number_format($p['units']) }} to a pack</span> @endif
+                                </td>
                                 <td class="px-3 py-2 text-gray-600">{{ $p['company'] }}</td>
                                 <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $rs($p['cost']) }}</td>
                                 @if ($trade)
                                     <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums {{ $p['trade'] === null ? 'text-gray-400' : 'text-gray-900' }}">{{ $p['trade'] === null ? 'left empty' : $rs($p['trade']) }}</td>
                                 @endif
                                 <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $rs($p['mrp']) }}</td>
-                                <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums {{ $p['qty'] > 0 ? 'text-gray-900' : 'text-gray-400' }}">{{ number_format($p['qty']) }}</td>
+                                <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums {{ $p['qty'] > 0 || $p['loose'] > 0 ? 'text-gray-900' : 'text-gray-400' }}">
+                                    {{ number_format($p['qty']) }}
+                                    @if ($p['loose'] > 0) <span class="block text-xs text-gray-500">+ {{ number_format($p['loose']) }} loose</span> @endif
+                                </td>
                                 <td class="whitespace-nowrap px-3 py-2 text-xs text-gray-600">
                                     {{ $p['expires_on'] ? \Illuminate\Support\Carbon::parse($p['expires_on'])->format('M Y') : '—' }}
                                     @if ($p['batch_no']) · <span class="font-mono">{{ $p['batch_no'] }}</span> @endif

@@ -68,13 +68,24 @@
         </thead>
         <tbody>
             @foreach ($bill->lines as $line)
-                <tr class="border-b border-gray-200 align-top">
-                    <td class="px-2 py-2 text-center tabular-nums text-gray-500">{{ $loop->iteration }}</td>
-                    <td class="px-2 py-2">{{ $line->name }}</td>
-                    <td class="px-2 py-2 text-center tabular-nums">{{ $line->quantityLabel() }}</td>
-                    <td class="px-2 py-2 text-right tabular-nums">{{ $rs($line->unit_price) }}</td>
-                    <td class="px-2 py-2 text-right tabular-nums">{{ $rs($line->line_total) }}</td>
-                </tr>
+                {{-- Whole packs and tablets out of a pack print as rows of
+                     their own, each at its own rate, so quantity times rate
+                     is the amount beside it. --}}
+                @foreach ($line->printedRows() as $row)
+                    <tr @class(['align-top', 'border-b border-gray-200' => $loop->last])>
+                        <td class="px-2 py-2 text-center tabular-nums text-gray-500">{{ $row['first'] ? $loop->parent->iteration : '' }}</td>
+                        <td class="px-2 py-2">
+                            @if ($row['first']) {{ $line->name }} @endif
+                            {{-- What the quantity counts, when it is not whole packs. --}}
+                            @if ($row['unit'])
+                                <span class="block text-xs text-gray-500">{{ $row['unit'] }}</span>
+                            @endif
+                        </td>
+                        <td class="whitespace-nowrap px-2 py-2 text-center tabular-nums">{{ $row['qty'] }}</td>
+                        <td class="px-2 py-2 text-right tabular-nums">{{ $rs($row['rate']) }}</td>
+                        <td class="px-2 py-2 text-right tabular-nums">{{ $rs($row['amount']) }}</td>
+                    </tr>
+                @endforeach
             @endforeach
         </tbody>
     </table>

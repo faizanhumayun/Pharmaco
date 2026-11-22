@@ -36,6 +36,10 @@
                                 @if ($item['role'] && $item['role'] !== $item['who'])
                                     <span class="text-gray-500">{{ $item['role'] }}</span>
                                 @endif
+                                {{-- The computer it was done on. --}}
+                                @if (! empty($item['device']))
+                                    <span class="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-600" title="The device this was entered on">{{ $item['device'] }}</span>
+                                @endif
                             </div>
                             <time class="whitespace-nowrap text-xs text-gray-500" datetime="{{ $item['at']->toIso8601String() }}">
                                 {{ $item['at']->format('d M Y · h:i A') }}

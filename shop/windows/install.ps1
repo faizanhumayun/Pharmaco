@@ -64,6 +64,10 @@ try {
 
     Copy-Item "$Kit\set-env.php" "$Target\set-env.php" -Force
 
+    # The certificates PHP checks a secure site against. Copied every time, so
+    # an installation made from an older kit gets them on its next update.
+    Copy-Item "$Kit\runtime\cacert.pem" "$Target\runtime\cacert.pem" -Force
+
     # PHP's settings: the extensions the application uses, and room for uploads.
     $ini = Get-Content "$Target\runtime\php\php.ini-production"
     $ini += @(
@@ -71,7 +75,8 @@ try {
         'extension_dir = "ext"',
         'extension=curl', 'extension=fileinfo', 'extension=gd', 'extension=intl', 'extension=mbstring',
         'extension=openssl', 'extension=pdo_mysql', 'extension=sodium', 'extension=zip',
-        'memory_limit = 512M', 'upload_max_filesize = 64M', 'post_max_size = 64M', 'max_execution_time = 300'
+        'memory_limit = 512M', 'upload_max_filesize = 64M', 'post_max_size = 64M', 'max_execution_time = 300',
+        "curl.cainfo = `"$Target\runtime\cacert.pem`"", "openssl.cafile = `"$Target\runtime\cacert.pem`""
     )
     Set-Content -Path "$Target\runtime\php\php.ini" -Value $ini -Encoding ASCII
 

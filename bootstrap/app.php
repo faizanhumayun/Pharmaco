@@ -3,6 +3,7 @@
 use App\Http\Middleware\CheckSecurityCode;
 use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
+use App\Http\Middleware\IdentifyDevice;
 use App\Http\Middleware\MirrorReadOnly;
 use App\Http\Middleware\SetCurrentBusiness;
 use Illuminate\Foundation\Application;
@@ -27,13 +28,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // A deactivated account loses access on its next request, not its next login.
         $middleware->appendToGroup('web', EnsureUserIsActive::class);
 
+        // Which computer a signed-in request came from, so what is entered
+        // can say where it was entered.
+        $middleware->appendToGroup('web', IdentifyDevice::class);
+        $middleware->encryptCookies(except: [IdentifyDevice::COOKIE, \App\Support\MirrorHost::COOKIE]);
+
         // The site-wide access gate. Does nothing unless it is switched on
         // (config/security-code.php, or Security code in the back office).
         $middleware->appendToGroup('web', CheckSecurityCode::class);
-
-        // Which shop's copy a browser has stepped into. Signed rather than
-        // encrypted, because it is read before any middleware has run.
-        $middleware->encryptCookies(except: [\App\Support\MirrorHost::COOKIE]);
 
         // A shop's online copy is for reading: anything that would change it
         // is turned away. Does nothing on the platform's own address.

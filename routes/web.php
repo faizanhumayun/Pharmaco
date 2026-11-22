@@ -57,6 +57,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/mirror/sync', [\App\Http\Controllers\MirrorStatusController::class, 'sync'])
         ->middleware('throttle:6,1')->name('mirror.sync');
 
+    // Naming the computer in front of you.
+    Route::patch('/device', [\App\Http\Controllers\DeviceController::class, 'update'])->name('device.update');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 

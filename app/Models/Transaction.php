@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class Transaction extends Model
 {
     use BelongsToBusiness;
+    use \App\Support\Concerns\RecordsDevice;
 
     /**
      * The only fields a posted transaction may still have written to it.

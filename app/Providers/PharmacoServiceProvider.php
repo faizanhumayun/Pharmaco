@@ -16,6 +16,9 @@ class PharmacoServiceProvider extends ServiceProvider
         // One business context per request, shared by the global scope,
         // the middleware and anything that needs to know where it is.
         $this->app->singleton(CurrentBusiness::class);
+
+        // And one device: the computer the request came from.
+        $this->app->singleton(\App\Support\CurrentDevice::class);
     }
 
     public function boot(): void
@@ -39,6 +42,12 @@ class PharmacoServiceProvider extends ServiceProvider
                 ?? app(CurrentBusinessResolver::class)->id();
 
             $activity->ip_address ??= request()->ip();
+
+            // Which computer, what it was called then, and which sign-in.
+            $device = app(\App\Support\CurrentDevice::class);
+            $activity->device_id ??= $device->id();
+            $activity->device_name ??= $device->name();
+            $activity->session_key ??= $device->sessionKey();
 
             $activity->reason ??= data_get($activity->properties, 'reason')
                 ?? data_get($activity->properties, 'correction_reason');

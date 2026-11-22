@@ -12,7 +12,7 @@
                 <h1 class="text-xl font-semibold text-gray-900">Bill {{ $bill->reference() }}</h1>
                 <p class="mt-1 text-sm text-gray-500">
                     {{ $bill->business_date->format('l j F Y') }} · {{ $bill->customer_name ?? 'Cash sale' }} ·
-                    rung up by {{ $bill->creator->name }}
+                    rung up by {{ $bill->creator->name }}@if ($bill->device) on {{ $bill->device->label() }}@endif
                 </p>
             </div>
             <div class="flex items-center gap-2">

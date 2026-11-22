@@ -310,7 +310,10 @@ class ChangeHistory
             $activity->reason ?? $props->get('reason'),
             $changes,
             self::EVENT_KINDS[$activity->event] ?? 'neutral',
-        );
+        ) + [
+            // Which computer it was done on, as it was called at the time.
+            'device' => $activity->device_name,
+        ];
     }
 
     /** @return Item */

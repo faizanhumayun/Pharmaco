@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class PosBill extends Model
 {
     use BelongsToBusiness;
+    use \App\Support\Concerns\RecordsDevice;
 
     protected $fillable = [
         'business_id', 'business_date', 'daily_entry_id', 'bill_no', 'daily_no', 'customer_name', 'pharmacy_id', 'business_payment_method_id',

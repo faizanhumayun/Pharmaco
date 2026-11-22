@@ -72,9 +72,13 @@ class MirrorPush extends Command
 
         try {
             $this->send($disk->path($name), (string) $url, (string) $token);
-        } catch (ConnectionException) {
-            $this->warn('No internet. The snapshot is kept on this computer and will be sent next time.');
-            $status->recordAttempt('offline', null, $marker);
+        } catch (ConnectionException $e) {
+            // "No internet" is the usual reason, but not the only one: a
+            // mistyped address or a certificate this computer does not trust
+            // look the same from here. The reason is kept so it can be read.
+            $this->warn('The platform could not be reached. The snapshot is kept on this computer and will be sent next time.');
+            $this->line('  Reason: '.$e->getMessage());
+            $status->recordAttempt('offline', mb_substr($e->getMessage(), 0, 300), $marker);
 
             return self::SUCCESS;
         } catch (\Throwable $e) {

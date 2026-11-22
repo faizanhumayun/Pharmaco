@@ -120,6 +120,9 @@
                         {{-- A shop's own computer: internet, and the online copy. --}}
                         @include('partials.sync-status')
 
+                        {{-- Which computer this is; what is entered here says so. --}}
+                        @include('partials.device-chip')
+
                         <dl class="hidden gap-6 text-xs md:flex">
                             <div>
                                 <dt class="uppercase tracking-wide text-gray-400">Opening date</dt>

@@ -77,6 +77,20 @@ on and keeps the codes under Security code in the back office; that switch
 `/admin/*` and the sign-in pages are exempt on purpose, so the gate can always
 be switched off. It replaces no authentication, tenancy or policy check.
 
+## Devices
+
+Which computer something was entered on. A browser that signs in gets a
+long-lived cookie (`IdentifyDevice`) and a row in `devices`, named by the
+people who use it ("Laptop POS 1") from the chip in the workspace and till
+headers. `CurrentDevice` holds it for the request.
+
+- A model that should say where it was entered uses the `RecordsDevice` trait
+  and has a nullable `device_id` (bills, transactions, stock movements,
+  orders, daily entries have it).
+- Every audit step records `device_id`, `device_name` (as it was then) and
+  `session_key`, a short fingerprint of the sign-in — never the session id.
+- Work no browser did (the scheduler, an import) carries no device.
+
 ## Running in the shop, with a copy online
 
 A shop can run the whole application on its own computer so the counter never

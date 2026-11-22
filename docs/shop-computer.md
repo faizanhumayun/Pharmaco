@@ -116,9 +116,17 @@ installing another. MAMP must be started for Pharmaco to work.
    installation starts with the same one.
 2. Create the business, bring in its data and finalise the opening balance as
    usual.
-3. **Importing an old POS file needs mdbtools**, which is awkward on Windows.
-   Easiest: do the import once on the platform, then move the books to the
-   shop's computer with a snapshot (Part 4). Day-to-day work does not need it.
+3. **Importing an old POS file on Windows needs one extra step**, because a
+   Windows computer cannot read `.mdb` files itself. Convert the file first on
+   a computer that can (a Mac or Linux machine with this project and mdbtools):
+
+   ```
+   php artisan oldpos:convert "posdbase.mdb"
+   ```
+
+   It writes `posdbase.pharmaco.json` beside it. Copy that file to the shop's
+   computer and upload it on the import page exactly as the `.mdb` would have
+   been. It holds only the product, supplier and customer lists.
 
 ### Other computers in the shop
 
@@ -135,13 +143,38 @@ backups. Update the platform at the same time.
 
 ### Checking the online copy is being sent
 
-Open a terminal in the application folder and run:
+The bar at the top of every screen says where things stand: "Online · synced",
+"Online · sync pending" (with a **Sync now** button), or "Offline". Hovering
+over it gives the reason when something is wrong.
 
-- Windows: `C:\Pharmaco\runtime\php\php.exe artisan mirror:push`
-- Mac: `php artisan mirror:push`
+To send one now and see exactly what happens, run these two commands.
 
-It says "Sent", "Nothing has changed since the last one sent", or "No
-internet".
+**Windows** — Start → type `cmd` → right-click Command Prompt → Run as
+administrator, then:
+
+```
+cd C:\Pharmaco\app
+C:\Pharmaco\runtime\php\php.exe artisan mirror:push --force
+```
+
+**Mac** — in Terminal:
+
+```
+cd ~/Pharmaco/app
+php artisan mirror:push --force
+```
+
+What it prints, and what to do:
+
+| It says | Meaning |
+|---|---|
+| `Sent. The online copy is up to date.` | Working. The business shows on the platform, read-only. |
+| `Not sent: MIRROR_PUSH_URL and MIRROR_PUSH_TOKEN are not set` | The two values from Part 1 are missing from the `.env` file (`C:\Pharmaco\app\.env`, or `~/Pharmaco/app/.env`). |
+| `The platform could not be reached` + a reason | "Could not resolve host": the address is mistyped, or there is no internet. "SSL certificate": run a newer installer, which carries the certificates. |
+| `The platform did not accept the snapshot` + a reason | "token is not recognised": the token is wrong; make a new one under Shop copies. Anything else: send the reason to whoever looks after the platform. |
+
+`--force` sends even when nothing has changed; without it, unchanged books
+are not sent twice.
 
 ### Removing it
 

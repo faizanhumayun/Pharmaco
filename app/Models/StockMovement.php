@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\MorphTo;
 class StockMovement extends Model
 {
     use BelongsToBusiness;
+    use \App\Support\Concerns\RecordsDevice;
 
     protected $fillable = [
         'business_id', 'company_product_id', 'business_date', 'type',

@@ -69,8 +69,8 @@ class BusinessImportController extends Controller
 
         $file = $request->file('database');
 
-        if (! in_array(strtolower($file->getClientOriginalExtension()), ['mdb', 'accdb'], true)) {
-            return back()->withErrors(['database' => 'That is not an old POS database. It should be a file ending in .mdb.']);
+        if (! in_array(strtolower($file->getClientOriginalExtension()), ['mdb', 'accdb', 'json'], true)) {
+            return back()->withErrors(['database' => 'That is not an old POS database. It should be a file ending in .mdb, or the .json file converted from one.']);
         }
 
         $path = $file->storeAs('imports/'.$business->id, Str::uuid().'.mdb', self::DISK);
@@ -102,8 +102,8 @@ class BusinessImportController extends Controller
             'piece' => ['required', 'file', 'max:1536'],
         ]);
 
-        if (! in_array(strtolower(pathinfo($data['name'], PATHINFO_EXTENSION)), ['mdb', 'accdb'], true)) {
-            return response()->json(['message' => 'That is not an old POS database. It should be a file ending in .mdb.'], 422);
+        if (! in_array(strtolower(pathinfo($data['name'], PATHINFO_EXTENSION)), ['mdb', 'accdb', 'json'], true)) {
+            return response()->json(['message' => 'That is not an old POS database. It should be a file ending in .mdb, or the .json file converted from one.'], 422);
         }
 
         $disk = Storage::disk(self::DISK);

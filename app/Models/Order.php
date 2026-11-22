@@ -27,6 +27,7 @@ use Illuminate\Support\Collection;
 class Order extends Model
 {
     use BelongsToBusiness;
+    use \App\Support\Concerns\RecordsDevice;
 
     protected $fillable = [
         'business_id', 'company_id', 'reference', 'business_date',

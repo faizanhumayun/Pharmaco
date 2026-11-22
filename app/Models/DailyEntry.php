@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 class DailyEntry extends Model
 {
     use BelongsToBusiness;
+    use \App\Support\Concerns\RecordsDevice;
 
     public const MONEY_FIELDS = [
         'purchase_total', 'purchase_paid', 'purchase_discount', 'purchase_return',

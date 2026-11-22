@@ -26,6 +26,9 @@ PHP_ZIP_URL="https://windows.php.net/downloads/releases/latest/php-8.4-nts-Win32
 MARIADB_VERSION="11.4.5"
 MARIADB_ZIP_URL="https://archive.mariadb.org/mariadb-$MARIADB_VERSION/winx64-packages/mariadb-$MARIADB_VERSION-winx64.zip"
 VCREDIST_URL="https://aka.ms/vs/17/release/vc_redist.x64.exe"
+# The certificates PHP checks a secure site against. PHP on Windows carries
+# none of its own, and without them it cannot send the books to the platform.
+CACERT_URL="https://curl.se/ca/cacert.pem"
 
 echo "==> Building the screens"
 (cd "$ROOT" && npm run build >/dev/null)
@@ -59,6 +62,7 @@ if [[ "$OS" == "windows" ]]; then
   fetch "$PHP_ZIP_URL" "php-win.zip"
   fetch "$MARIADB_ZIP_URL" "mariadb-$MARIADB_VERSION-win.zip"
   fetch "$VCREDIST_URL" "vc_redist.x64.exe"
+  fetch "$CACERT_URL" "cacert.pem"
 
   echo "==> Adding PHP and MariaDB for Windows"
   mkdir -p "$KIT/runtime/php" "$KIT/runtime"
@@ -68,6 +72,7 @@ if [[ "$OS" == "windows" ]]; then
   # Not needed to run it, and most of its size.
   rm -rf "$KIT/runtime/mariadb/mysql-test" "$KIT/runtime/mariadb/sql-bench" "$KIT/runtime/mariadb/include" "$KIT/runtime/mariadb/lib/"*.pdb "$KIT/runtime/mariadb/bin/"*.pdb 2>/dev/null || true
   cp "$CACHE/vc_redist.x64.exe" "$KIT/runtime/vc_redist.x64.exe"
+  cp "$CACHE/cacert.pem" "$KIT/runtime/cacert.pem"
 
   cp "$ROOT/shop/windows/"* "$KIT/"
 else

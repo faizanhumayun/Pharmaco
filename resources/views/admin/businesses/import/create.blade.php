@@ -30,13 +30,15 @@
                       class="space-y-4 p-4 sm:p-6" x-data="oldPosUpload()" x-on:submit.prevent="send($event)">
                     @csrf
                     <div>
-                        <x-input-label for="database" value="Old POS database (.mdb)" />
-                        <input id="database" name="database" type="file" accept=".mdb,.accdb" required x-ref="file" :disabled="sending"
+                        <x-input-label for="database" value="Old POS database (.mdb), or a converted file (.json)" />
+                        <input id="database" name="database" type="file" accept=".mdb,.accdb,.json" required x-ref="file" :disabled="sending"
                                class="mt-1 block w-full max-w-xl rounded-md border border-gray-300 bg-white text-sm text-gray-700 file:mr-3 file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-gray-700 hover:file:bg-gray-200">
                         <x-input-error :messages="$errors->get('database')" class="mt-2" />
                         <p x-show="error" x-cloak class="mt-2 text-sm text-red-700" x-text="error"></p>
                         <p class="mt-2 text-xs text-gray-500">
                             Any size up to 500 MB. The file is sent in small pieces, so it does not depend on how the server is set up.
+                            A Windows computer cannot read .mdb files itself: convert the file first where it can be read
+                            (<span class="font-mono">php artisan oldpos:convert file.mdb</span>) and upload the .json file that makes.
                         </p>
                     </div>
 

@@ -92,7 +92,8 @@
 
                             return this.state.online
                                 ? 'Something entered here has not been sent yet. It goes by itself within five minutes, or press Sync now.'
-                                : 'There is no internet. What has been entered is safe on this computer and is sent when the internet is back.';
+                                : 'The platform cannot be reached. What has been entered is safe on this computer and is sent when it can be.'
+                                    + (this.state.message ? ' Reason: ' + this.state.message : '');
                         },
 
                         get canSync() {

@@ -93,7 +93,8 @@ class SyncStatus
             'last_sent_at' => $sentAt?->toIso8601String(),
             'last_sent' => $sentAt?->diffForHumans(),
             'attempt' => $attempt['result'] ?? null,
-            'message' => ($attempt['result'] ?? null) === 'failed' ? ($attempt['message'] ?? null) : null,
+            // Why the last one did not go, when it did not.
+            'message' => in_array($attempt['result'] ?? null, ['failed', 'offline'], true) ? ($attempt['message'] ?? null) : null,
         ];
     }
 

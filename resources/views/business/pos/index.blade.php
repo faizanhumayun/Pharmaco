@@ -151,6 +151,9 @@
                 {{-- A shop's own computer: internet, and the online copy. --}}
                 @include('partials.sync-status', ['dark' => true])
 
+                {{-- Which computer this is; every bill rung up here says so. --}}
+                @include('partials.device-chip', ['dark' => true])
+
                 <a href="{{ route('businesses.show', $business) }}"
                    class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
                     Leave counter

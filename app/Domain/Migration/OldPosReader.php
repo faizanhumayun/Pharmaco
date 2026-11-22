@@ -31,6 +31,12 @@ class OldPosReader
             throw new OldPosException('The uploaded file is no longer there. Upload it again.');
         }
 
+        // Already converted on another computer (oldpos:convert): the same
+        // three lists, written out as a plain file that needs no tool to read.
+        if ($this->isConverted($path)) {
+            return $this->readConverted($path);
+        }
+
         $present = $this->tables($path);
         $missing = array_diff(self::TABLES, $present);
 
@@ -46,6 +52,64 @@ class OldPosReader
             'suppliers' => $this->table($path, 'Supplier'),
             'customers' => $this->table($path, 'Customer_data'),
         ];
+    }
+
+    /** The name the converted file carries, so no other JSON is mistaken for one. */
+    public const CONVERTED_FORMAT = 'pharmaco-old-pos';
+
+    /**
+     * Writes the three lists out of an old POS database as one plain file.
+     *
+     * For a computer that cannot read .mdb files itself — a Windows shop
+     * computer has no mdbtools. The file is converted where it can be read,
+     * and the result is what is uploaded there instead. Only the three lists
+     * go into it: nothing else in the old database ever leaves it.
+     *
+     * @return array{products: int, suppliers: int, customers: int}
+     */
+    public function convert(string $from, string $to): array
+    {
+        $data = $this->read($from);
+
+        file_put_contents($to, json_encode(
+            ['format' => self::CONVERTED_FORMAT, 'version' => 1, 'made_from' => basename($from)] + $data,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_INVALID_UTF8_SUBSTITUTE
+        ));
+
+        return array_map('count', $data);
+    }
+
+    private function isConverted(string $path): bool
+    {
+        $start = (string) file_get_contents($path, false, null, 0, 64);
+
+        return str_starts_with(ltrim($start), '{');
+    }
+
+    /** @return array{products: list<array<string, string>>, suppliers: list<array<string, string>>, customers: list<array<string, string>>} */
+    private function readConverted(string $path): array
+    {
+        $data = json_decode((string) file_get_contents($path), true);
+
+        if (! is_array($data) || ($data['format'] ?? null) !== self::CONVERTED_FORMAT) {
+            throw new OldPosException('This is not a converted old POS file. Upload the .mdb file, or the .json file that oldpos:convert made from it.');
+        }
+
+        $lists = [];
+
+        foreach (['products', 'suppliers', 'customers'] as $list) {
+            if (! is_array($data[$list] ?? null)) {
+                throw new OldPosException('The converted file is incomplete: it has no '.$list.' list. Convert the .mdb file again.');
+            }
+
+            // Every value as text, exactly as reading the .mdb gives it.
+            $lists[$list] = array_values(array_map(
+                fn ($row) => array_map(fn ($value) => (string) ($value ?? ''), (array) $row),
+                $data[$list]
+            ));
+        }
+
+        return $lists;
     }
 
     /** A date as the old system wrote it — 07/30/26 00:00:00 — or null. */
@@ -132,7 +196,12 @@ class OldPosReader
 
         // 126 and 127 are the shell saying the program could not be run or
         // was not found — the tool is missing, not the file unreadable.
-        if (in_array($process->getExitCode(), [126, 127], true)) {
+        // Windows says the same thing in words, with an exit code of 1.
+        $notFound = in_array($process->getExitCode(), [126, 127], true)
+            || (PHP_OS_FAMILY === 'Windows' && ! $process->isSuccessful()
+                && (str_contains($process->getErrorOutput(), 'not recognized') || trim($process->getOutput().$process->getErrorOutput()) === ''));
+
+        if ($notFound) {
             throw new OldPosException(self::NOT_INSTALLED);
         }
 
@@ -146,9 +215,9 @@ class OldPosReader
         return $process->getOutput();
     }
 
-    private const NOT_INSTALLED = 'The tool that reads old POS databases (mdbtools) is not installed on this server. '
-        .'Install it — "brew install mdbtools" on a Mac, "apt install mdbtools" on Linux — and try again. '
-        .'If it is installed somewhere unusual, set MDBTOOLS_PATH to its folder.';
+    private const NOT_INSTALLED = 'This computer cannot read .mdb files itself: the tool for it (mdbtools) is not installed. '
+        .'Either convert the file on a computer that has it — "php artisan oldpos:convert file.mdb" — and upload the .json file that makes, '
+        .'or install mdbtools here ("brew install mdbtools" on a Mac, "apt install mdbtools" on Linux; there is none for Windows).';
 
     /**
      * mdbtools is not always on the web server's own path, so it is looked for.

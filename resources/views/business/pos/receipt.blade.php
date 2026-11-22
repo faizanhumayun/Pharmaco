@@ -29,7 +29,7 @@
             <span class="rounded bg-emerald-500 px-2 py-1 text-sm font-bold text-slate-900">Rx</span>
             <div>
                 <p class="text-base font-semibold leading-tight">{{ $business->name }}</p>
-                <p class="text-xs text-slate-400">Bill {{ $bill->reference() }} · sold by {{ $bill->creator->name }}</p>
+                <p class="text-xs text-slate-400">Bill {{ $bill->reference() }} · sold by {{ $bill->creator->name }}@if ($bill->device) · {{ $bill->device->label() }}@endif</p>
             </div>
         </div>
 

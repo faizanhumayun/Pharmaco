@@ -15,7 +15,7 @@ class ShopMirror extends Model
 {
     protected $connection = 'main';
 
-    protected $fillable = ['name', 'host', 'database', 'db_username', 'db_password'];
+    protected $fillable = ['name', 'slug', 'host', 'database', 'db_username', 'db_password'];
 
     protected $hidden = ['db_password', 'token_hash'];
 

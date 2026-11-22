@@ -40,18 +40,24 @@ class ShopMirrorController extends Controller
         Gate::authorize('manage-platform');
         abort_if(MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop(), 404);
 
+        $request->merge(['slug' => \Illuminate\Support\Str::slug((string) ($request->input('slug') ?: $request->input('name')))]);
+
         $data = $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'host' => ['required', 'string', 'max:190', 'regex:/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i', Rule::unique('main.shop_mirrors', 'host')],
+            // The short name in its link: platform.example/copy/<this>
+            'slug' => ['required', 'string', 'max:80', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/', Rule::unique('main.shop_mirrors', 'slug')],
+            // Optional: an address of its own, as well as the link.
+            'host' => ['nullable', 'string', 'max:190', 'regex:/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i', Rule::unique('main.shop_mirrors', 'host')],
             'database' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/', Rule::unique('main.shop_mirrors', 'database')],
             'db_username' => ['nullable', 'string', 'max:64'],
             'db_password' => ['nullable', 'string', 'max:255'],
         ], [
+            'slug.regex' => 'Small letters, digits and hyphens only, for example tayyaba-medicose.',
             'host.regex' => 'Enter the address only, for example shop.example.com — no http:// and no slashes.',
             'database.regex' => 'A database name is letters, digits and underscores only.',
         ]);
 
-        $data['host'] = strtolower($data['host']);
+        $data['host'] = filled($data['host'] ?? null) ? strtolower($data['host']) : null;
 
         // The copy must never be the platform's own database: a snapshot
         // replaces everything in the database it is loaded into.

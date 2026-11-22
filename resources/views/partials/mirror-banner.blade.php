@@ -14,5 +14,8 @@
             · nothing has arrived from the shop yet
         @endif
         · changes are made on the shop's own computer
+        @if ($mirror['can_leave'] ?? false)
+            · <a href="{{ route('copy.leave') }}" class="underline hover:no-underline">Leave this copy</a>
+        @endif
     </div>
 @endif

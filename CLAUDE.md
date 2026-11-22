@@ -91,7 +91,8 @@ needs the internet. That computer holds the real books. The platform keeps a
   into that shop's **own database** — a whole copy, never merged into the
   platform's. Shops are registered under Shop copies in the back office
   (`shop_mirrors`, always read through the `main` connection).
-- A request on a shop's address has `mysql` pointed at its copy by
+- A browser steps into a copy at `/copy/<slug>` (a signed cookie; an address
+  of its own is optional). Such a request has `mysql` pointed at the copy by
   `MirrorHost` before anything reads the database, and `MirrorReadOnly` turns
   away every request that would change it.
 

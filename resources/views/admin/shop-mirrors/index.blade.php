@@ -1,7 +1,7 @@
 {{--
     Shops that run Pharmaco on their own computer and keep a read-only copy
     here. Registering one gives its computer a token to send snapshots with;
-    the copy is then opened at the shop's own address.
+    the copy is then opened by a link under this site's own address.
 --}}
 <x-app-layout>
     <x-slot name="header">
@@ -48,7 +48,10 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                                             <span class="block font-mono text-xs text-gray-500">{{ $mirror->database }}</span>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <a href="//{{ $mirror->host }}" target="_blank" rel="noopener" class="font-medium text-emerald-700 hover:underline">{{ $mirror->host }}</a>
+                                            <a href="{{ route('copy.enter', $mirror->slug) }}" target="_blank" rel="noopener" class="font-medium text-emerald-700 hover:underline">{{ route('copy.enter', $mirror->slug) }}</a>
+                                            @if ($mirror->host)
+                                                <a href="//{{ $mirror->host }}" target="_blank" rel="noopener" class="block text-xs text-gray-500 hover:underline">also {{ $mirror->host }}</a>
+                                            @endif
                                         </td>
                                         <td class="px-4 py-3 text-gray-600">
                                             @if ($mirror->last_error)
@@ -87,7 +90,7 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
             </div>
 
             <div>
-                <x-panel title="Register a shop" description="Create its address and an empty database on the server first.">
+                <x-panel title="Register a shop" description="Create an empty database for it on the server first.">
                     <form method="POST" action="{{ route('admin.shop-mirrors.store') }}" class="space-y-4 p-4 sm:p-6">
                         @csrf
                         <div>
@@ -96,10 +99,16 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                             <x-input-error :messages="$errors->get('name')" class="mt-1" />
                         </div>
                         <div>
-                            <x-input-label for="host" value="Address of the copy" />
-                            <x-text-input id="host" name="host" type="text" class="mt-1 block w-full font-mono" :value="old('host')" required
+                            <x-input-label for="slug" value="Short name for its link" />
+                            <x-text-input id="slug" name="slug" type="text" class="mt-1 block w-full font-mono" :value="old('slug')" placeholder="tayyaba" maxlength="80" />
+                            <p class="mt-1 text-xs text-gray-500">The copy is opened at {{ url('/copy') }}/<span class="font-mono">short-name</span>. Left empty, it is made from the shop's name.</p>
+                            <x-input-error :messages="$errors->get('slug')" class="mt-1" />
+                        </div>
+                        <div>
+                            <x-input-label for="host" value="An address of its own (optional)" />
+                            <x-text-input id="host" name="host" type="text" class="mt-1 block w-full font-mono" :value="old('host')"
                                           placeholder="shopname.{{ parse_url(config('app.url'), PHP_URL_HOST) }}" />
-                            <p class="mt-1 text-xs text-gray-500">A subdomain that points at this same site.</p>
+                            <p class="mt-1 text-xs text-gray-500">Only if you want one: a subdomain pointing at this same site. The link above works without it.</p>
                             <x-input-error :messages="$errors->get('host')" class="mt-1" />
                         </div>
                         <div>

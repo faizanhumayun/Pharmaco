@@ -31,6 +31,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // (config/security-code.php, or Security code in the back office).
         $middleware->appendToGroup('web', CheckSecurityCode::class);
 
+        // Which shop's copy a browser has stepped into. Signed rather than
+        // encrypted, because it is read before any middleware has run.
+        $middleware->encryptCookies(except: [\App\Support\MirrorHost::COOKIE]);
+
         // A shop's online copy is for reading: anything that would change it
         // is turned away. Does nothing on the platform's own address.
         $middleware->appendToGroup('web', MirrorReadOnly::class);

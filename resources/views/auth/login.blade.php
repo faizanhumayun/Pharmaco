@@ -37,6 +37,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="pharmaco">
+    @include('partials.mirror-banner')
     <div class="ph-login">
 
         <main class="ph-login__form">

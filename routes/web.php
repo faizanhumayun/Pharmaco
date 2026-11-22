@@ -34,6 +34,11 @@ use Illuminate\Support\Facades\Route;
 // feature there when it ships.
 Route::view('/', 'landing')->name('home');
 
+// A shop's read-only copy, opened under the platform's own address. Stepping
+// in shows the copy's own sign-in page; stepping out returns to the platform.
+Route::get('/copy/{slug}', [\App\Http\Controllers\ShopCopyController::class, 'enter'])->name('copy.enter');
+Route::get('/copy-leave', [\App\Http\Controllers\ShopCopyController::class, 'leave'])->name('copy.leave');
+
 // Security code gate entry (public; exempt from the gate itself). Throttled,
 // because a short code is otherwise there to be guessed.
 Route::get('/security-code', [SecurityCodeController::class, 'show'])->name('security-code');

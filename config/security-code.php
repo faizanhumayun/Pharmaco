@@ -43,6 +43,10 @@ return [
 
     'exempt_patterns' => [
         'security-code',
+        // Stepping into or out of a shop's copy only chooses which books are
+        // read; the copy has its own gate and its own sign-in.
+        'copy/*',
+        'copy-leave',
         'up',
         'login',
         'admin',

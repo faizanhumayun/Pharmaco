@@ -10,7 +10,7 @@ the owner can read it — and only read it — from anywhere.
  ┌───────────────────────────┐   every 5 min, when online   ┌──────────────────────────────┐
  │ Pharmaco + MySQL          │ ───────── snapshot ────────▶ │ the shop's own database      │
  │ the real books            │                              │ read-only copy               │
- │ counter, stock, closing   │                              │ shopname.yourdomain.com      │
+ │ counter, stock, closing   │                              │ yourdomain.com/copy/shopname │
  └───────────────────────────┘                              └──────────────────────────────┘
         other shop PCs open it                                     the owner opens it
         over the shop's network                                    from home or a phone
@@ -21,16 +21,23 @@ snapshot.
 
 ## Part 1 — on the platform (once per shop)
 
-1. **Create the address.** In Plesk add a subdomain, for example
-   `tayyaba.yourdomain.com`, with its document root set to the **same folder**
-   as the main site's (`…/public`). Issue it an SSL certificate.
-2. **Create an empty database** for the copy, for example `shop_tayyaba`. Let
-   the main site's database user into it, or create a user for it.
-3. **Register the shop.** Back office → **Shop copies** → Register a shop. Enter
-   the name, the address and the database (and the database user and password,
-   only if it is a different user from the main site's).
-4. **Copy the two lines it shows** — `MIRROR_PUSH_URL` and `MIRROR_PUSH_TOKEN`.
+1. **Create an empty database** for the copy in Plesk, for example
+   `shop_tayyaba`. Let the main site's database user into it, or create a user
+   for it. Each shop needs one of its own: a snapshot replaces everything in
+   the database it is loaded into.
+2. **Register the shop.** Back office → **Shop copies** → Register a shop. Enter
+   the name, a short name for its link, and the database (and the database
+   user and password, only if it is a different user from the main site's).
+3. **Copy the two lines it shows** — `MIRROR_PUSH_URL` and `MIRROR_PUSH_TOKEN`.
    The token is shown once. "New token" makes another if it is lost.
+
+No subdomain is needed. The copy is opened under the platform's own address,
+by the link shown on that page: `https://yourdomain.com/copy/tayyaba`.
+
+Only if you want the shop to have an address of its own as well
+(`tayyaba.yourdomain.com`): add that subdomain in Plesk with its document root
+set to the same folder as the main site's, give it an SSL certificate, and
+enter it when registering.
 
 ## Part 2 — on the shop's computer (once)
 
@@ -129,8 +136,8 @@ leaves the application folder and the database — the books — where they are.
 - **The shop** uses `http://localhost:8080` (or the computer's IP address).
   Everything works without internet: the till, receiving stock, closing the
   day, reports.
-- **The owner** opens `https://tayyaba.yourdomain.com` and signs in with the
-  **same email and password as in the shop**. A bar across the top says it is
+- **The owner** opens `https://yourdomain.com/copy/tayyaba` and signs in with
+  the **same email and password as in the shop**. A bar across the top says it is
   a read-only copy and how old it is. Anything that would change the books is
   refused with a message.
 - **The back office** → Shop copies shows when each shop's last snapshot

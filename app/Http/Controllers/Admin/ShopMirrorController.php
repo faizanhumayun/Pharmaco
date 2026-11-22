@@ -68,6 +68,26 @@ class ShopMirrorController extends Controller
         $mirror = new ShopMirror($data);
         $mirror->token_hash = hash('sha256', (string) random_bytes(32));
 
+        /*
+         * The database is made here when the platform's login is allowed to
+         * make one, so there is nothing to do on the server first. On hosting
+         * that does not allow it (most control panels), this quietly does
+         * nothing and the check below says what to do instead. The name is
+         * letters, digits and underscores only — validated above.
+         */
+        $created = false;
+
+        try {
+            $existed = DB::connection('main')->select('select schema_name from information_schema.schemata where schema_name = ?', [$data['database']]) !== [];
+
+            if (! $existed) {
+                DB::connection('main')->statement('CREATE DATABASE `'.$data['database'].'` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
+                $created = true;
+            }
+        } catch (\Throwable) {
+            // Not allowed to: it has to be created in the hosting panel.
+        }
+
         // Reached now, so a wrong name or login is found here and not at the
         // shop's first snapshot.
         try {
@@ -76,7 +96,7 @@ class ShopMirrorController extends Controller
             DB::connection('mirror')->getPdo();
         } catch (\Throwable $e) {
             return back()->withInput()->withErrors([
-                'database' => 'That database could not be opened. Create it first, and make sure this login is allowed into it. ('.mb_substr($e->getMessage(), 0, 160).')',
+                'database' => 'That database could not be opened, and this site is not allowed to create it. Create an empty database with this name in the hosting panel and let the site\'s database user into it, then register again. ('.mb_substr($e->getMessage(), 0, 160).')',
             ]);
         } finally {
             DB::purge('mirror');
@@ -86,7 +106,7 @@ class ShopMirrorController extends Controller
 
         return redirect()->route('admin.shop-mirrors.index')
             ->with('issued', ['name' => $mirror->name, 'token' => $mirror->issueToken()])
-            ->with('status', "{$mirror->name} registered. Copy its token now — it is shown once.");
+            ->with('status', "{$mirror->name} registered".($created ? ', and its database was created' : '').'. Copy its token now — it is shown once.');
     }
 
     /** A new token, when the old one is lost or should stop working. */

@@ -90,7 +90,7 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
             </div>
 
             <div>
-                <x-panel title="Register a shop" description="Create an empty database for it on the server first.">
+                <x-panel title="Register a shop" description="Each shop's copy is kept in a database of its own.">
                     <form method="POST" action="{{ route('admin.shop-mirrors.store') }}" class="space-y-4 p-4 sm:p-6">
                         @csrf
                         <div>
@@ -114,7 +114,7 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                         <div>
                             <x-input-label for="database" value="Database for the copy" />
                             <x-text-input id="database" name="database" type="text" class="mt-1 block w-full font-mono" :value="old('database')" required maxlength="64" />
-                            <p class="mt-1 text-xs text-gray-500">Empty, and used for nothing else: each snapshot replaces everything in it.</p>
+                            <p class="mt-1 text-xs text-gray-500">Used for nothing else: each snapshot replaces everything in it. It is created for you when the hosting allows; otherwise create it empty in the hosting panel first.</p>
                             <x-input-error :messages="$errors->get('database')" class="mt-1" />
                         </div>
                         <div class="grid grid-cols-2 gap-3">

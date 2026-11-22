@@ -5,7 +5,8 @@
     above its control. Props:
 
         submit   the button's word ("Filter", "Search", "Apply"); empty for a
-                 bar whose control submits by itself
+                 bar whose control submits by itself. The list filters as the
+                 fields change, so the button is only seen with scripts off
         active   whether anything is filtered right now
         clear    where Clear goes — the same list with nothing filtered
         count    slot: what is showing, e.g. "656 of 656 products"
@@ -25,7 +26,9 @@
          grows, and the box inside it fills the block, whatever width the page
          asked for. A tick box and the buttons keep their own size. A wrapper
          a page puts round some fields (a template, a span) is looked through. --}}
-    <form method="GET" {{ $attributes->except('class') }}
+    {{-- data-live-filter: the list answers as the fields change, without
+         the button being pressed (resources/js/live-filters.js). --}}
+    <form method="GET" data-live-filter {{ $attributes->except('class') }}
           class="flex flex-wrap items-end gap-3 rounded-md border border-line bg-white px-4 py-3
                  [&>span]:contents
                  [&>div]:min-w-[11rem] [&>div]:flex-1 [&>span>div]:min-w-[11rem] [&>span>div]:flex-1
@@ -36,7 +39,8 @@
         @if ($submit !== '' || ($active && $clear))
             <div class="flex !min-w-0 !flex-none items-center gap-2">
                 @if ($submit !== '')
-                    <button class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2">
+                    {{-- Kept for a browser with scripts off; hidden otherwise. --}}
+                    <button data-live-submit class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2">
                         {{ $submit }}
                     </button>
                 @endif

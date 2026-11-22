@@ -41,6 +41,45 @@
         {{-- Two columns, each filling the height that is left. --}}
         <div class="space-y-4 xl:grid xl:min-h-0 xl:flex-1 xl:grid-cols-3 xl:grid-rows-[minmax(0,1fr)] xl:gap-4 xl:space-y-0">
             <div class="space-y-4 xl:col-span-2 xl:flex xl:min-h-0 xl:flex-col xl:gap-4 xl:space-y-0">
+                {{-- Which batches the stock on the shelf is made of. Worked out,
+                     not stored: what came in, oldest expiry first, less what
+                     has gone out. Only batches that arrived with a date. --}}
+                @if ($batches->isNotEmpty())
+                    <x-panel title="Batches in stock" class="xl:shrink-0"
+                             description="What is on the shelf, by batch. The oldest expiry is sold first.">
+                        <div class="max-h-48 overflow-auto">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="sticky top-0 bg-gray-50">
+                                    <tr>
+                                        @foreach ([['Batch','left'],['Expires','left'],['Held','right'],['At cost','right'],['','right']] as [$h,$align])
+                                            <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }} {{ $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
+                                        @endforeach
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100">
+                                    @foreach ($batches as $batch)
+                                        <tr @class(['bg-red-50/60' => $batch['state'] === 'expired', 'bg-amber-50/50' => $batch['state'] === 'expiring'])>
+                                            <td class="whitespace-nowrap px-3 py-2 font-mono text-gray-900 sm:px-6">{{ $batch['batch_no'] ?: '—' }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-gray-900">{{ $batch['expires_on']->format('M Y') }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-right text-gray-900">{{ $product->stockLabel($batch['packs'], $batch['loose']) }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $batch['value']->format() }}</td>
+                                            <td class="whitespace-nowrap px-3 py-2 text-right sm:px-6">
+                                                @if ($batch['state'] === 'expired')
+                                                    <x-badge classes="bg-red-600 text-white ring-red-700/20">Expired</x-badge>
+                                                @elseif ($batch['state'] === 'expiring')
+                                                    <x-badge classes="bg-amber-500 text-white ring-amber-600/20">Near expiry</x-badge>
+                                                @else
+                                                    <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">Fine</x-badge>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+                    </x-panel>
+                @endif
+
                 {{-- As tall as its rows, up to a third of the column; the
                      movements below take whatever is left. --}}
                 <x-panel title="Price history" description="Every time a price moved. Newest first."

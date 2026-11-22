@@ -148,6 +148,9 @@
                     <span class="rounded bg-slate-700 px-1.5 py-0.5 font-mono text-xs">{{ $soldToday->count() }}</span>
                 </button>
 
+                {{-- A shop's own computer: internet, and the online copy. --}}
+                @include('partials.sync-status', ['dark' => true])
+
                 <a href="{{ route('businesses.show', $business) }}"
                    class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
                     Leave counter
@@ -278,6 +281,11 @@
                             In stock only
                         </label>
                     </p>
+                    {{-- What the two ways of picking a product do. --}}
+                    <p class="mt-2 text-xs text-slate-500">
+                        <span class="font-semibold text-slate-700">+</span> adds one whole pack.
+                        Click a product's name to sell loose pieces, more than one, or at another price.
+                    </p>
                 </div>
 
                 {{-- The whole list, not only what was searched for. --}}
@@ -332,7 +340,7 @@
                                         ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                                         : 'border border-amber-600 bg-white text-amber-700 hover:bg-amber-50'"
                                     :title="piecesHeld(p) > 0
-                                        ? 'Add one of ' + p.name
+                                        ? 'Add one whole pack of ' + p.name + ' — click the name for loose pieces or another price'
                                         : 'No stock recorded — the bill will not take it'">+</button>
                         </div>
                     </template>
@@ -575,7 +583,8 @@
                     <p class="text-sm font-semibold text-slate-900">Who is this bill for?</p>
                     <div class="mt-2 flex gap-2">
                         <input x-ref="customerSearch" x-model="customerQuery" type="text" autocomplete="off"
-                               x-on:keydown.enter.prevent="pickFirst()"
+                               x-on:keydown.arrow-down.prevent="moveCustomer(1)" x-on:keydown.arrow-up.prevent="moveCustomer(-1)"
+                               x-on:keydown.enter.prevent="pickHighlighted()" x-on:input="customerAt = -1"
                                placeholder="Search by name, area or phone…"
                                class="block w-full rounded-lg border-slate-300 py-2 focus:border-emerald-600 focus:ring-emerald-600">
                         @can('configure', $business)
@@ -587,17 +596,19 @@
                     </div>
                 </div>
 
-                <div class="min-h-0 flex-1 overflow-y-auto">
+                {{-- Up and Down in the search box move through the list; Enter
+                     takes the lit one, or the first match when none is lit. --}}
+                <div class="min-h-0 flex-1 overflow-y-auto" x-ref="customerList">
                     @if ($walkIns)
-                        <button type="button" x-on:click="pick(null)"
+                        <button type="button" data-pick x-on:click="pick(null)" :class="customerAt === 0 ? 'bg-emerald-50' : ''"
                                 class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 text-left hover:bg-emerald-50">
                             <span class="text-sm font-medium text-slate-900">Walk-in (cash)</span>
                             <span class="text-xs text-slate-400">no account kept</span>
                         </button>
                     @endif
 
-                    <template x-for="c in customerMatches" :key="c.id">
-                        <button type="button" x-on:click="pick(c)"
+                    <template x-for="(c, i) in customerMatches" :key="c.id">
+                        <button type="button" data-pick x-on:click="pick(c)" :class="customerAt === i + {{ $walkIns ? 1 : 0 }} ? 'bg-emerald-50' : ''"
                                 class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 text-left last:border-0 hover:bg-emerald-50">
                             <span class="min-w-0">
                                 <span class="block truncate text-sm font-medium text-slate-900" x-text="c.name"></span>
@@ -1229,7 +1240,29 @@
                     openCustomers() {
                         this.picking = true;
                         this.customerQuery = '';
+                        this.customerAt = -1;
                         this.$nextTick(() => this.$refs.customerSearch.focus());
+                    },
+                    // Where the arrow keys are in the customer list; -1 is nowhere yet.
+                    customerAt: -1,
+                    moveCustomer(step) {
+                        const rows = this.$refs.customerList.querySelectorAll('[data-pick]');
+
+                        if (rows.length === 0) return;
+
+                        this.customerAt = this.customerAt < 0
+                            ? (step > 0 ? 0 : rows.length - 1)
+                            : (this.customerAt + step + rows.length) % rows.length;
+                        rows[this.customerAt]?.scrollIntoView({ block: 'nearest' });
+                    },
+                    pickHighlighted() {
+                        const row = this.customerAt >= 0
+                            ? this.$refs.customerList.querySelectorAll('[data-pick]')[this.customerAt]
+                            : null;
+
+                        this.customerAt = -1;
+
+                        return row ? row.click() : this.pickFirst();
                     },
                     pickFirst() {
                         const first = this.customerMatches[0];
@@ -1276,10 +1309,12 @@
                     addOne(p) {
                         const line = this.cart.find(l => l.id === p.id);
 
-                        // Past the count, the quick + opens the dialog, which
-                        // says why the sale cannot go on the bill.
+                        // The + is always a whole pack. Tablets out of a pack
+                        // are asked for by clicking the product, which opens
+                        // the dialog. Past the count, the + opens that dialog
+                        // too, which says why the sale cannot go on the bill.
                         const per = Number(p.per) || 1;
-                        const step = this.looseMode ? 1 : per;
+                        const step = per;
                         if ((line?.qty ?? 0) * per + (line?.loose ?? 0) + step > this.piecesHeld(p)) {
                             return this.ask(p);
                         }

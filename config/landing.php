@@ -231,6 +231,7 @@ return [
             ['title' => 'Spreadsheet reports', 'body' => 'Reports for sales, purchases and stock, downloadable as spreadsheets.'],
             ['title' => 'Several businesses, one login', 'body' => 'Each business is fully separate.'],
             ['title' => 'Nothing to install', 'body' => 'Pharmaco runs in the browser.'],
+            ['title' => 'Works without internet', 'body' => 'A shop can run on its own computer and keep selling offline. The owner reads an up-to-date copy online.'],
         ],
     ],
 

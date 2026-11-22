@@ -42,11 +42,15 @@ class DirectDeliveryController extends Controller
             // reason: a delivery is checked in at speed.
             'products' => CompanyProduct::forBusiness($business)
                 ->where('is_active', true)
+                ->with('company:id,name')
                 ->orderBy('brand_name')
                 ->get()
                 ->map(fn (CompanyProduct $p) => [
                     'id' => $p->id,
                     'company_id' => $p->company_id,
+                    // Whose catalogue it sits in: a search reaches past the
+                    // delivering company's own, and says where a product is from.
+                    'company' => $p->company?->name,
                     'name' => $p->label(),
                     'code' => $p->code,
                     'rate' => (float) ($p->purchase_rate?->toDecimal() ?? 0),
@@ -90,9 +94,11 @@ class DirectDeliveryController extends Controller
     {
         $this->authorize('manageOrders', $business);
 
+        $request->merge(['brand_name' => trim(preg_replace('/\s+/', ' ', (string) $request->input('brand_name')) ?? '')]);
+
         $data = $request->validate([
             'company_id' => ['required', 'integer'],
-            'brand_name' => ['required', 'string', 'max:200'],
+            'brand_name' => ['required', 'string', 'max:200', 'regex:/\S/'],
             // Tablet, syrup, injection… Asked for, because it decides how the
             // product is named, filtered and — for loose stock — counted.
             'dosage_form' => ['required', Rule::in(array_map(fn (DosageForm $form) => $form->label(), DosageForm::cases()))],
@@ -122,12 +128,24 @@ class DirectDeliveryController extends Controller
             $data['pack_size'] ?? null,
         );
 
-        // Already there under another name on screen — hand back the one that
-        // exists rather than making a second.
-        $product = CompanyProduct::forBusiness($business)
-            ->where('company_id', $company->id)
-            ->where('match_key', $key)
-            ->first();
+        /*
+         * One name, one product. A second product with the same name, strength
+         * and type is the first one entered again — under this company or any
+         * other — and from then on its stock, its sales and its expiry dates
+         * are split between two rows that mean the same thing. Refused, with
+         * where the first one is, so it can be searched for instead.
+         */
+        $same = $this->sameProduct($business, $data['brand_name'], $data['strength'] ?? null, $data['dosage_form']);
+
+        if ($same !== null) {
+            throw ValidationException::withMessages(['brand_name' => sprintf(
+                '%s is already in the catalogue%s. Search for it instead of adding it again.',
+                $same->label(),
+                $same->company ? ' under '.$same->company->name : '',
+            )]);
+        }
+
+        $product = null;
 
         $product ??= CompanyProduct::create([
             'business_id' => $business->id,
@@ -141,8 +159,8 @@ class DirectDeliveryController extends Controller
             'dosage_form' => $data['dosage_form'],
             'strength' => $data['strength'] ?? null,
             'pack_size' => $data['pack_size'] ?? null,
-            'purchase_rate' => $data['purchase_rate'] ?: null,
-            'mrp' => $data['mrp'] ?: null,
+            'purchase_rate' => ($data['purchase_rate'] ?? null) ?: null,
+            'mrp' => ($data['mrp'] ?? null) ?: null,
             'is_active' => true,
         ]);
 
@@ -153,6 +171,7 @@ class DirectDeliveryController extends Controller
             'next_code' => $this->nextCode($business),
             'id' => $product->id,
             'company_id' => $product->company_id,
+            'company' => $company->name,
             'name' => $product->label(),
             'code' => $product->code,
             'rate' => (float) ($product->purchase_rate?->toDecimal() ?? 0),
@@ -161,6 +180,25 @@ class DirectDeliveryController extends Controller
             'case' => $product->case_size,
             'pack' => $product->pack_size,
         ]);
+    }
+
+    /**
+     * A product already in this business's catalogue with the same name,
+     * strength and type — whichever company it is filed under. Capitals and
+     * extra spaces do not make a name a different one.
+     */
+    private function sameProduct(Business $business, string $name, ?string $strength, ?string $form): ?CompanyProduct
+    {
+        $norm = fn (?string $value) => mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $value) ?? ''));
+
+        return CompanyProduct::forBusiness($business)
+            ->with('company:id,name')
+            // The column's own comparison ignores capitals; spaces are settled below.
+            ->where('brand_name', 'like', str_replace(['%', '_'], ['\\%', '\\_'], trim($name)))
+            ->get()
+            ->first(fn (CompanyProduct $p) => $norm($p->brand_name) === $norm($name)
+                && $norm($p->strength) === $norm($strength)
+                && $norm($p->dosage_form) === $norm($form));
     }
 
     /**

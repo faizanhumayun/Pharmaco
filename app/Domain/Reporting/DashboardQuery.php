@@ -41,14 +41,22 @@ class DashboardQuery
         $expiredCount = 0;
         $expiringCount = 0;
 
+        // Pieces out of opened packs count too: a pharmacy's last few
+        // tablets of a batch are still stock that is running out of time.
+        $loose = $stock->looseByProduct($business);
+        $perPack = \App\Models\CompanyProduct::forBusiness($business)->where('units_per_pack', '>', 1)->pluck('units_per_pack', 'id');
+
         foreach ($watch->soonestByProduct($business) as $productId => $batch) {
             $packs = max(0, (int) ($onHand[$productId] ?? 0));
+            $pieces = max(0, (int) ($loose[$productId] ?? 0));
 
-            if ($packs === 0) {
+            if ($packs === 0 && $pieces === 0) {
                 continue;
             }
 
-            $value = Money::of($costs[$productId] ?? 0)->times($packs);
+            $cost = Money::of($costs[$productId] ?? 0);
+            $value = $cost->times($packs)
+                ->plus(\App\Models\PosBillLine::piece($cost, max(1, (int) ($perPack[$productId] ?? 1)))->times($pieces));
 
             match ($watch->stateFor($business, $batch['expires_on'])) {
                 'expired' => [$expired = $expired->plus($value), $expiredCount++],

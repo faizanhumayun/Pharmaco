@@ -26,6 +26,7 @@
     </head>
     <body class="side-{{ $business->business_type->value }} accent-{{ $business->accentColour()->value }} {{ $mode ? 'mode-'.$mode : '' }} h-full bg-app font-sans antialiased">
         <div class="flex h-full flex-col overflow-hidden">
+            @include('partials.mirror-banner')
             {{ $slot }}
         </div>
 

@@ -77,6 +77,30 @@ on and keeps the codes under Security code in the back office; that switch
 `/admin/*` and the sign-in pages are exempt on purpose, so the gate can always
 be switched off. It replaces no authentication, tenancy or policy check.
 
+## Running in the shop, with a copy online
+
+A shop can run the whole application on its own computer so the counter never
+needs the internet. That computer holds the real books. The platform keeps a
+**read-only copy** of them, which the owner opens from anywhere.
+
+- Shop side: `mirror:push` (scheduled every five minutes) writes a snapshot of
+  every table that holds the books and sends it to the platform. Offline, the
+  snapshot stays on disk as a backup; unchanged books are not sent twice.
+  `mirror:restore <file>` puts a snapshot back.
+- Platform side: `POST /mirror/receive` (token, no session) loads a snapshot
+  into that shop's **own database** — a whole copy, never merged into the
+  platform's. Shops are registered under Shop copies in the back office
+  (`shop_mirrors`, always read through the `main` connection).
+- A request on a shop's address has `mysql` pointed at its copy by
+  `MirrorHost` before anything reads the database, and `MirrorReadOnly` turns
+  away every request that would change it.
+
+Never make a copy writable, and never sync in both directions: two places
+posting to one ledger is how books stop agreeing. `Snapshot` and
+`SnapshotImporter` copy rows without their models on purpose — they are the
+third documented exception to the raw-SQL rule, with the balance service and
+`DeleteBusiness`. Setting a shop up: `docs/shop-computer.md`.
+
 ## Testing
 
 `php artisan test` runs against MySQL (`pharmaco_test`), not SQLite — the schema

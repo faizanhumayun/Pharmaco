@@ -248,8 +248,14 @@ class ReceiveOrder
             return [];
         }
 
+        /*
+         * Any product of this business, not only the delivering company's
+         * own. A product sits in one company's catalogue, but the goods are
+         * bought wherever they are in stock that week — and the product page
+         * already lists every company a product has come from.
+         */
         $catalogue = CompanyProduct::forBusiness($order->business_id)
-            ->where('company_id', $order->company_id)
+            ->whereIn('id', collect($rows)->pluck('company_product_id')->filter()->map(fn ($id) => (int) $id)->all())
             ->get()
             ->keyBy('id');
 

@@ -11,7 +11,12 @@
  * To leave one as the browser draws it, mark it: <select data-native>.
  *
  * A long list can be searched: a box at the top of the menu narrows it as you
- * type, and Enter takes the first match. It appears by itself once a select
+ * type, and Enter takes the first match.
+ *
+ * The keyboard works the whole menu: Down or Up on the button opens it, Down
+ * and Up (Home and End) move through the choices, Enter takes the one that is
+ * lit, Escape closes it. In a menu with a search box the cursor stays in the
+ * box while the arrows move the list, so typing and choosing do not fight. It appears by itself once a select
  * has more than ten choices, or always on one marked <select data-search>.
  *
  * The classes here are Tailwind's, read from the same tokens as every page
@@ -81,6 +86,51 @@ function fill(select, menu, button) {
     if ('search' in select.dataset || select.options.length > SEARCH_FROM) addSearch(menu);
 }
 
+/** The choices that can be taken right now: on show, and not switched off. */
+function choices(menu) {
+    return [...menu.querySelectorAll('[role="option"]')].filter(item => ! item.classList.contains('hidden') && ! item.disabled);
+}
+
+/** Lights one choice — the one Enter will take — and brings it into view. */
+function light(menu, item) {
+    menu.querySelectorAll('[data-lit]').forEach(old => {
+        delete old.dataset.lit;
+        old.classList.remove('ring-2', 'ring-inset', 'ring-emerald-600');
+    });
+
+    if (! item) return;
+
+    item.dataset.lit = 'on';
+    item.classList.add('ring-2', 'ring-inset', 'ring-emerald-600');
+    item.scrollIntoView({ block: 'nearest' });
+}
+
+/** Arrow keys, Home, End and Enter inside an open menu. */
+function steer(menu, event) {
+    const list = choices(menu);
+
+    if (list.length === 0) return;
+
+    const at = list.indexOf(menu.querySelector('[data-lit]'));
+    const to = {
+        ArrowDown: at < 0 ? 0 : (at + 1) % list.length,
+        ArrowUp: at < 0 ? list.length - 1 : (at - 1 + list.length) % list.length,
+        Home: 0,
+        End: list.length - 1,
+    }[event.key];
+
+    if (to !== undefined) {
+        // Home and End belong to the text while there is a search box.
+        if ((event.key === 'Home' || event.key === 'End') && event.target.matches('input')) return;
+
+        event.preventDefault();
+        light(menu, list[to]);
+    } else if (event.key === 'Enter') {
+        event.preventDefault();
+        (list[at] ?? list[0]).click();
+    }
+}
+
 // More choices than this and the menu gets a search box of its own.
 const SEARCH_FROM = 10;
 
@@ -106,8 +156,6 @@ function addSearch(menu) {
     none.className = 'hidden px-3 py-2 text-sm text-gray-500';
     none.textContent = 'Nothing matches.';
 
-    const shown = () => items.filter(item => ! item.classList.contains('hidden') && ! item.disabled);
-
     input.addEventListener('input', event => {
         // Kept to the menu: the page's own listeners have nothing to do with it.
         event.stopPropagation();
@@ -122,15 +170,8 @@ function addSearch(menu) {
         none.classList.toggle('hidden', items.some(item => ! item.classList.contains('hidden')));
     });
 
-    input.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            shown()[0]?.click();
-        } else if (event.key === 'ArrowDown') {
-            event.preventDefault();
-            shown()[0]?.focus();
-        }
-    });
+    // Whatever was lit may have just been filtered away: light the first match.
+    input.addEventListener('input', () => light(menu, choices(menu)[0] ?? null));
 
     bar.append(input);
     menu.prepend(bar);
@@ -176,7 +217,10 @@ function enhance(select) {
     // sits in: a card that clips its contents, or a drawer that slides, would
     // otherwise cut the menu off or put it in the wrong place.
     menu.dataset.kebabWrap = 'on';
-    menu.className = 'fixed z-[90] hidden max-h-72 w-max max-w-xs overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg';
+    menu.className = 'fixed z-[90] hidden max-h-72 w-max max-w-xs overflow-y-auto rounded-lg border border-gray-200 bg-white py-1 shadow-lg focus:outline-none';
+    // Able to hold the keyboard itself, for a menu with no search box.
+    menu.tabIndex = -1;
+    menu.addEventListener('keydown', event => steer(menu, event));
 
     // Written only when it has changed: this runs often, and writing the
     // same text again would be a change to the page that nothing needs — and
@@ -193,6 +237,8 @@ function enhance(select) {
     select.insertAdjacentElement('beforebegin', wrapper);
     wrapper.append(select, button);
     document.body.append(menu);
+    // So whoever removes the select from the page can take its menu with it.
+    select._floating = menu;
     select.classList.add('sr-only');
     select.tabIndex = -1;
     select.setAttribute('aria-hidden', 'true');
@@ -220,9 +266,23 @@ function enhance(select) {
 
         button.setAttribute('aria-expanded', 'true');
         openMenu = { menu, button };
-        // Not while there is a search box: scrolling to the chosen row would
-        // push the box out of sight in a browser that has no sticky rows.
-        if (! menu.querySelector('input')) menu.querySelector('[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
+        // The keyboard starts on what is already chosen. With a search box
+        // the cursor is in the box (and nothing is scrolled, which would push
+        // the box out of sight); without one the menu itself takes the keys.
+        if (menu.querySelector('input')) {
+            light(menu, choices(menu)[0] ?? null);
+        } else {
+            light(menu, menu.querySelector('[aria-selected="true"]:not(:disabled)') ?? choices(menu)[0] ?? null);
+            menu.focus({ preventScroll: true });
+        }
+    });
+
+    // Down or Up on the closed button opens it, as a native select would.
+    button.addEventListener('keydown', event => {
+        if ((event.key === 'ArrowDown' || event.key === 'ArrowUp') && openMenu?.menu !== menu) {
+            event.preventDefault();
+            button.click();
+        }
     });
 
     select.addEventListener('change', sync);

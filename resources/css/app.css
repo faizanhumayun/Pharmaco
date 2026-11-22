@@ -9,6 +9,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Lists filter as their fields change, so the filter bar's button is put away. */
+.live-filters [data-live-submit] { display: none; }
+
 /* Alpine: hide elements until Alpine has initialised, so modals do not flash. */
 [x-cloak] { display: none !important; }
 

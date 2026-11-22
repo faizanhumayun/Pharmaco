@@ -46,6 +46,12 @@ Route::get('/dashboard', fn () => redirect(auth()->user()->homeRoute()))
     ->name('dashboard');
 
 Route::middleware('auth')->group(function () {
+    // A shop's own computer: is there internet, is the online copy up to
+    // date, and send it now. Read by the indicator at the top of its screens.
+    Route::get('/mirror/status', [\App\Http\Controllers\MirrorStatusController::class, 'show'])->name('mirror.status');
+    Route::post('/mirror/sync', [\App\Http\Controllers\MirrorStatusController::class, 'sync'])
+        ->middleware('throttle:6,1')->name('mirror.sync');
+
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
@@ -126,6 +132,18 @@ Route::middleware(['auth', 'platform.admin'])
                 Route::put('/', 'update')->name('update');
                 Route::post('codes', 'store')->name('codes.store');
                 Route::patch('codes/{securityCode}', 'toggle')->name('codes.toggle');
+            });
+
+        // Shops that run on their own computer and keep a read-only copy
+        // here. Removing one stops serving its copy; it deletes no books.
+        Route::prefix('shop-copies')
+            ->name('shop-mirrors.')
+            ->controller(\App\Http\Controllers\Admin\ShopMirrorController::class)
+            ->group(function () {
+                Route::get('/', 'index')->name('index');
+                Route::post('/', 'store')->name('store');
+                Route::post('{shopMirror}/token', 'token')->name('token');
+                Route::delete('{shopMirror}', 'destroy')->name('destroy');
             });
 
         Route::resource('users', UserController::class)->except(['show', 'destroy']);

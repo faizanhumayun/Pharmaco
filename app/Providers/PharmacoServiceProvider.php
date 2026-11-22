@@ -20,6 +20,12 @@ class PharmacoServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // A request on a shop's own address is answered from that shop's
+        // read-only copy. Decided here, before anything reads the database.
+        if (! $this->app->runningInConsole()) {
+            \App\Support\MirrorHost::apply(request()->getHost());
+        }
+
         Transaction::observe(TransactionObserver::class);
 
         /*

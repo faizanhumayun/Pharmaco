@@ -74,7 +74,7 @@ class ProductController extends Controller
         ]);
     }
 
-    public function show(Business $business, CompanyProduct $product, StockLedger $stock): View
+    public function show(Business $business, CompanyProduct $product, StockLedger $stock, \App\Domain\Stock\ExpiryWatch $watch): View
     {
         $this->authorize('viewProducts', $business);
 
@@ -88,6 +88,13 @@ class ProductController extends Controller
             'suppliers' => $this->suppliersOf($business, $product),
             // Pieces left in an opened pack, for products sold loose.
             'looseOnHand' => $stock->looseOnHand($business, $product),
+            // The batches what is held can still be made of, oldest expiry
+            // first, each with how it stands: expired, expiring or fine.
+            'batches' => collect($watch->heldBatchesByProduct($business, [$product->id])->get($product->id, []))
+                ->map(fn (array $batch) => $batch + [
+                    'state' => $watch->stateFor($business, $batch['expires_on']),
+                    'value' => $watch->valueAtCost($product, $batch),
+                ]),
             // Every change made to the product by hand, newest first.
             'changes' => \Spatie\Activitylog\Models\Activity::query()
                 ->where('subject_type', $product->getMorphClass())

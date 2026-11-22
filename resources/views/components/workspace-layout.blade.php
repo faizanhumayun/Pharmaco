@@ -90,6 +90,7 @@
     </head>
     <body class="side-{{ $business->business_type->value }} accent-{{ $business->accentColour()->value }} font-sans antialiased">
         <div @class(['bg-app', 'min-h-screen' => ! $fill, 'flex h-screen flex-col overflow-hidden' => $fill])>
+            @include('partials.mirror-banner')
             <header @class(['border-b border-gray-200 bg-white', 'shrink-0' => $fill])>
                 {{-- Identity row: which business you are inside, and its state. --}}
                 <div class="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 px-4 pt-3 sm:px-6 lg:px-8">
@@ -116,6 +117,9 @@
                     </div>
 
                     <div class="flex flex-wrap items-center gap-x-6 gap-y-2">
+                        {{-- A shop's own computer: internet, and the online copy. --}}
+                        @include('partials.sync-status')
+
                         <dl class="hidden gap-6 text-xs md:flex">
                             <div>
                                 <dt class="uppercase tracking-wide text-gray-400">Opening date</dt>
@@ -317,9 +321,19 @@
                         </div>
                     @endif
 
+                    {{-- A product that is not in the catalogue yet, added from
+                         whichever screen it was missed on. --}}
+                    @if ($addStock)
+                        <button type="button" x-data x-on:click="$dispatch('add-product')"
+                                class="my-1 {{ $notice ? 'ms-2' : 'ms-auto' }} inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-semibold text-gray-700 hover:bg-gray-50">
+                            <span aria-hidden="true" class="text-base leading-none">+</span>
+                            Product
+                        </button>
+                    @endif
+
                     @if ($addStock)
                         <a href="{{ route($addStock['route'], $business) }}"
-                           class="my-1 {{ $notice ? 'ms-2' : 'ms-auto' }} inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                           class="my-1 ms-2 inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
                             <span aria-hidden="true" class="text-base leading-none">+</span>
                             {{ $addStock['label'] }}
                         </a>
@@ -342,7 +356,7 @@
 
             @isset($header)
                 <div class="border-b border-gray-200 bg-white">
-                    <div class="w-full px-4 py-5 sm:px-6 lg:px-8">
+                    <div class="w-full px-4 py-5 sm:px-6 lg:px-8" data-live-header>
                         {{ $header }}
                     </div>
                 </div>
@@ -352,6 +366,11 @@
                 {{ $slot }}
             </main>
         </div>
+
+        {{-- Adding a product, from any screen of the workspace. --}}
+        @can('manageOrders', $business)
+            <x-add-product :business="$business" />
+        @endcan
 
         @stack('scripts')
     </body>

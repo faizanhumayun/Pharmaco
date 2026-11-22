@@ -3,7 +3,10 @@
 namespace App\Domain\Stock;
 
 use App\Models\Business;
+use App\Models\CompanyProduct;
+use App\Models\PosBillLine;
 use App\Models\StockMovement;
+use App\Support\Money;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 
@@ -30,7 +33,7 @@ class ExpiryWatch
     /**
      * The soonest expiry still sitting in stock, per product.
      *
-     * @return Collection<int, array{expires_on: Carbon, packs: int}>
+     * @return Collection<int, array{expires_on: Carbon, packs: int, loose: int, batch_no: ?string}>
      */
     public function soonestByProduct(Business $business): Collection
     {
@@ -48,11 +51,21 @@ class ExpiryWatch
      * and they are different problems: one is a loss unless it goes back to
      * the company, the other is only something to sell first.
      *
-     * @return Collection<int, list<array{expires_on: Carbon, packs: int}>>
+     * Counted in pieces, the smallest thing sold, and handed back as whole
+     * packs plus what is loose: a pharmacy's last strip of an expiring batch
+     * is a few tablets, not a pack, and it still has to be found.
+     *
+     * @param  array<int, int>|null  $only  product ids, to look at just those
+     * @return Collection<int, list<array{expires_on: Carbon, packs: int, loose: int, batch_no: ?string}>>
      */
-    public function heldBatchesByProduct(Business $business): Collection
+    public function heldBatchesByProduct(Business $business, ?array $only = null): Collection
     {
-        $onHand = $this->stock->onHandByProduct($business);
+        $pieces = $this->stock->piecesByProduct($business, null, $only);
+
+        $perPack = CompanyProduct::forBusiness($business)
+            ->where('units_per_pack', '>', 1)
+            ->when($only !== null, fn ($q) => $q->whereIn('id', $only))
+            ->pluck('units_per_pack', 'id');
 
         /*
          * Anything that brought goods in is a batch: a delivery, and equally the
@@ -63,14 +76,16 @@ class ExpiryWatch
          */
         $batches = StockMovement::forBusiness($business)
             ->whereNotNull('expires_on')
-            ->where('packs', '>', 0)
+            ->where(fn ($q) => $q->where('packs', '>', 0)->orWhere('loose', '>', 0))
+            ->when($only !== null, fn ($q) => $q->whereIn('company_product_id', $only))
             ->orderBy('expires_on')
             ->orderBy('id')
-            ->get(['company_product_id', 'expires_on', 'packs', 'batch_no'])
+            ->get(['company_product_id', 'expires_on', 'packs', 'loose', 'batch_no'])
             ->groupBy('company_product_id');
 
-        return $batches->mapWithKeys(function (Collection $forProduct, int $productId) use ($onHand) {
-            $left = max(0, (int) ($onHand[$productId] ?? 0));
+        return $batches->mapWithKeys(function (Collection $forProduct, int $productId) use ($pieces, $perPack) {
+            $size = max(1, (int) ($perPack[$productId] ?? 1));
+            $left = max(0, (int) ($pieces[$productId] ?? 0));
             $held = [];
 
             foreach ($forProduct as $batch) {
@@ -78,18 +93,38 @@ class ExpiryWatch
                     break;
                 }
 
-                $fromThisBatch = min($left, (int) $batch->packs);
+                $arrived = max(0, (int) $batch->packs) * $size + max(0, (int) $batch->loose);
+                $fromThisBatch = min($left, $arrived);
                 $left -= $fromThisBatch;
+
+                if ($fromThisBatch === 0) {
+                    continue;
+                }
 
                 $held[] = [
                     'expires_on' => $batch->expires_on,
-                    'packs' => $fromThisBatch,
+                    'packs' => intdiv($fromThisBatch, $size),
+                    'loose' => $fromThisBatch % $size,
                     'batch_no' => $batch->batch_no,
                 ];
             }
 
             return $held === [] ? [] : [$productId => $held];
         });
+    }
+
+    /**
+     * What a held batch is worth at cost: its whole packs, plus its loose
+     * pieces at the pack's cost shared out among them.
+     *
+     * @param  array{packs: int, loose?: int}  $batch
+     */
+    public function valueAtCost(CompanyProduct $product, array $batch): Money
+    {
+        $cost = $product->purchase_rate ?? Money::zero();
+
+        return $cost->times($batch['packs'])
+            ->plus(PosBillLine::piece($cost, max(1, (int) $product->units_per_pack))->times($batch['loose'] ?? 0));
     }
 
     /**

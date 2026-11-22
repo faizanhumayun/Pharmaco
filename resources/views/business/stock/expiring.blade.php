@@ -166,7 +166,12 @@
                                         </x-badge>
                                     @endif
                                 </td>
-                                <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-900">{{ number_format($row['packs']) }}</td>
+                                <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-900">
+                                    {{ number_format($row['packs']) }}
+                                    @if ($row['loose'] > 0)
+                                        <span class="block font-sans text-xs text-gray-500">+ {{ number_format($row['loose']) }} loose {{ Str::plural($row['product']->pieceNoun(), $row['loose']) }}</span>
+                                    @endif
+                                </td>
                                 <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums sm:px-6 {{ $gone ? 'font-semibold text-red-800' : 'text-gray-900' }}">{{ $rs($row['value']) }}</td>
                             </tr>
                         @empty

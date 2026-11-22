@@ -15,13 +15,14 @@
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans antialiased">
+        @include('partials.mirror-banner')
         <div class="min-h-screen bg-app">
             @include('layouts.navigation')
 
             <!-- Page Heading -->
             @isset($header)
                 <header class="border-b border-gray-200 bg-white">
-                    <div class="w-full py-6 px-4 sm:px-6 lg:px-8">
+                    <div class="w-full py-6 px-4 sm:px-6 lg:px-8" data-live-header>
                         {{ $header }}
                     </div>
                 </header>

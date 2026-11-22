@@ -31,6 +31,12 @@
                         <x-nav-link :href="route('admin.security-code.index')" :active="request()->routeIs('admin.security-code.*')">
                             Security code
                         </x-nav-link>
+                        {{-- The platform's list; not offered on a shop's own copy or on a shop's own computer. --}}
+                        @unless (\App\Support\MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop())
+                            <x-nav-link :href="route('admin.shop-mirrors.index')" :active="request()->routeIs('admin.shop-mirrors.*')">
+                                Shop copies
+                            </x-nav-link>
+                        @endunless
                     @else
                         {{-- Members land here only between workspaces: each business
                              opens in its own window with its own chrome. --}}
@@ -90,6 +96,9 @@
                 <x-responsive-nav-link :href="route('admin.users.index')" :active="request()->routeIs('admin.users.*')">Users</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.payment-methods.index')" :active="request()->routeIs('admin.payment-methods.*')">Payment methods</x-responsive-nav-link>
                 <x-responsive-nav-link :href="route('admin.security-code.index')" :active="request()->routeIs('admin.security-code.*')">Security code</x-responsive-nav-link>
+                @unless (\App\Support\MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop())
+                    <x-responsive-nav-link :href="route('admin.shop-mirrors.index')" :active="request()->routeIs('admin.shop-mirrors.*')">Shop copies</x-responsive-nav-link>
+                @endunless
             @else
                 @foreach ($user?->activeBusinesses ?? [] as $business)
                     <x-responsive-nav-link :href="route('businesses.show', $business)">{{ $business->name }}</x-responsive-nav-link>

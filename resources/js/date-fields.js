@@ -248,6 +248,8 @@ function build(from, to = null) {
     wrapper.append(from);
     if (to) wrapper.append(to);
     document.body.append(panel);
+    // So whoever removes the field from the page can take its calendar with it.
+    from._floating = panel;
 
     from._dateSync = label;
     if (to) to._dateSync = label;

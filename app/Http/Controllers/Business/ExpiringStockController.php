@@ -52,14 +52,12 @@ class ExpiringStockController extends Controller
         // One row per batch, valued at the packs in that batch alone: a product
         // with an expired carton and a fresh one is not all a loss.
         $rows = $held
-            ->flatMap(function (array $batches, int $id) use ($products, $today) {
+            ->flatMap(function (array $batches, int $id) use ($products, $today, $watch) {
                 $product = $products->get($id);
 
                 if ($product === null) {
                     return [];
                 }
-
-                $cost = $product->purchase_rate ?? Money::zero();
 
                 return array_map(fn (array $batch) => [
                     'product' => $product,
@@ -67,8 +65,10 @@ class ExpiringStockController extends Controller
                     // Whole days, signed: negative once the date has passed.
                     'days' => (int) $today->copy()->startOfDay()->diffInDays($batch['expires_on'], false),
                     'packs' => $batch['packs'],
+                    // Pieces out of an opened pack that belong to this batch.
+                    'loose' => $batch['loose'],
                     'batch_no' => $batch['batch_no'] ?? null,
-                    'value' => $cost->times($batch['packs']),
+                    'value' => $watch->valueAtCost($product, $batch),
                 ], $batches);
             })
             ->sortBy(fn (array $row) => $row['expires_on']->timestamp)

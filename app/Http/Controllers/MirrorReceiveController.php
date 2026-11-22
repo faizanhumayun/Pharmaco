@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Domain\Mirror\MergedImporter;
 use App\Domain\Mirror\SnapshotImporter;
 use App\Models\ShopMirror;
 use Illuminate\Http\JsonResponse;
@@ -23,7 +24,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class MirrorReceiveController extends Controller
 {
-    public function __invoke(Request $request, SnapshotImporter $importer): JsonResponse
+    public function __invoke(Request $request, SnapshotImporter $importer, MergedImporter $merged): JsonResponse
     {
         $mirror = ShopMirror::forToken($request->bearerToken());
 
@@ -31,9 +32,9 @@ class MirrorReceiveController extends Controller
             return response()->json(['message' => 'That token is not recognised.'], 401);
         }
 
-        // Belt and braces: a snapshot replaces everything in the database it
-        // is loaded into, so it is never the platform's own.
-        if ($mirror->database === config('database.connections.main.database')) {
+        // Belt and braces: a snapshot loaded into a database of its own
+        // replaces everything in it, so that database is never the platform's.
+        if (! $mirror->isMerged() && $mirror->database === config('database.connections.main.database')) {
             return response()->json(['message' => 'This shop is registered against the platform\'s own database. Nothing was loaded.'], 422);
         }
 
@@ -74,10 +75,15 @@ class MirrorReceiveController extends Controller
         $disk->deleteDirectory($dir);
 
         try {
-            config(['database.connections.mirror' => $mirror->connectionConfig()]);
-            DB::purge('mirror');
+            if ($mirror->isMerged()) {
+                // Into the platform's own database, in this shop's block of ids.
+                $done = $merged->import($path, $mirror);
+            } else {
+                config(['database.connections.mirror' => $mirror->connectionConfig()]);
+                DB::purge('mirror');
 
-            $done = $importer->import($path, 'mirror');
+                $done = $importer->import($path, 'mirror');
+            }
         } catch (\Throwable $e) {
             report($e);
             $mirror->forceFill(['last_error' => mb_substr($e->getMessage(), 0, 1000)])->save();

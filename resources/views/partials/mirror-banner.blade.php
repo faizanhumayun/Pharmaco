@@ -2,7 +2,17 @@
     Shown on every screen of a shop's online copy: what this is, and how old.
     The copy is replaced each time the shop's computer sends a snapshot.
 --}}
-@if ($mirror = config('mirror.active'))
+@php
+    // The whole site is a copy, or the business on this screen is one kept
+    // in the platform's own database.
+    $mirror = config('mirror.active');
+
+    if ($mirror === null && isset($business) && $business instanceof \App\Models\Business && $business->isShopCopy()) {
+        $source = $business->shopMirror;
+        $mirror = ['name' => $source?->name ?? $business->name, 'made_at' => $source?->snapshot_made_at, 'can_leave' => false];
+    }
+@endphp
+@if ($mirror)
     @php($madeAt = $mirror['made_at'] ?? null)
     {{-- In the shop's own time, not the server's. --}}
     @php($zone = rescue(fn () => \App\Models\Business::query()->value('timezone'), null, false) ?: config('app.timezone'))

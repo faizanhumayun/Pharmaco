@@ -45,10 +45,15 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                                     <tr>
                                         <td class="px-4 py-3 sm:px-6">
                                             <span class="font-medium text-gray-900">{{ $mirror->name }}</span>
-                                            <span class="block font-mono text-xs text-gray-500">{{ $mirror->database }}</span>
+                                            <span class="block text-xs text-gray-500">{{ $mirror->isMerged() ? 'Kept in this site\'s database' : 'Own database: '.$mirror->database }}</span>
                                         </td>
                                         <td class="px-4 py-3">
-                                            <a href="{{ route('copy.enter', $mirror->slug) }}" target="_blank" rel="noopener" class="font-medium text-emerald-700 hover:underline">{{ route('copy.enter', $mirror->slug) }}</a>
+                                            @if ($mirror->isMerged())
+                                                <span class="text-gray-700">Its people sign in here as usual</span>
+                                                <a href="{{ route('login') }}" target="_blank" rel="noopener" class="block text-xs font-medium text-emerald-700 hover:underline">{{ route('login') }}</a>
+                                            @else
+                                                <a href="{{ route('copy.enter', $mirror->slug) }}" target="_blank" rel="noopener" class="font-medium text-emerald-700 hover:underline">{{ route('copy.enter', $mirror->slug) }}</a>
+                                            @endif
                                             @if ($mirror->host)
                                                 <a href="//{{ $mirror->host }}" target="_blank" rel="noopener" class="block text-xs text-gray-500 hover:underline">also {{ $mirror->host }}</a>
                                             @endif
@@ -90,7 +95,7 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
             </div>
 
             <div>
-                <x-panel title="Register a shop" description="Each shop's copy is kept in a database of its own.">
+                <x-panel title="Register a shop" description="A name is all it needs.">
                     <form method="POST" action="{{ route('admin.shop-mirrors.store') }}" class="space-y-4 p-4 sm:p-6">
                         @csrf
                         <div>
@@ -101,7 +106,7 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                         <div>
                             <x-input-label for="slug" value="Short name for its link" />
                             <x-text-input id="slug" name="slug" type="text" class="mt-1 block w-full font-mono" :value="old('slug')" placeholder="tayyaba" maxlength="80" />
-                            <p class="mt-1 text-xs text-gray-500">The copy is opened at {{ url('/copy') }}/<span class="font-mono">short-name</span>. Left empty, it is made from the shop's name.</p>
+                            <p class="mt-1 text-xs text-gray-500">Used to tell shops apart. Left empty, it is made from the shop's name.</p>
                             <x-input-error :messages="$errors->get('slug')" class="mt-1" />
                         </div>
                         <div>
@@ -111,23 +116,41 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                             <p class="mt-1 text-xs text-gray-500">Only if you want one: a subdomain pointing at this same site. The link above works without it.</p>
                             <x-input-error :messages="$errors->get('host')" class="mt-1" />
                         </div>
-                        <div>
-                            <x-input-label for="database" value="Database for the copy" />
-                            <x-text-input id="database" name="database" type="text" class="mt-1 block w-full font-mono" :value="old('database')" required maxlength="64" />
-                            <p class="mt-1 text-xs text-gray-500">Used for nothing else: each snapshot replaces everything in it. It is created for you when the hosting allows; otherwise create it empty in the hosting panel first.</p>
+                        {{-- Where the copy is kept. Nothing to fill in by default: it
+                             goes in this site's own database, read-only, beside the
+                             businesses that work online. A database of its own is
+                             there for a shop too large to share one. --}}
+                        <div x-data="{ own: @js(filled(old('database'))) }">
+                            <p class="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600" x-show="! own">
+                                The copy is kept in this site's own database. Nothing else to set up.
+                            </p>
+                            <label class="mt-2 flex items-start gap-2 text-sm text-gray-700">
+                                <input type="checkbox" x-model="own" class="mt-0.5 h-4 w-4 rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
+                                <span>Give this shop a database of its own instead</span>
+                            </label>
+
+                            <template x-if="own">
+                                <div class="mt-3 space-y-3">
+                                    <div>
+                                        <x-input-label for="database" value="Database for the copy" />
+                                        <x-text-input id="database" name="database" type="text" class="mt-1 block w-full font-mono" :value="old('database')" maxlength="64" />
+                                        <p class="mt-1 text-xs text-gray-500">Used for nothing else: each snapshot replaces everything in it. Created for you where the server allows; otherwise create it empty in the hosting panel first.</p>
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <x-input-label for="db_username" value="Database user" />
+                                            <x-text-input id="db_username" name="db_username" type="text" class="mt-1 block w-full font-mono" :value="old('db_username')" autocomplete="off" />
+                                        </div>
+                                        <div>
+                                            <x-input-label for="db_password" value="Its password" />
+                                            <x-text-input id="db_password" name="db_password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
+                                        </div>
+                                    </div>
+                                    <p class="text-xs text-gray-500">Leave the user and password empty when the site's own database user was given access to it.</p>
+                                </div>
+                            </template>
                             <x-input-error :messages="$errors->get('database')" class="mt-1" />
                         </div>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <x-input-label for="db_username" value="Database user" />
-                                <x-text-input id="db_username" name="db_username" type="text" class="mt-1 block w-full font-mono" :value="old('db_username')" autocomplete="off" />
-                            </div>
-                            <div>
-                                <x-input-label for="db_password" value="Its password" />
-                                <x-text-input id="db_password" name="db_password" type="password" class="mt-1 block w-full" autocomplete="new-password" />
-                            </div>
-                        </div>
-                        <p class="text-xs text-gray-500">Leave the user and password empty when the platform's own database login is allowed into this database too.</p>
                         <button class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Register</button>
                     </form>
                 </x-panel>

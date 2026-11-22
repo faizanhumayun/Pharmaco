@@ -38,7 +38,9 @@ class MirrorHost
             return null;
         }
 
-        if ($mirror === null) {
+        // One kept in the platform's own database changes nothing about the
+        // request: its businesses are ordinary rows, marked read-only.
+        if ($mirror === null || $mirror->isMerged()) {
             return null;
         }
 

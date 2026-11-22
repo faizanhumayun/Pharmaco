@@ -27,6 +27,12 @@ class LedgerPoster
 {
     public function post(PostingSpec $spec): Transaction
     {
+        // A shop's online copy is replaced whole by the shop's next snapshot:
+        // a posting made here would vanish, and disagree until it did.
+        if ($spec->business->isShopCopy()) {
+            throw new LedgerException('This is the read-only copy of a shop\'s books. Postings are made on the shop\'s own computer.');
+        }
+
         $this->assertBalanced($spec);
         $this->assertPeriodOpen($spec->business, $spec->date);
         $this->assertReasonGiven($spec);

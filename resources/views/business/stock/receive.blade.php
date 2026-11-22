@@ -11,8 +11,11 @@
 @php($label = 'font-mono text-[11px] uppercase tracking-widest')
 @php($many = $business->sellsLoose() ? 'packs' : $business->unit()->many())
 @php($cols = $business->sellsAtMrp()
-    ? 'grid-cols-[minmax(0,1fr)_6.5rem_5.5rem_10.5rem_7.5rem_6.5rem_6.5rem_2rem]'
-    : 'grid-cols-[minmax(0,1fr)_6.5rem_5.5rem_10.5rem_7.5rem_6.5rem_6.5rem_6.5rem_2rem]')
+    ? 'grid-cols-[minmax(9rem,1fr)_5rem_4.5rem_9.5rem_6rem_6rem_6rem_1.75rem]'
+    : 'grid-cols-[minmax(9rem,1fr)_5rem_4.5rem_9.5rem_6rem_5.5rem_6rem_6rem_1.75rem]')
+{{-- The product's name always keeps room to be read (9rem at least); on a
+     window too narrow for every column the lines scroll sideways inside
+     their panel instead of crushing the name to nothing. --}}
 <x-pos-layout :business="$business" title="Receive stock" mode="receiving">
     <div class="flex h-full flex-col" x-data="delivery({
         products: @js($products),
@@ -68,7 +71,7 @@
               class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit="if (! canSave) { $event.preventDefault(); tried = true }">
             @csrf
 
-            <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,4fr)_minmax(0,7.5fr)] sm:px-6">
+            <div class="till-panes grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,3.2fr)_minmax(0,8fr)] 2xl:grid-cols-[minmax(0,4fr)_minmax(0,7.5fr)] sm:px-6">
 
                 {{-- Their catalogue, browsable the way the order form's is: you
                      check a delivery against a list, not by remembering names. --}}
@@ -112,7 +115,7 @@
                         </p>
                     </div>
 
-                    <div class="min-h-0 flex-1 overflow-y-auto" x-ref="list">
+                    <div class="till-rows min-h-0 flex-1 overflow-y-auto" x-ref="list">
                         <p x-show="! companyId" class="px-4 py-10 text-center text-sm text-slate-500">
                             Choose a company first — the list reads its catalogue.
                         </p>
@@ -173,8 +176,12 @@
                         </label>
                     </div>
 
+                    {{-- The column headings and the lines move sideways together
+                         when the window is too narrow for all of them. --}}
+                    <div class="flex min-h-0 flex-1 flex-col overflow-x-auto">
+                    <div class="flex min-h-0 flex-1 flex-col {{ $business->sellsAtMrp() ? 'min-w-[44rem]' : 'min-w-[50rem]' }}">
                     <div class="{{ $label }} {{ $cols }} grid shrink-0 items-center gap-3 border-y border-slate-200 bg-slate-50 px-4 py-2.5 text-slate-600">
-                        <span>On this delivery</span>
+                        <span>Product</span>
                         <span>Pack size</span>
                         <span class="text-center">Qty</span>
                         <span>Expiry · batch</span>
@@ -312,6 +319,8 @@
                             <p class="text-sm text-slate-400">Choose the company, then pick from their products on the left.</p>
                         </div>
                     </div>
+                    </div>
+                    </div>
 
                     <div class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 px-4 py-3">
                         <p class="flex items-center gap-3 text-sm text-slate-600">
@@ -332,10 +341,10 @@
             {{-- The foot of the screen: what their bill comes to, what is paid
                  now, what is left on their account, and the button that
                  finishes it. --}}
-            <footer class="flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
+            <footer class="till-foot flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
                 <div>
                     <p class="{{ $label }} text-slate-500">Bill comes to</p>
-                    <p class="mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
+                    <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
                 </div>
 
                 <div>
@@ -353,7 +362,7 @@
 
                 <div>
                     <p class="{{ $label }}" :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-500'">On their account</p>
-                    <p class="mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
+                    <p class="till-figure mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
                        :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-300'"
                        x-text="'Rs. ' + money(onAccount)"></p>
                 </div>
@@ -364,7 +373,7 @@
                     <p x-show="tried && problem" x-cloak x-text="problem" role="alert"
                        class="rounded-md bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700"></p>
                     <button type="button" x-on:click="save()"
-                            class="flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800">
+                            class="till-save flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800">
                         Put it into stock
                         <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
                     </button>

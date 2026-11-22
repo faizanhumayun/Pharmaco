@@ -10,7 +10,7 @@ the owner can read it — and only read it — from anywhere.
  ┌───────────────────────────┐   every 5 min, when online   ┌──────────────────────────────┐
  │ Pharmaco + MySQL          │ ───────── snapshot ────────▶ │ the shop's own database      │
  │ the real books            │                              │ read-only copy               │
- │ counter, stock, closing   │                              │ yourdomain.com/copy/shopname │
+ │ counter, stock, closing   │                              │ yourdomain.com (sign in)     │
  └───────────────────────────┘                              └──────────────────────────────┘
         other shop PCs open it                                     the owner opens it
         over the shop's network                                    from home or a phone
@@ -21,23 +21,40 @@ snapshot.
 
 ## Part 1 — on the platform (once per shop)
 
-1. **Create an empty database** for the copy in Plesk, for example
-   `shop_tayyaba`. Let the main site's database user into it, or create a user
-   for it. Each shop needs one of its own: a snapshot replaces everything in
-   the database it is loaded into.
-2. **Register the shop.** Back office → **Shop copies** → Register a shop. Enter
-   the name, a short name for its link, and the database (and the database
-   user and password, only if it is a different user from the main site's).
-3. **Copy the two lines it shows** — `MIRROR_PUSH_URL` and `MIRROR_PUSH_TOKEN`.
+1. **Register the shop.** Back office → **Shop copies** → Register a shop. A
+   name is all it needs.
+2. **Copy the two lines it shows** — `MIRROR_PUSH_URL` and `MIRROR_PUSH_TOKEN`.
    The token is shown once. "New token" makes another if it is lost.
 
-No subdomain is needed. The copy is opened under the platform's own address,
-by the link shown on that page: `https://yourdomain.com/copy/tayyaba`.
+There is nothing to create on the server: no database, no subdomain. The
+shop's copy is kept in the platform's own database, beside the businesses that
+work online, and is marked read-only.
 
-Only if you want the shop to have an address of its own as well
-(`tayyaba.yourdomain.com`): add that subdomain in Plesk with its document root
-set to the same folder as the main site's, give it an SSL certificate, and
-enter it when registering.
+**How the owner sees it:** they sign in at the platform's ordinary sign-in
+page with the same email and password as in the shop. The shop's businesses
+are simply there, with a bar across the top saying they are a read-only copy
+and how old. In the back office they are listed with "Runs in the shop".
+
+Things that follow from sharing one database:
+
+- **Record numbers look different online.** Each shop is given a block of
+  numbers, so the shop's transaction 1292 is 100,001,292 in the first shop's
+  copy. Bill numbers printed on receipts are not affected.
+- **The platform's own new records get large numbers too** once the first copy
+  arrives (100,000,000,000 and up), so they can never collide with a shop's.
+  Existing records keep their numbers.
+- **Logins are matched by email.** A shop's login that does not exist on the
+  platform is created with the shop's name and password, never as a platform
+  administrator. A login the platform already has is left exactly as it is.
+- **If the business's address is taken** on the platform, the copy's gets the
+  shop's short name added to it.
+- Up to 999 shops fit this way.
+
+A shop can still be given a database of its own instead (tick the box when
+registering): for a very large shop, or to keep one entirely apart. That one
+is opened at `https://yourdomain.com/copy/<short-name>` and has its own
+sign-in. Its database has to exist, or the site's database user has to be
+allowed to create it.
 
 ## Part 2 — on the shop's computer (once)
 
@@ -136,8 +153,8 @@ leaves the application folder and the database — the books — where they are.
 - **The shop** uses `http://localhost:8080` (or the computer's IP address).
   Everything works without internet: the till, receiving stock, closing the
   day, reports.
-- **The owner** opens `https://yourdomain.com/copy/tayyaba` and signs in with
-  the **same email and password as in the shop**. A bar across the top says it is
+- **The owner** signs in at the platform's ordinary sign-in page with the
+  **same email and password as in the shop**. A bar across the top says it is
   a read-only copy and how old it is. Anything that would change the books is
   refused with a message.
 - **The back office** → Shop copies shows when each shop's last snapshot

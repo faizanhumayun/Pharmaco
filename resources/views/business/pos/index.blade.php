@@ -254,7 +254,7 @@
         @php($cols = $business->sellsAtMrp()
             ? 'grid-cols-[minmax(0,1fr)_10rem_7rem_7rem_2rem]'
             : 'grid-cols-[minmax(0,1fr)_10rem_6rem_7rem_7rem_2rem]')
-        <div class="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6.5fr)] sm:px-6">
+        <div class="till-panes grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6.5fr)] sm:px-6">
 
             {{-- The shelf. --}}
             <section class="flex min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
@@ -282,14 +282,14 @@
                         </label>
                     </p>
                     {{-- What the two ways of picking a product do. --}}
-                    <p class="mt-2 text-xs text-slate-500">
+                    <p class="till-hint mt-2 text-xs text-slate-500">
                         <span class="font-semibold text-slate-700">+</span> adds one whole pack.
                         Click a product's name to sell loose pieces, more than one, or at another price.
                     </p>
                 </div>
 
                 {{-- The whole list, not only what was searched for. --}}
-                <div class="min-h-0 flex-1 overflow-y-auto" x-ref="list">
+                <div class="till-rows min-h-0 flex-1 overflow-y-auto" x-ref="list">
                     <template x-for="(p, i) in shown" :key="p.id">
                         {{-- Short-dated goods are coloured so they can be taken off
                              the shelf rather than sold by accident: amber while the
@@ -488,10 +488,10 @@
         {{-- The foot of the screen, read left to right the way a sale ends:
              what to pay, what was handed over, what goes back, and the button
              that finishes it. --}}
-        <footer class="flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
+        <footer class="till-foot flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
             <div>
                 <p class="{{ $label }} text-slate-500">To pay</p>
-                <p class="mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
+                <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
             </div>
 
             <div>
@@ -549,7 +549,7 @@
             <div>
                 <p class="{{ $label }}" :class="Number(received || 0) > 0 && change < 0 ? 'text-amber-700' : 'text-slate-500'"
                    x-text="Number(received || 0) > 0 && change < 0 ? 'On credit' : 'Change'"></p>
-                <p class="mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
+                <p class="till-figure mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
                    :class="Number(received || 0) > 0 ? (change >= 0 ? 'text-emerald-700' : 'text-amber-700') : 'text-slate-300'"
                    x-text="'Rs. ' + money(Number(received || 0) > 0 ? Math.abs(change) : 0)"></p>
             </div>
@@ -566,7 +566,7 @@
                 @endif
                 <button type="button" x-on:click="save()"
                         :disabled="cart.length === 0 || saving || underpriced.length > 0 || overStock.length > 0 || {{ $dayClosed ? 'true' : 'false' }}"
-                        class="flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
+                        class="till-save flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
                     <span x-text="saving ? 'Saving…' : @js($editing ? 'Save changes' : 'Save bill')"></span>
                     <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
                 </button>

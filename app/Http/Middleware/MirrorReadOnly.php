@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Models\Business;
 use App\Support\MirrorHost;
 use Closure;
 use Illuminate\Http\Request;
@@ -22,7 +23,16 @@ class MirrorReadOnly
 
     public function handle(Request $request, Closure $next): Response
     {
-        if (! MirrorHost::active() || $request->isMethodSafe() || $request->is(...self::ALLOWED)) {
+        if ($request->isMethodSafe() || $request->is(...self::ALLOWED)) {
+            return $next($request);
+        }
+
+        // The whole site is a shop's copy (a database of its own), or the
+        // business in the address is one kept beside the platform's own.
+        $business = $request->route('business');
+        $copy = MirrorHost::active() || ($business instanceof Business && $business->isShopCopy());
+
+        if (! $copy) {
             return $next($request);
         }
 

@@ -21,6 +21,12 @@ class ShopCopyController extends Controller
     {
         $mirror = ShopMirror::query()->where('slug', $slug)->firstOrFail();
 
+        // Kept in the platform's own database: its businesses are simply
+        // there for the shop's people once they sign in.
+        if ($mirror->isMerged()) {
+            return redirect('/login');
+        }
+
         return redirect('/login')->withCookie(MirrorHost::cookieFor($mirror));
     }
 

@@ -59,6 +59,10 @@
                                     <a href="{{ route('admin.businesses.show', $business) }}"
                                        class="font-medium text-gray-900 hover:text-emerald-700">{{ $business->name }}</a>
                                     <div class="text-xs text-gray-500">{{ $business->business_type->label() }} · {{ $business->currency }}</div>
+                                    {{-- Lives on a shop's own computer; this is its read-only copy. --}}
+                                    @if ($business->isShopCopy())
+                                        <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Runs in the shop · read-only copy</x-badge>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <x-badge :classes="$business->status->badgeClasses()">{{ $business->status->label() }}</x-badge>
@@ -82,6 +86,9 @@
                                                onclick="return openWorkspace(event, this, '{{ $business->slug }}')"
                                                class="text-sm font-medium text-gray-700 hover:text-gray-900">Open ↗</a>
                                         @endif
+                                        {{-- A copy is changed on the shop's computer, and
+                                             removed from Shop copies, not from here. --}}
+                                        @unless ($business->isShopCopy())
                                         <a href="{{ route('admin.businesses.edit', $business) }}"
                                            class="text-sm font-medium text-emerald-700 hover:text-emerald-900">Edit</a>
                                         <button type="button"
@@ -108,6 +115,7 @@
                                                 class="whitespace-nowrap text-sm font-medium text-red-700 hover:text-red-900">
                                             Delete data
                                         </button>
+                                        @endunless
                                     </div>
                                 </td>
                             </tr>

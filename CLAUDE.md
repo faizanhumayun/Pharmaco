@@ -87,18 +87,23 @@ needs the internet. That computer holds the real books. The platform keeps a
   every table that holds the books and sends it to the platform. Offline, the
   snapshot stays on disk as a backup; unchanged books are not sent twice.
   `mirror:restore <file>` puts a snapshot back.
-- Platform side: `POST /mirror/receive` (token, no session) loads a snapshot
-  into that shop's **own database** — a whole copy, never merged into the
-  platform's. Shops are registered under Shop copies in the back office
-  (`shop_mirrors`, always read through the `main` connection).
-- A browser steps into a copy at `/copy/<slug>` (a signed cookie; an address
-  of its own is optional). Such a request has `mysql` pointed at the copy by
-  `MirrorHost` before anything reads the database, and `MirrorReadOnly` turns
-  away every request that would change it.
+- Platform side: `POST /mirror/receive` (token, no session) loads a snapshot.
+  By default into the platform's **own database** (`MergedImporter`): each
+  shop has a block of ids (`shop id × 100,000,000`), every id and reference is
+  moved into it by adding that number, people are matched by email, and the
+  copy is checked against the snapshot (row counts, ledger totals) before it
+  is kept. Its businesses carry `mirror_id`, which is what makes them
+  read-only. Optionally into a database of the shop's own (`SnapshotImporter`),
+  served by `MirrorHost` at `/copy/<slug>`.
+- `MirrorReadOnly` turns away every request that would change a copy, and
+  `LedgerPoster` refuses to post to one.
+- **A new column that references another row must have a foreign key** (or be
+  a `*_type`/`*_id` pair). `MergedImporter` stops with the column's name when
+  it meets a reference it cannot classify, rather than copy a wrong number.
 
 Never make a copy writable, and never sync in both directions: two places
-posting to one ledger is how books stop agreeing. `Snapshot` and
-`SnapshotImporter` copy rows without their models on purpose — they are the
+posting to one ledger is how books stop agreeing. `Snapshot`,
+`SnapshotImporter` and `MergedImporter` copy rows without their models on purpose — they are the
 third documented exception to the raw-SQL rule, with the balance service and
 `DeleteBusiness`. Setting a shop up: `docs/shop-computer.md`.
 
@@ -139,6 +144,20 @@ Every colour, font, corner and gap is defined once, in
   `partials/theme-script.blade.php`), which reads the same file.
 - The usage rules are in `docs/brand-book.md`. The landing page's words are in
   `config/landing.php`; anything not built yet is labelled "Coming soon".
+
+### Smaller screens
+
+Handled once, in `resources/css/app.css` ("SMALLER SCREENS"), for a 13-inch
+laptop or a Windows laptop at 125–150% scaling (about 1280 × 650):
+
+- the root font size scales with the window's width (14px at 1280, 16px by
+  about 1780), and since sizes are in rem everything follows;
+- on a short window (`max-height: 820px`) page headings, page padding and the
+  till's rows and foot are tightened.
+
+So write sizes in rem (Tailwind's own utilities, or `[9rem]`), not px, and a
+new screen is compact for free. A row of fixed columns should give its text
+column a minimum (`minmax(9rem,1fr)`) and scroll sideways rather than crush it.
 
 ### Lists: one search-and-filter bar
 

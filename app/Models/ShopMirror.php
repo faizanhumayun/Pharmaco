@@ -28,6 +28,15 @@ class ShopMirror extends Model
         ];
     }
 
+    /**
+     * Whether the copy is kept in the platform's own database, beside the
+     * businesses that work online, rather than in a database of its own.
+     */
+    public function isMerged(): bool
+    {
+        return blank($this->database);
+    }
+
     /** A new token for the shop to send with. Returned once; only its hash is kept. */
     public function issueToken(): string
     {

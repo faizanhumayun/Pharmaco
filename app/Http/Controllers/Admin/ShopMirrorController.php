@@ -48,7 +48,8 @@ class ShopMirrorController extends Controller
             'slug' => ['required', 'string', 'max:80', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/', Rule::unique('main.shop_mirrors', 'slug')],
             // Optional: an address of its own, as well as the link.
             'host' => ['nullable', 'string', 'max:190', 'regex:/^[a-z0-9]([a-z0-9.-]*[a-z0-9])?$/i', Rule::unique('main.shop_mirrors', 'host')],
-            'database' => ['required', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/', Rule::unique('main.shop_mirrors', 'database')],
+            // Empty: the copy is kept in the platform's own database.
+            'database' => ['nullable', 'string', 'max:64', 'regex:/^[A-Za-z0-9_]+$/', Rule::unique('main.shop_mirrors', 'database')],
             'db_username' => ['nullable', 'string', 'max:64'],
             'db_password' => ['nullable', 'string', 'max:255'],
         ], [
@@ -59,10 +60,43 @@ class ShopMirrorController extends Controller
 
         $data['host'] = filled($data['host'] ?? null) ? strtolower($data['host']) : null;
 
+        $data['database'] = filled($data['database'] ?? null) ? $data['database'] : null;
+        $created = false;
+
+        if ($data['database'] === null) {
+            // In the platform's own database: nothing to create or reach.
+            if (ShopMirror::query()->max('id') >= \App\Domain\Mirror\MergedImporter::MAX_SHOPS) {
+                return back()->withInput()->withErrors(['database' => 'No more shops fit in the main database. Give this one a database of its own.']);
+            }
+
+            $mirror = new ShopMirror($data);
+            $mirror->token_hash = hash('sha256', (string) random_bytes(32));
+        } else {
+            $failed = $this->prepareOwnDatabase($data, $mirror, $created);
+
+            if ($failed !== null) {
+                return $failed;
+            }
+        }
+
+        $mirror->save();
+
+        return redirect()->route('admin.shop-mirrors.index')
+            ->with('issued', ['name' => $mirror->name, 'token' => $mirror->issueToken()])
+            ->with('status', "{$mirror->name} registered".($created ? ', and its database was created' : '').'. Copy its token now — it is shown once.');
+    }
+
+    /**
+     * A copy with a database of its own: made here when the platform's login
+     * may make one, then reached, so a wrong name or login is found now and
+     * not at the shop's first snapshot. Returns the refusal, or null when ready.
+     */
+    private function prepareOwnDatabase(array $data, ?ShopMirror &$mirror, bool &$created): ?RedirectResponse
+    {
         // The copy must never be the platform's own database: a snapshot
         // replaces everything in the database it is loaded into.
         if ($data['database'] === config('database.connections.main.database')) {
-            return back()->withInput()->withErrors(['database' => 'That is the platform\'s own database. A shop\'s copy needs one of its own.']);
+            return back()->withInput()->withErrors(['database' => 'That is the platform\'s own database. Leave the box empty to keep the copy in it safely, or name a different one.']);
         }
 
         $mirror = new ShopMirror($data);
@@ -75,8 +109,6 @@ class ShopMirrorController extends Controller
          * nothing and the check below says what to do instead. The name is
          * letters, digits and underscores only — validated above.
          */
-        $created = false;
-
         try {
             $existed = DB::connection('main')->select('select schema_name from information_schema.schemata where schema_name = ?', [$data['database']]) !== [];
 
@@ -95,18 +127,26 @@ class ShopMirrorController extends Controller
             DB::purge('mirror');
             DB::connection('mirror')->getPdo();
         } catch (\Throwable $e) {
-            return back()->withInput()->withErrors([
-                'database' => 'That database could not be opened, and this site is not allowed to create it. Create an empty database with this name in the hosting panel and let the site\'s database user into it, then register again. ('.mb_substr($e->getMessage(), 0, 160).')',
-            ]);
+            $reason = $e->getMessage();
+            $login = $mirror->db_username ?: config('database.connections.main.username');
+
+            // Said in terms of what to do about it: the three ways this fails
+            // look alike in MySQL's own words and need different fixes.
+            $message = match (true) {
+                str_contains($reason, '[1045]') => filled($mirror->db_username)
+                    ? "The database user '{$login}' and the password entered here were refused. Check them against the hosting panel — or leave both boxes empty to use the site's own database login."
+                    : "The site's own database login was refused for this database. Enter the user and password the hosting panel shows for it.",
+                str_contains($reason, '[1044]') => "The database user '{$login}' is not allowed into '{$data['database']}'. In the hosting panel, give that user access to it.",
+                str_contains($reason, '[1049]') => "There is no database called '{$data['database']}', and this site is not allowed to create one. Create it, empty, in the hosting panel and let '{$login}' into it.",
+                default => 'That database could not be opened. ('.mb_substr($reason, 0, 160).')',
+            };
+
+            return back()->withInput()->withErrors(['database' => $message]);
         } finally {
             DB::purge('mirror');
         }
 
-        $mirror->save();
-
-        return redirect()->route('admin.shop-mirrors.index')
-            ->with('issued', ['name' => $mirror->name, 'token' => $mirror->issueToken()])
-            ->with('status', "{$mirror->name} registered".($created ? ', and its database was created' : '').'. Copy its token now — it is shown once.');
+        return null;
     }
 
     /** A new token, when the old one is lost or should stop working. */
@@ -127,9 +167,19 @@ class ShopMirrorController extends Controller
         abort_if(MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop(), 404);
 
         $name = $shopMirror->name;
+        $merged = $shopMirror->isMerged();
+
+        // A copy kept in the platform's own database is taken out of it; one
+        // with a database of its own is simply no longer served.
+        if ($merged) {
+            app(\App\Domain\Mirror\MergedImporter::class)->purge($shopMirror);
+        }
+
         $shopMirror->delete();
 
         return redirect()->route('admin.shop-mirrors.index')
-            ->with('status', "{$name} is no longer registered. Its database was not touched.");
+            ->with('status', $merged
+                ? "{$name} is no longer registered, and its copy was removed. The shop's own books are untouched."
+                : "{$name} is no longer registered. Its database was not touched.");
     }
 }

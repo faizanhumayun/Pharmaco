@@ -86,6 +86,21 @@ class Business extends Model
      * Once a single transaction is posted the business has history, and history
      * is never deleted — it is archived or suspended instead.
      */
+    /**
+     * Whether this is a read-only copy of a business that really lives on a
+     * shop's own computer. Its books are replaced whole each time the shop
+     * sends them, so nothing may be entered into it here.
+     */
+    public function isShopCopy(): bool
+    {
+        return $this->mirror_id !== null;
+    }
+
+    public function shopMirror(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(ShopMirror::class, 'mirror_id');
+    }
+
     public function hasFinancialHistory(): bool
     {
         return $this->opening_date !== null

@@ -70,7 +70,7 @@ class MergedImporter
     }
 
     /**
-     * @return array{tables: int, rows: int, made_at: ?string, businesses: int}
+     * @return array{tables: int, rows: int, made_at: ?string, businesses: int, maps: array<string, array<int, int>>}
      */
     public function import(string $path, ShopMirror $mirror): array
     {
@@ -87,7 +87,7 @@ class MergedImporter
         // and roles, which every other table refers to.
         $lookups = $this->readLookups($path);
 
-        $done = ['tables' => 0, 'rows' => 0, 'made_at' => $lookups['made_at'], 'businesses' => 0];
+        $done = ['tables' => 0, 'rows' => 0, 'made_at' => $lookups['made_at'], 'businesses' => 0, 'maps' => []];
 
         // The platform's own new ids are moved above every shop's block
         // before the first copy goes in. Outside the transaction: changing
@@ -105,6 +105,8 @@ class MergedImporter
 
                 $foreign = $this->foreignKeys($db);
                 $maps = ['users' => $users, 'payment_methods' => $methods, 'roles' => $roles, 'permissions' => $permissions];
+                // Kept by the caller when the books are to come back: the way home.
+                $done['maps'] = $maps;
 
                 $file = gzopen($path, 'rb');
                 $table = null;
@@ -409,6 +411,31 @@ class MergedImporter
         }
 
         return $plan;
+    }
+
+    /**
+     * What each column of a table is, by name: 'move' (an id of the shop's),
+     * 'match' (a login, payment method or role, with its table), 'morph' (a
+     * reference with its kind in the column named), or 'keep'. The same
+     * reading as {@see self::plan()}, for the way back ({@see ReturnPackage}).
+     *
+     * @param  list<string>  $columns
+     * @return array<string, array{0: string, 1: ?string}>
+     */
+    public function columnKinds(string $table, array $columns): array
+    {
+        $positions = array_flip($columns);
+
+        return array_map(
+            fn (array $step) => [$step[1], $step[1] === 'morph' ? $columns[$step[2]] : $step[2]],
+            $this->plan($table, $columns, $positions, $this->foreignKeys(DB::connection('main')), Schema::connection('main'))
+        );
+    }
+
+    /** @return list<string> */
+    public static function matchedTables(): array
+    {
+        return self::MATCHED;
     }
 
     private function moved(mixed $value, string $kind, mixed $detail, array $row, int $base, array $maps, string $table, string $column): mixed

@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domain\Mirror\ShopPause;
 use App\Domain\Mirror\Snapshot;
 use App\Domain\Mirror\SyncStatus;
 use Illuminate\Console\Command;
@@ -23,15 +24,26 @@ class MirrorPush extends Command
 {
     protected $signature = 'mirror:push
         {--local : Only write the snapshot to this computer; send nothing}
-        {--force : Send even if nothing has changed since the last one sent}';
+        {--force : Send even if nothing has changed since the last one sent}
+        {--final : The last entries before this computer locks for a fix}';
 
     protected $description = 'Snapshot the books and send them to the platform as the read-only copy';
 
     /** Small enough for any server's upload limit. */
     private const PIECE = 1024 * 1024;
 
-    public function handle(Snapshot $snapshot, SyncStatus $status): int
+    public function handle(Snapshot $snapshot, SyncStatus $status, ShopPause $pause): int
     {
+        $final = (bool) $this->option('final');
+
+        // Locked for a fix: the books are the back office's for now, and
+        // sending this computer's would only be refused.
+        if ($pause->active() && ! $final) {
+            $this->info('Paused for a fix: nothing is sent until the books come back.');
+
+            return self::SUCCESS;
+        }
+
         // Read before the snapshot, so anything entered while it is being
         // taken still counts as not yet sent.
         $marker = $status->marker();
@@ -61,7 +73,7 @@ class MirrorPush extends Command
 
         $last = $disk->exists('mirror/last-sent.json') ? json_decode((string) $disk->get('mirror/last-sent.json'), true) : null;
 
-        if (! $this->option('force') && ($last['hash'] ?? null) === $made['hash']) {
+        if (! $this->option('force') && ! $final && ($last['hash'] ?? null) === $made['hash']) {
             $this->info('Nothing has changed since the last one sent.');
             // The same books twice over is one backup too many.
             $disk->delete($name);
@@ -71,7 +83,7 @@ class MirrorPush extends Command
         }
 
         try {
-            $this->send($disk->path($name), (string) $url, (string) $token);
+            $answer = $this->send($disk->path($name), (string) $url, (string) $token, $final);
         } catch (ConnectionException $e) {
             // "No internet" is the usual reason, but not the only one: a
             // mistyped address or a certificate this computer does not trust
@@ -92,11 +104,16 @@ class MirrorPush extends Command
         $status->recordAttempt('sent', null, $marker);
         $this->info('Sent. The online copy is up to date.');
 
+        // The platform took them as the last entries: the lock holds.
+        if ($final && ($answer['entry'] ?? null) === \App\Models\ShopMirror::OFFICE) {
+            $pause->confirm();
+        }
+
         return self::SUCCESS;
     }
 
     /** In pieces, so the size of the books never meets a server's upload limit. */
-    private function send(string $path, string $url, string $token): void
+    private function send(string $path, string $url, string $token, bool $final = false): array
     {
         $upload = (string) Str::uuid();
         $total = max(1, (int) ceil(filesize($path) / self::PIECE));
@@ -108,7 +125,7 @@ class MirrorPush extends Command
                     ->acceptJson()
                     ->timeout($index === $total - 1 ? 600 : 60)
                     ->attach('piece', (string) fread($file, self::PIECE), 'piece')
-                    ->post($url, ['upload' => $upload, 'index' => $index, 'total' => $total]);
+                    ->post($url, ['upload' => $upload, 'index' => $index, 'total' => $total] + ($final ? ['final' => 1] : []));
 
                 if (! $response->successful()) {
                     throw new \RuntimeException($response->json('message') ?? 'it answered '.$response->status());
@@ -117,6 +134,8 @@ class MirrorPush extends Command
         } finally {
             fclose($file);
         }
+
+        return (array) ($response->json() ?? []);
     }
 
     private function prune($disk): void

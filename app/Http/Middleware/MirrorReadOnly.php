@@ -30,7 +30,7 @@ class MirrorReadOnly
         // The whole site is a shop's copy (a database of its own), or the
         // business in the address is one kept beside the platform's own.
         $business = $request->route('business');
-        $copy = MirrorHost::active() || ($business instanceof Business && $business->isShopCopy());
+        $copy = MirrorHost::active() || ($business instanceof Business && $business->isReadOnlyCopy());
 
         if (! $copy) {
             return $next($request);

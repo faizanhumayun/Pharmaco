@@ -275,8 +275,14 @@ class ReceiveOrder
             $caseSize = $product?->case_size;
             $packs = $this->packsFor($row, $caseSize);
 
+            // Loose pieces beside the whole packs, where the product is one
+            // whose packs are opened; anywhere else there is no such thing.
+            $per = (int) ($product?->units_per_pack ?? 1);
+            $loose = $per > 1 ? (int) ($this->integer($row['loose'] ?? null) ?? 0) : 0;
+            $packs ??= $loose > 0 ? 0 : null;
+
             // An extra with nothing in it is not an extra.
-            if ($packs === null || $packs < 1) {
+            if ($packs === null || ($packs < 1 && $loose < 1)) {
                 continue;
             }
 
@@ -297,9 +303,11 @@ class ReceiveOrder
                 'case_size' => $caseSize,
                 'cartons' => $this->cartons($packs, $caseSize),
                 'packs' => $packs,
+                'loose' => $loose,
+                'units_per_pack' => max(1, $per),
                 'expires_on' => $this->expiry($row['expires_on'] ?? null),
-                    // As printed on the carton, so a recall can find the goods.
-                    'batch_no' => trim((string) ($row['batch_no'] ?? '')) ?: null,
+                // As printed on the carton, so a recall can find the goods.
+                'batch_no' => trim((string) ($row['batch_no'] ?? '')) ?: null,
                 'rate' => $rate,
                 'discount_percent' => null,
                 'note' => $this->note($row['note'] ?? null),

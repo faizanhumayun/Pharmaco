@@ -25,7 +25,34 @@ class ShopMirror extends Model
             'db_password' => 'encrypted',
             'last_synced_at' => 'datetime',
             'snapshot_made_at' => 'datetime',
+            'entry_changed_at' => 'datetime',
         ];
+    }
+
+    /** Where the books are entered: see the migration that added `entry`. */
+    public const SHOP = 'shop';
+
+    public const PAUSING = 'pausing';
+
+    public const OFFICE = 'office';
+
+    public const RETURNING = 'returning';
+
+    /** Whether the books are, right now, entered here rather than in the shop. */
+    public function isOffice(): bool
+    {
+        return $this->entry === self::OFFICE;
+    }
+
+    /** Whether the shop's computer is, or is about to be, locked. */
+    public function isPaused(): bool
+    {
+        return $this->entry !== null && $this->entry !== self::SHOP;
+    }
+
+    public function moveTo(string $entry): void
+    {
+        $this->forceFill(['entry' => $entry, 'entry_changed_at' => now()])->save();
     }
 
     /**

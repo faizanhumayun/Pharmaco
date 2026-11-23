@@ -104,3 +104,23 @@ html { font-size: clamp(14px, 0.4vw + 8.9px, 16px); }
 
 /* The headline block runs the full width too, rather than stopping part-way across. */
 .pharmaco .ph-hero-text, .pharmaco .ph-lede { max-width: none; }
+
+/* ==========================================================================
+   A SHOP'S COMPUTER, PAUSED FOR A FIX  (resources/views/shop-paused.blade.php)
+   ========================================================================== */
+.ph-paused { min-height: 100vh; margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-sans); display: flex; flex-direction: column; }
+.ph-paused__bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.875rem 1.5rem; background: var(--surface); border-bottom: 1px solid var(--line); }
+.ph-paused__shop { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; }
+.ph-paused__chip { border: 1px solid rgb(var(--alert-200)); background: rgb(var(--alert-50)); color: rgb(var(--alert-700)); border-radius: 999px; padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 500; }
+.ph-paused__body { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem 1.5rem 3rem; }
+.ph-paused__badge { width: 4rem; height: 4rem; border-radius: 50%; background: var(--pharmacy-tint); color: var(--pharmacy); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; }
+.ph-paused__badge svg { width: 1.875rem; height: 1.875rem; }
+.ph-paused__title { font-family: var(--font-display); font-size: 2.125rem; font-weight: 600; margin: 0 0 0.75rem; }
+.ph-paused__body > p { font-size: 1.0625rem; line-height: 1.5; color: var(--muted); max-width: 39rem; margin: 0 0 0.625rem; }
+.ph-paused__body > p strong { color: var(--ink); }
+.ph-paused__facts { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.75rem 2rem; margin: 1.5rem 0 0; padding: 1rem 1.75rem; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-md); text-align: left; }
+.ph-paused__facts dt { font-size: 0.75rem; color: var(--muted); margin-bottom: 0.125rem; }
+.ph-paused__facts dd { margin: 0; font-family: var(--font-mono); font-size: 0.875rem; }
+.ph-paused__facts dd.is-good { color: var(--pharmacy); }
+.ph-paused__body > p.ph-paused__help { font-size: 0.8125rem; margin-top: 1.25rem; }
+.ph-paused__help a { color: var(--ink); font-weight: 600; }

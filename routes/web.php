@@ -151,6 +151,9 @@ Route::middleware(['auth', 'platform.admin'])
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
                 Route::post('{shopMirror}/token', 'token')->name('token');
+                // Where the shop's books are entered: paused for a fix, or handed back.
+                Route::post('{shopMirror}/entry', 'entry')->name('entry');
+                Route::put('support-phone', 'supportPhone')->name('support-phone');
                 Route::delete('{shopMirror}', 'destroy')->name('destroy');
             });
 

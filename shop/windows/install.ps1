@@ -42,6 +42,10 @@ try {
 
     # Not running while its files are replaced.
     Quietly 'schtasks /End /TN "Pharmaco Server"'
+    # Ending the task can leave the server itself behind, still holding the
+    # port and the old settings (and one started by hand in a window is not
+    # the task's at all), so every PHP that is Pharmaco's own is stopped.
+    Get-Process php -ErrorAction SilentlyContinue | Where-Object { $_.Path -like "$Target\*" } | Stop-Process -Force -ErrorAction SilentlyContinue
 
     Say 'Installing the Microsoft runtime that PHP needs'
     Start-Process "$Kit\runtime\vc_redist.x64.exe" -ArgumentList '/install', '/quiet', '/norestart' -Wait
@@ -76,7 +80,13 @@ try {
         'extension=curl', 'extension=fileinfo', 'extension=gd', 'extension=intl', 'extension=mbstring',
         'extension=openssl', 'extension=pdo_mysql', 'extension=sodium', 'extension=zip',
         'memory_limit = 512M', 'upload_max_filesize = 64M', 'post_max_size = 64M', 'max_execution_time = 300',
-        "curl.cainfo = `"$Target\runtime\cacert.pem`"", "openssl.cafile = `"$Target\runtime\cacert.pem`""
+        "curl.cainfo = `"$Target\runtime\cacert.pem`"", "openssl.cafile = `"$Target\runtime\cacert.pem`"",
+        # Keeps the application's code ready in memory instead of reading and
+        # preparing every file again for every page: the difference between a
+        # page in seconds and a page at once.
+        'zend_extension=opcache', 'opcache.enable=1', 'opcache.enable_cli=0', 'opcache.memory_consumption=192',
+        'opcache.interned_strings_buffer=16', 'opcache.max_accelerated_files=20000', 'opcache.revalidate_freq=60',
+        'realpath_cache_size=4096K', 'realpath_cache_ttl=600'
     )
     Set-Content -Path "$Target\runtime\php\php.ini" -Value $ini -Encoding ASCII
 
@@ -132,6 +142,10 @@ try {
     # Quietly: what it would print includes the first login's email.
     if (-not $Updating) { Run $Php @('artisan', 'db:seed', '--force', '--no-interaction', '--quiet') }
     Run $Php @('artisan', 'optimize:clear')
+    # The routes and the screens, prepared once here rather than on every page.
+    # The settings are left uncached on purpose, so a change to .env takes effect.
+    Run $Php @('artisan', 'route:cache')
+    Run $Php @('artisan', 'view:cache')
 
     # --- start by itself -----------------------------------------------------
     Say 'Setting it to start with this computer'
@@ -141,6 +155,9 @@ try {
         "`"$Php`" artisan serve --host=0.0.0.0 --port=$Port >> `"$Target\logs\server.log`" 2>&1")
     Set-Content -Path "$Target\run-scheduler.bat" -Encoding ASCII -Value @(
         '@echo off', "cd /d $Target\app",
+        # The server is looked for every minute and started again if it is not
+        # answering: a laptop that sleeps, or a start-up that missed it, mends itself.
+        "netstat -ano | findstr /c:`":$Port `" | findstr LISTENING >nul || schtasks /run /tn `"Pharmaco Server`" >nul 2>&1",
         "`"$Php`" artisan schedule:run >> `"$Target\logs\scheduler.log`" 2>&1")
 
     # Never stopped for running too long, and started again if it ever stops.
@@ -149,7 +166,7 @@ try {
 
     Register-ScheduledTask -TaskName 'Pharmaco Server' -Force -User 'SYSTEM' -RunLevel Highest -Settings $always `
         -Action (New-ScheduledTaskAction -Execute "$Target\run-server.bat") `
-        -Trigger (New-ScheduledTaskTrigger -AtStartup) | Out-Null
+        -Trigger @((New-ScheduledTaskTrigger -AtStartup), (New-ScheduledTaskTrigger -AtLogOn)) | Out-Null
 
     # Once a minute: the application decides what is due (sending the online copy, the nightly checks).
     $brief = New-ScheduledTaskSettingsSet -ExecutionTimeLimit (New-TimeSpan -Minutes 30) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew

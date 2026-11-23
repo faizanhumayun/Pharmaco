@@ -32,6 +32,7 @@ class ShopMirrorController extends Controller
             // Shown once, straight after it is made, and never again.
             'issued' => session('issued'),
             'receiveUrl' => route('mirror.receive'),
+            'supportPhone' => \App\Models\SystemSetting::get('support_phone'),
         ]);
     }
 
@@ -147,6 +148,94 @@ class ShopMirrorController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * The switch: where a shop's books are entered.
+     *
+     *   pause    ask the shop's computer for its last entries and to lock
+     *   resume   the fix is done: hand the changes back and let it open
+     *   discard  give the fix up: the shop opens with its own books as they were
+     *
+     * Nothing here moves any books itself. It changes what the shop's
+     * computer is told the next time it asks, which is once a minute.
+     */
+    public function entry(Request $request, ShopMirror $shopMirror, \App\Domain\Mirror\ReturnPackage $returns): RedirectResponse
+    {
+        Gate::authorize('manage-platform');
+        abort_if(MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop(), 404);
+
+        $action = $request->validate(['action' => ['required', 'in:pause,resume,discard']])['action'];
+        $name = $shopMirror->name;
+
+        if ($action === 'pause') {
+            if (! $shopMirror->isMerged()) {
+                return back()->withErrors(['status' => "{$name} is kept in a database of its own and cannot be paused for a fix."]);
+            }
+
+            if ($shopMirror->entry !== ShopMirror::SHOP) {
+                return back()->withErrors(['status' => "{$name} is already paused."]);
+            }
+
+            $shopMirror->moveTo(ShopMirror::PAUSING);
+
+            return back()->with('status', "{$name} will lock within a minute or two, once its computer has sent its last entries. Its books open for you here as soon as they arrive.");
+        }
+
+        if ($action === 'resume') {
+            // Asked for and not yet taken up: simply called off.
+            if ($shopMirror->entry === ShopMirror::PAUSING) {
+                $shopMirror->moveTo(ShopMirror::SHOP);
+
+                return back()->with('status', "The pause was called off. {$name} carries on as it was.");
+            }
+
+            if ($shopMirror->entry !== ShopMirror::OFFICE) {
+                return back()->withErrors(['status' => "{$name} is not paused."]);
+            }
+
+            // Tried here first, so anything that cannot go back is found now,
+            // in front of someone who can do something about it.
+            $trial = tempnam(sys_get_temp_dir(), 'return');
+
+            try {
+                $done = $returns->write($shopMirror, $trial);
+            } catch (\Throwable $e) {
+                return back()->withErrors(['status' => 'The changes cannot be sent back yet: '.$e->getMessage()]);
+            } finally {
+                @unlink($trial);
+            }
+
+            $shopMirror->forceFill(['last_error' => null])->save();
+            $shopMirror->moveTo(ShopMirror::RETURNING);
+
+            return back()->with('status', sprintf(
+                '%s is being handed back: %d changed and %d removed records. Its computer takes them and opens within a minute or two.',
+                $name, $done['changed'], $done['removed']
+            ));
+        }
+
+        if (! $shopMirror->isPaused()) {
+            return back()->withErrors(['status' => "{$name} is not paused."]);
+        }
+
+        $returns->forgetBaseline($shopMirror);
+        $shopMirror->forceFill(['last_error' => null])->save();
+        $shopMirror->moveTo(ShopMirror::SHOP);
+
+        return back()->with('status', "The fix was given up. {$name} opens with its own books as they were, and what was changed here is replaced by them.");
+    }
+
+    /** The number a paused shop is told to call. */
+    public function supportPhone(Request $request): RedirectResponse
+    {
+        Gate::authorize('manage-platform');
+
+        $data = $request->validate(['support_phone' => ['nullable', 'string', 'max:40', 'regex:/^[0-9+\-\s()]*$/']]);
+
+        \App\Models\SystemSetting::put('support_phone', trim((string) ($data['support_phone'] ?? '')) ?: null);
+
+        return back()->with('status', 'Support number saved. A paused shop sees it within a minute.');
     }
 
     /** A new token, when the old one is lost or should stop working. */

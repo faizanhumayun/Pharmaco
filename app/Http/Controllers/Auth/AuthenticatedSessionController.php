@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\OneDeviceAtATime;
 use App\Http\Requests\Auth\LoginRequest;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -52,6 +53,10 @@ class AuthenticatedSessionController extends Controller
         }
 
         $request->session()->regenerate();
+
+        // This is now the one device they are signed in on. Done only here,
+        // past the door check, so a sign-in that is turned away moves nobody.
+        OneDeviceAtATime::claim($request, $request->user());
 
         return redirect()->intended(route('dashboard', absolute: false));
     }

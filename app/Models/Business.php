@@ -96,6 +96,17 @@ class Business extends Model
         return $this->mirror_id !== null;
     }
 
+    /**
+     * Whether nothing may be entered into this copy here. True of a shop's
+     * copy at all times but one: while the back office has paused the shop's
+     * computer to fix something, the books are entered here instead, and go
+     * back to the shop when the fix is done.
+     */
+    public function isReadOnlyCopy(): bool
+    {
+        return $this->isShopCopy() && ! ($this->shopMirror?->isOffice() ?? false);
+    }
+
     public function shopMirror(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(ShopMirror::class, 'mirror_id');

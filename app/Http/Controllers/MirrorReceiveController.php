@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Domain\Mirror\MergedImporter;
+use App\Domain\Mirror\ReturnPackage;
 use App\Domain\Mirror\SnapshotImporter;
 use App\Models\ShopMirror;
 use Illuminate\Http\JsonResponse;
@@ -24,7 +25,7 @@ use Illuminate\Support\Facades\Storage;
  */
 class MirrorReceiveController extends Controller
 {
-    public function __invoke(Request $request, SnapshotImporter $importer, MergedImporter $merged): JsonResponse
+    public function __invoke(Request $request, SnapshotImporter $importer, MergedImporter $merged, ReturnPackage $returns): JsonResponse
     {
         $mirror = ShopMirror::forToken($request->bearerToken());
 
@@ -43,7 +44,29 @@ class MirrorReceiveController extends Controller
             'index' => ['required', 'integer', 'min:0', 'max:9999'],
             'total' => ['required', 'integer', 'min:1', 'max:10000'],
             'piece' => ['required', 'file', 'max:2048'],
+            // The shop's last entries before it locks itself for a fix.
+            'final' => ['nullable', 'boolean'],
         ]);
+
+        $final = (bool) ($data['final'] ?? false);
+
+        /*
+         * While the back office has the books, nothing from the shop may
+         * replace them: that would undo the fix. And once the pause has been
+         * asked for, only the shop's last entries are taken — sent after its
+         * computer has locked, so nothing can be entered behind them.
+         */
+        if (in_array($mirror->entry, [ShopMirror::OFFICE, ShopMirror::RETURNING], true)
+            || ($mirror->entry === ShopMirror::PAUSING && ! $final)) {
+            return response()->json([
+                'message' => 'This shop is paused for a fix. Its books are not being taken at the moment.',
+                'entry' => $mirror->entry,
+            ], 409);
+        }
+
+        if ($final && ! $mirror->isMerged()) {
+            return response()->json(['message' => 'A shop kept in a database of its own cannot be paused for a fix.'], 422);
+        }
 
         $disk = Storage::disk('local');
         $dir = 'mirror/in/'.$mirror->id.'/'.$data['upload'];
@@ -100,6 +123,14 @@ class MirrorReceiveController extends Controller
             'last_error' => null,
         ])->save();
 
-        return response()->json(['loaded' => true, 'tables' => $done['tables'], 'rows' => $done['rows']]);
+        // The shop has locked and these are its last entries: the books are
+        // now entered here. What they looked like is kept, so that only what
+        // the fix changes need go back.
+        if ($final && $mirror->entry === ShopMirror::PAUSING) {
+            $returns->keepBaseline($mirror, $done['maps'] ?? []);
+            $mirror->moveTo(ShopMirror::OFFICE);
+        }
+
+        return response()->json(['loaded' => true, 'tables' => $done['tables'], 'rows' => $done['rows'], 'entry' => $mirror->entry]);
     }
 }

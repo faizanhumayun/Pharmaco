@@ -50,7 +50,7 @@ class RecordStockMovements
             foreach ($order->receiptLines()->get() as $line) {
                 // A line typed by hand names no catalogue product, so there is
                 // nothing to count it against. It still appears on the delivery.
-                if ($line->company_product_id === null || $line->packs < 1) {
+                if ($line->company_product_id === null || ($line->packs < 1 && (int) $line->loose < 1)) {
                     continue;
                 }
 
@@ -60,6 +60,8 @@ class RecordStockMovements
                     'business_date' => $date,
                     'type' => StockMovementType::Delivery,
                     'packs' => $line->packs,
+                    // Part of a pack, in pieces, beside the whole ones.
+                    'loose' => (int) $line->loose,
                     // So the count knows what goes out of date and when,
                     // without tracing every pack back to its delivery.
                     'expires_on' => $line->expires_on?->toDateString(),

@@ -68,7 +68,7 @@
         <x-flash any />
 
         <form method="POST" action="{{ route('businesses.stock.receive.store', $business) }}"
-              class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit="if (! canSave) { $event.preventDefault(); tried = true }">
+              class="flex min-h-0 flex-1 flex-col" x-ref="form" x-on:submit.prevent="save()">
             @csrf
 
             <div class="till-panes grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,3.2fr)_minmax(0,8fr)] 2xl:grid-cols-[minmax(0,4fr)_minmax(0,7.5fr)] sm:px-6">
@@ -242,8 +242,17 @@
                                     </template>
                                 </span>
 
-                                <input type="text" inputmode="numeric" x-model.number="line.packs" :name="`lines[${i}][packs]`"
-                                       class="w-full rounded-lg border-slate-300 py-2 text-center font-mono text-lg font-semibold tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+                                {{-- Packs. Part of one is allowed where packs are opened:
+                                     0.5 of a pack of 30 is 15 pieces, and it says so. --}}
+                                <span class="block">
+                                    <input type="text" inputmode="decimal" x-model="line.packs" :name="`lines[${i}][packs]`"
+                                           :class="tried && lineProblem(line) ? 'border-red-500 bg-red-50' : 'border-slate-300'"
+                                           class="w-full rounded-lg py-2 text-center font-mono text-lg font-semibold tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
+                                    <span class="mt-0.5 block text-center text-[0.6875rem] leading-tight"
+                                          x-show="isPart(line)" x-cloak
+                                          :class="perOf(line) > 1 ? 'text-emerald-700' : 'text-red-600'"
+                                          x-text="perOf(line) > 1 ? '= ' + piecesOf(line) + (piecesOf(line) === 1 ? ' piece' : ' pieces') : 'needs pack size'"></span>
+                                </span>
 
                                 {{-- The date on the carton, taken while it is still in
                                      someone's hands. Blank is an answer: not everything
@@ -306,7 +315,7 @@
                                 </span>
 
                                 <span class="text-right font-mono text-sm font-bold tabular-nums text-slate-900"
-                                      x-text="money((Number(line.packs) || 0) * (Number(mainOf(line).rate) || 0))"></span>
+                                      x-text="money(qty(line) * (Number(mainOf(line).rate) || 0))"></span>
 
                                 <button type="button" x-on:click="remove(line)"
                                         class="justify-self-end rounded-lg p-1 text-lg leading-none text-slate-500 hover:bg-red-50 hover:text-red-700"
@@ -370,11 +379,17 @@
                 {{-- Always there to be pressed. If something is missing it
                      says what, rather than sitting greyed out with no reason. --}}
                 <div class="flex flex-col items-end gap-2">
-                    <p x-show="tried && problem" x-cloak x-text="problem" role="alert"
-                       class="rounded-md bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700"></p>
-                    <button type="button" x-on:click="save()"
+                    {{-- Everything in the way of saving, all at once, and
+                         nothing typed is lost: the page is never reloaded. --}}
+                    <ul x-show="tried && problems.length > 0" x-cloak role="alert"
+                        class="max-h-32 max-w-xl space-y-0.5 overflow-y-auto rounded-md bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700">
+                        <template x-for="(message, n) in problems" :key="n">
+                            <li x-text="message"></li>
+                        </template>
+                    </ul>
+                    <button type="button" x-on:click="save()" :disabled="saving" :class="saving ? 'opacity-60' : ''"
                             class="till-save flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800">
-                        Put it into stock
+                        <span x-text="saving ? 'Saving…' : 'Put it into stock'">Put it into stock</span>
                         <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
                     </button>
                 </div>
@@ -560,7 +575,7 @@
                     invoiceNo: @js(old('invoice_no', '')),
 
                     get total() {
-                        return this.lines.reduce((n, l) => n + (Number(l.packs) || 0) * (Number(this.mainOf(l).rate) || 0), 0);
+                        return this.lines.reduce((n, l) => n + this.qty(l) * (Number(this.mainOf(l).rate) || 0), 0);
                     },
 
                     get totalPacks() {
@@ -639,38 +654,127 @@
 
                     clock: '',
 
-                    /** Whether the delivery can be put into stock as it stands. */
-                    get canSave() {
-                        return this.problem === '';
+                    /** The pack's pieces, as its size on this delivery says. */
+                    perOf(line) {
+                        return piecesFromPack(this.mainOf(line).pack);
                     },
 
-                    /** The first thing standing in the way of saving, in words; empty when nothing is. */
-                    get problem() {
-                        if (@js($dayClosed)) return 'Today is closed. Reopen the day before recording a delivery.';
-                        if (! this.companyId) return 'Choose the company first.';
-                        if (this.lines.length === 0) return 'Add at least one product.';
-                        if (! this.invoiceNo.trim()) return 'Invoice number is required.';
-                        if (this.missingSellPrice > 0) {
-                            return this.missingSellPrice + ' ' + (this.missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP.';
+                    /** Whether the quantity typed is part of a pack rather than whole ones. */
+                    isPart(line) {
+                        const q = Number(line.packs);
+
+                        return Number.isFinite(q) && q > 0 && ! Number.isInteger(q);
+                    },
+
+                    /** Part of a pack, counted in pieces to the nearest whole one. */
+                    piecesOf(line) {
+                        return Math.round((Number(line.packs) || 0) * this.perOf(line));
+                    },
+
+                    /** The quantity in packs that will actually be recorded. */
+                    qty(line) {
+                        const q = Number(line.packs) || 0;
+
+                        return this.isPart(line) && this.perOf(line) > 1 ? this.piecesOf(line) / this.perOf(line) : q;
+                    },
+
+                    /** What is wrong with one line's quantity, in words; empty when nothing is. */
+                    lineProblem(line) {
+                        const q = Number(String(line.packs).trim());
+
+                        if (String(line.packs).trim() === '' || ! Number.isFinite(q) || q <= 0) return line.name + ': enter a quantity.';
+
+                        if (this.isPart(line)) {
+                            if (! @js($business->sellsLoose())) return line.name + ': the quantity must be whole packs.';
+                            if (this.perOf(line) < 2) return line.name + ': part of a pack needs a pack size such as 3x10, or enter whole packs.';
+                            if (this.piecesOf(line) < 1) return line.name + ': that is less than one piece.';
                         }
 
                         return '';
                     },
 
+                    /** Whether the delivery can be put into stock as it stands. */
+                    get canSave() {
+                        return this.problems.length === 0;
+                    },
+
+                    /** Everything standing in the way of saving, in words. */
+                    get problems() {
+                        const found = [];
+
+                        if (@js($dayClosed)) found.push('Today is closed. Reopen the day before recording a delivery.');
+                        if (! this.companyId) found.push('Choose the company first.');
+                        if (this.lines.length === 0) found.push('Add at least one product.');
+                        if (! this.invoiceNo.trim()) found.push('Invoice number is required.');
+                        if (this.missingSellPrice > 0) {
+                            found.push(this.missingSellPrice + ' ' + (this.missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP.');
+                        }
+
+                        this.lines.forEach(line => { const p = this.lineProblem(line); if (p) found.push(p); });
+
+                        // What the server refused last time, until something is changed.
+                        return found.length > 0 ? found : this.refused;
+                    },
+
+                    /** The first of them: kept for anything that shows only one. */
+                    get problem() {
+                        return this.problems[0] ?? '';
+                    },
+
                     // Whether saving has been asked for: what is missing is
                     // only pointed out once somebody has tried.
                     tried: false,
+                    saving: false,
+                    refused: [],
 
-                    save() {
+                    /**
+                     * Saves without leaving the page. Whatever is refused is
+                     * listed, and every line typed is still there to correct.
+                     */
+                    async save() {
+                        if (this.saving) return;
+
                         this.tried = true;
+                        this.refused = [];
 
-                        if (this.problem) {
+                        if (this.problems.length > 0) {
                             if (this.companyId && this.lines.length > 0 && ! this.invoiceNo.trim()) this.$refs.invoice.focus();
 
                             return;
                         }
 
-                        this.$refs.form.requestSubmit();
+                        this.saving = true;
+
+                        try {
+                            const response = await fetch(this.$refs.form.action, {
+                                method: 'POST',
+                                headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+                                body: new FormData(this.$refs.form),
+                                credentials: 'same-origin',
+                            });
+
+                            const answer = await response.json().catch(() => ({}));
+
+                            if (response.ok && answer.redirect) {
+                                window.location = answer.redirect;
+
+                                return;
+                            }
+
+                            if (response.status === 422) {
+                                this.refused = [...new Set(Object.values(answer.errors ?? {}).flat())];
+                            } else if (response.status === 419 || response.status === 401) {
+                                this.refused = ['You were signed out. Sign in again in another tab, then press save here: nothing typed is lost.'];
+                            } else {
+                                this.refused = [answer.message || 'It could not be saved. Nothing typed is lost: try again.'];
+                            }
+
+                            if (this.refused.length === 0) this.refused = ['It could not be saved. Nothing typed is lost: try again.'];
+                        } catch (e) {
+                            this.refused = ['This computer could not reach Pharmaco. Nothing typed is lost: check the connection and press save again.'];
+                        }
+
+                        this.saving = false;
                     },
                 };
             }

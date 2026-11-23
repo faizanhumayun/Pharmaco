@@ -29,7 +29,7 @@ class LedgerPoster
     {
         // A shop's online copy is replaced whole by the shop's next snapshot:
         // a posting made here would vanish, and disagree until it did.
-        if ($spec->business->isShopCopy()) {
+        if ($spec->business->isReadOnlyCopy()) {
             throw new LedgerException('This is the read-only copy of a shop\'s books. Postings are made on the shop\'s own computer.');
         }
 

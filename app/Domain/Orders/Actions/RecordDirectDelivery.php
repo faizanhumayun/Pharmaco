@@ -46,7 +46,7 @@ class RecordDirectDelivery
 
         $lines = array_values(array_filter(
             $data['lines'] ?? [],
-            fn ($row) => ($row['company_product_id'] ?? null) && (int) ($row['packs'] ?? 0) > 0
+            fn ($row) => ($row['company_product_id'] ?? null) && ((int) ($row['packs'] ?? 0) > 0 || (int) ($row['loose'] ?? 0) > 0)
         ));
 
         if ($lines === []) {

@@ -9,10 +9,15 @@
 
     if ($mirror === null && isset($business) && $business instanceof \App\Models\Business && $business->isShopCopy()) {
         $source = $business->shopMirror;
-        $mirror = ['name' => $source?->name ?? $business->name, 'made_at' => $source?->snapshot_made_at, 'can_leave' => false];
+        $mirror = ['name' => $source?->name ?? $business->name, 'made_at' => $source?->snapshot_made_at, 'can_leave' => false, 'entry' => $source?->entry];
     }
 @endphp
-@if ($mirror)
+@if ($mirror && ($mirror['entry'] ?? null) === 'office')
+    {{-- The shop's computer is locked and its books are entered here, for a fix. --}}
+    <div class="bg-red-100 px-4 py-1.5 text-center text-sm font-medium text-red-900 print:hidden" role="status">
+        {{ $mirror['name'] }} is paused for a fix · its own computer is locked · what you change here goes back to it when you switch the shop on again in Businesses
+    </div>
+@elseif ($mirror)
     @php($madeAt = $mirror['made_at'] ?? null)
     {{-- In the shop's own time, not the server's. --}}
     @php($zone = rescue(fn () => \App\Models\Business::query()->value('timezone'), null, false) ?: config('app.timezone'))

@@ -20,6 +20,7 @@ use App\Models\CompanyProduct;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -269,7 +270,7 @@ class DirectDeliveryController extends Controller
         RecordDirectDelivery $action,
         ApplyDeliveryPrices $prices,
         UpdateProduct $update,
-    ): RedirectResponse
+    ): RedirectResponse|JsonResponse
     {
         $this->authorize('manageOrders', $business);
 
@@ -281,7 +282,9 @@ class DirectDeliveryController extends Controller
             'notes' => ['nullable', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.company_product_id' => ['required', 'integer'],
-            'lines.*.packs' => ['required', 'integer', 'min:1'],
+            // Whole packs, or part of one where packs are opened: 0.5 of a
+            // pack of 30 is 15 tablets. Turned into packs and pieces below.
+            'lines.*.packs' => ['bail', 'required', 'numeric', 'gt:0', 'max:1000000'],
             'lines.*.rate' => ['nullable', 'string'],
             // What a pharmacy sells at, so a pharmacy cannot leave it blank.
             'lines.*.mrp' => [$business->sellsAtMrp() ? 'required' : 'nullable', 'string'],
@@ -295,33 +298,124 @@ class DirectDeliveryController extends Controller
             // may leave it for later. A pharmacy has none.
             'lines.*.trade' => ['nullable', 'string'],
         ], [
-            'lines.*.mrp.required' => 'Every line needs the MRP printed on the pack — it is the price you sell at.',
+            'lines.*.mrp.required' => 'Line :position needs the MRP printed on the pack — it is the price you sell at.',
+            'lines.*.packs.required' => 'Line :position needs a quantity.',
+            'lines.*.packs.numeric' => 'Line :position: the quantity must be a number, such as 2 or 0.5.',
+            'lines.*.packs.gt' => 'Line :position: the quantity must be more than zero.',
+            'lines.*.expires_on.date_format' => 'Line :position: the expiry must be a month and a year.',
+            'invoice_no.required' => 'Invoice number is required.',
+            'company_id.required' => 'Choose the company first.',
+            'lines.required' => 'Add at least one product.',
         ]);
 
         try {
-            // First, so the stock that follows is counted in the right packs.
-            $this->applyPackSizes($business, $data['lines'], $request->user(), $update);
-
             /*
-             * Before the delivery, not after: receiving writes the product's
-             * price history, so every figure has to be on the product by then
-             * or the row records a price that was already out of date.
+             * One piece of work: a delivery that is refused further down
+             * leaves no pack size or price changed behind it either.
              */
-            $prices->handle(
-                $business,
-                collect($data['lines'])->keyBy('company_product_id')
-                    ->map(fn ($line) => ['mrp' => $line['mrp'] ?? null, 'trade' => $line['trade'] ?? null])
-                    ->all(),
-                $request->user(),
-            );
+            $order = DB::transaction(function () use ($business, $data, $request, $update, $prices, $action) {
+                // First, so the stock that follows is counted in the right packs.
+                $this->applyPackSizes($business, $data['lines'], $request->user(), $update);
 
-            $order = $action->handle($business, $data, $request->user());
-        } catch (LedgerException $e) {
+                $data['lines'] = $this->packsAndPieces($business, $data['lines']);
+
+                /*
+                 * Before the delivery, not after: receiving writes the product's
+                 * price history, so every figure has to be on the product by then
+                 * or the row records a price that was already out of date.
+                 */
+                $prices->handle(
+                    $business,
+                    collect($data['lines'])->keyBy('company_product_id')
+                        ->map(fn ($line) => ['mrp' => $line['mrp'] ?? null, 'trade' => $line['trade'] ?? null])
+                        ->all(),
+                    $request->user(),
+                );
+
+                return $action->handle($business, $data, $request->user());
+            });
+        } catch (LedgerException|\RuntimeException $e) {
             throw ValidationException::withMessages(['lines' => $e->getMessage()]);
         }
 
-        return redirect()
-            ->route('businesses.orders.show', [$business, $order])
-            ->with('status', "Delivery recorded as {$order->reference} — {$order->receivedTotal()->format()} into stock.");
+        $message = "Delivery recorded as {$order->reference} — {$order->receivedTotal()->format()} into stock.";
+        $to = route('businesses.orders.show', [$business, $order]);
+
+        // The delivery screen saves without leaving the page, so what was
+        // typed is still there if anything is refused. It is told where to go.
+        if ($request->expectsJson()) {
+            $request->session()->flash('status', $message);
+
+            return response()->json(['redirect' => $to]);
+        }
+
+        return redirect($to)->with('status', $message);
+    }
+
+    /**
+     * Each line's quantity as whole packs and loose pieces.
+     *
+     * The quantity is typed in packs. Part of a pack is allowed only where
+     * packs are opened and the product says how many pieces one holds; it is
+     * then counted in pieces, to the nearest whole one. Every line that
+     * cannot be read this way is named, not just the first.
+     *
+     * @param  list<array<string, mixed>>  $lines
+     * @return list<array<string, mixed>>
+     */
+    private function packsAndPieces(Business $business, array $lines): array
+    {
+        $products = CompanyProduct::forBusiness($business)
+            ->whereIn('id', collect($lines)->pluck('company_product_id')->map(fn ($id) => (int) $id)->all())
+            ->get()
+            ->keyBy('id');
+
+        $problems = [];
+
+        foreach ($lines as $i => $line) {
+            $quantity = (string) $line['packs'];
+            $product = $products->get((int) $line['company_product_id']);
+            $name = $product?->label() ?? 'Line '.($i + 1);
+
+            if ($product === null) {
+                $problems["lines.$i.company_product_id"] = 'Line '.($i + 1).': that product is not in your catalogue any more.';
+
+                continue;
+            }
+
+            if (ctype_digit($quantity)) {
+                $lines[$i]['packs'] = (int) $quantity;
+                $lines[$i]['loose'] = 0;
+
+                continue;
+            }
+
+            $per = (int) $product->units_per_pack;
+
+            if (! $business->sellsLoose() || $per < 2) {
+                $problems["lines.$i.packs"] = $business->sellsLoose()
+                    ? "$name: part of a pack ($quantity) needs a pack size that says how many pieces it holds, such as 3x10. Fill in its pack size, or enter whole packs."
+                    : "$name: the quantity must be whole packs.";
+
+                continue;
+            }
+
+            $pieces = (int) round((float) $quantity * $per);
+
+            if ($pieces < 1) {
+                $problems["lines.$i.packs"] = "$name: $quantity of a pack is less than one piece.";
+
+                continue;
+            }
+
+            $lines[$i]['packs'] = intdiv($pieces, $per);
+            $lines[$i]['loose'] = $pieces % $per;
+        }
+
+        if ($problems !== []) {
+            throw ValidationException::withMessages($problems);
+        }
+
+        return $lines;
     }
 }

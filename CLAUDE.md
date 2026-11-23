@@ -90,6 +90,9 @@ headers. `CurrentDevice` holds it for the request.
 - Every audit step records `device_id`, `device_name` (as it was then) and
   `session_key`, a short fingerprint of the sign-in — never the session id.
 - Work no browser did (the scheduler, an import) carries no device.
+- One person in a business is signed in on one device at a time
+  (`OneDeviceAtATime`, `users.signin_device`): the newest sign-in wins and
+  the other device is signed out on its next request. The App Owner is exempt.
 
 ## Running in the shop, with a copy online
 
@@ -115,9 +118,20 @@ needs the internet. That computer holds the real books. The platform keeps a
   a `*_type`/`*_id` pair). `MergedImporter` stops with the column's name when
   it meets a reference it cannot classify, rather than copy a wrong number.
 
-Never make a copy writable, and never sync in both directions: two places
+- **Paused for a fix.** `shop_mirrors.entry` says where a shop's books are
+  entered: `shop` → `pausing` → `office` → `returning` → `shop`. The back
+  office flips it (Businesses, the switch); the shop's computer asks once a
+  minute (`mirror:state`) and does what it is told: lock and send its last
+  entries (`ShopPause`, `ShopPaused`), or take the changes back
+  (`ReturnPackage` on the platform, `ReturnApplier` in the shop) and open.
+  Only in `office` is the copy writable (`Business::isReadOnlyCopy()`), and
+  records made then are numbered from the shop's own block (`BlockIds`) so
+  going home is the same subtraction for every row.
+
+A copy is writable only in `office`, when the shop's computer is locked:
+one place at a time, always. Never sync in both directions at once — two places
 posting to one ledger is how books stop agreeing. `Snapshot`,
-`SnapshotImporter` and `MergedImporter` copy rows without their models on purpose — they are the
+`SnapshotImporter`, `MergedImporter`, `ReturnPackage` and `ReturnApplier` copy rows without their models on purpose — they are the
 third documented exception to the raw-SQL rule, with the balance service and
 `DeleteBusiness`. Setting a shop up: `docs/shop-computer.md`.
 

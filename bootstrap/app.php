@@ -5,6 +5,7 @@ use App\Http\Middleware\EnsurePlatformAdmin;
 use App\Http\Middleware\EnsureUserIsActive;
 use App\Http\Middleware\IdentifyDevice;
 use App\Http\Middleware\MirrorReadOnly;
+use App\Http\Middleware\OneDeviceAtATime;
 use App\Http\Middleware\SetCurrentBusiness;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -22,11 +23,27 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Support\Facades\Route::post('mirror/receive', \App\Http\Controllers\MirrorReceiveController::class)
                 ->middleware('throttle:240,1')
                 ->name('mirror.receive');
+
+            // The same shop's computer asking whether to carry on, lock, or
+            // take its books back after a fix. Same proof, same reasons.
+            \Illuminate\Support\Facades\Route::controller(\App\Http\Controllers\MirrorHandoverController::class)
+                ->prefix('mirror')->middleware('throttle:120,1')->group(function () {
+                    \Illuminate\Support\Facades\Route::get('state', 'state')->name('mirror.state');
+                    \Illuminate\Support\Facades\Route::get('return', 'package')->name('mirror.return');
+                    \Illuminate\Support\Facades\Route::post('returned', 'returned')->name('mirror.returned');
+                });
         },
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // A shop's own computer, locked while the back office fixes something:
+        // first of all, so nothing behind it runs or writes.
+        $middleware->prependToGroup('web', \App\Http\Middleware\ShopPaused::class);
+
         // A deactivated account loses access on its next request, not its next login.
         $middleware->appendToGroup('web', EnsureUserIsActive::class);
+
+        // One person, one device: signing in elsewhere signs them out here.
+        $middleware->appendToGroup('web', OneDeviceAtATime::class);
 
         // Which computer a signed-in request came from, so what is entered
         // can say where it was entered.

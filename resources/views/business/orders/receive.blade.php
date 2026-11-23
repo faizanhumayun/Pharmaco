@@ -108,6 +108,7 @@
                  'case_size' => $r->case_size,
                  'cartons' => $r->cartons,
                  'packs' => $r->packs,
+                 'loose' => (int) $r->loose,
                  'expires_on' => $r->expires_on?->format('Y-m'),
                  'batch_no' => $r->batch_no,
                  'rate' => $r->rate->toDecimal(),
@@ -430,6 +431,8 @@
                                 <td class="py-2 pr-3">
                                     <input type="hidden" :name="`extras[${i}][company_product_id]`" :value="extra.company_product_id ?? ''">
                                     <input type="hidden" :name="`extras[${i}][case_size]`" :value="extra.case_size ?? ''">
+                                    {{-- Part of a pack recorded with the delivery: carried through a correction as it was. --}}
+                                    <input type="hidden" :name="`extras[${i}][loose]`" :value="extra.loose ?? 0">
                                     <span class="block break-words font-medium leading-snug text-gray-900" x-text="extra.label"></span>
                                     <span class="block text-xs text-gray-500" x-text="extra.generic_name || ''"></span>
                                 </td>
@@ -439,7 +442,7 @@
                                            class="w-20 rounded-md border-gray-300 text-right text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 disabled:bg-gray-100">
                                 </td>
                                 <td class="py-2 pr-3 text-right">
-                                    <input type="number" min="1" :name="`extras[${i}][packs]`" x-model="extra.packs"
+                                    <input type="number" :min="(extra.loose ?? 0) > 0 ? 0 : 1" :name="`extras[${i}][packs]`" x-model="extra.packs"
                                            x-on:input="fromPacks(extra)" placeholder="packs"
                                            class="w-24 rounded-md border-gray-300 text-right text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>

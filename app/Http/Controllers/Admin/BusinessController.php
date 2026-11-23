@@ -33,6 +33,8 @@ class BusinessController extends Controller
             // Counts drive the deletion warning, so it can say exactly what
             // would be destroyed rather than warning in the abstract.
             ->withCount(['activeMembers', 'transactions', 'entries', 'closings'])
+            // For a shop's copy: where its books are entered, and the switch.
+            ->with('shopMirror')
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();

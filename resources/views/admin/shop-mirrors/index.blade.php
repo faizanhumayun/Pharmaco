@@ -27,6 +27,23 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
             </div>
         @endif
 
+        {{-- Shown on a shop's screen while it is paused for a fix (Businesses → the switch). --}}
+        <form method="POST" action="{{ route('admin.shop-mirrors.support-phone') }}"
+              class="mb-6 flex flex-wrap items-end gap-3 rounded-lg border border-gray-200 bg-white px-4 py-4 sm:px-6">
+            @csrf
+            @method('PUT')
+            <div>
+                <x-input-label for="support_phone" value="Support number shown to a paused shop" />
+                <x-text-input id="support_phone" name="support_phone" type="text" inputmode="tel" class="mt-1 block w-64"
+                              :value="old('support_phone', $supportPhone)" placeholder="03xx-xxxxxxx" />
+                <x-input-error :messages="$errors->get('support_phone')" class="mt-1" />
+            </div>
+            <x-primary-button>Save</x-primary-button>
+            <p class="basis-full text-xs text-gray-500">
+                A shop is paused from Businesses, with the switch beside it: its computer sends its last entries and locks, you fix what needs fixing, and switching it back on returns your changes to it.
+            </p>
+        </form>
+
         <div class="grid gap-6 xl:grid-cols-3">
             <div class="xl:col-span-2">
                 <x-panel title="Registered shops">

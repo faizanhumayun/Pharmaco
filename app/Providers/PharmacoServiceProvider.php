@@ -31,6 +31,12 @@ class PharmacoServiceProvider extends ServiceProvider
 
         Transaction::observe(TransactionObserver::class);
 
+        // A record made in a shop's copy while the back office has its books
+        // is numbered from that shop's own block, so it can go back to the shop.
+        \Illuminate\Support\Facades\Event::listen('eloquent.creating: *', function (string $event, array $models) {
+            \App\Support\BlockIds::assign($models[0]);
+        });
+
         /*
          * Every audit record carries the tenant and the caller's IP, so the
          * trail can be read per business and a denied attempt can be traced.

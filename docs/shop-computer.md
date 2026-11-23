@@ -193,6 +193,35 @@ leaves the application folder and the database — the books — where they are.
 - **The back office** → Shop copies shows when each shop's last snapshot
   arrived, and the reason if one failed.
 
+## Pausing a shop to fix something
+
+Sometimes the back office has to correct something in a shop's books. The
+books can only ever be entered in one place, so the shop's computer is paused
+while that happens.
+
+1. In the back office open **Businesses** and switch the shop **off**.
+2. Within a minute or two the shop's computer sends its last entries and
+   locks. Every screen there shows "We are fixing an issue" with the support
+   number (kept under **Shop copies**). The business now says
+   **Back office · fixing**, and can be opened and changed like any other.
+3. Fix what needs fixing.
+4. Switch the shop back **on**. Only what you changed, added or removed goes
+   back. The shop's computer applies it, checks that every table and the
+   ledger add up to what was sent, and opens by itself.
+
+Things to know:
+
+- The shop's computer has to be online to hear about the switch, in both
+  directions. Until its last entries arrive the copy stays read-only and the
+  business says "Waiting for the shop to lock".
+- If the changes cannot be sent back, or you change your mind, use **Give up
+  the fix and reopen the shop**: the shop opens with its own books as they
+  were, and what was changed online is replaced by them.
+- Logins and payment methods changed during a fix do not go back; change
+  those on the shop's computer.
+- Both sides need this version. An older shop computer never locks, and the
+  business stays on "Waiting for the shop to lock".
+
 ## Part 4 — backups, and moving the books
 
 Every snapshot is also a full backup. The last 14 are kept on the shop's

@@ -61,7 +61,58 @@
                                     <div class="text-xs text-gray-500">{{ $business->business_type->label() }} · {{ $business->currency }}</div>
                                     {{-- Lives on a shop's own computer; this is its read-only copy. --}}
                                     @if ($business->isShopCopy())
-                                        <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Runs in the shop · read-only copy</x-badge>
+                                        @php($shop = $business->shopMirror)
+                                        @php($entry = $shop?->entry ?? 'shop')
+                                        @if ($entry === 'office')
+                                            <x-badge classes="mt-1 bg-red-50 text-red-800 ring-red-600/20">Back office · fixing</x-badge>
+                                            <span class="mt-1 block text-xs text-gray-500">Shop is locked · sent its last entries {{ $shop->entry_changed_at?->diffForHumans() }}</span>
+                                        @elseif ($entry === 'pausing')
+                                            <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Waiting for the shop to lock</x-badge>
+                                            <span class="mt-1 block text-xs text-gray-500">Asked {{ $shop->entry_changed_at?->diffForHumans() }} · read-only until its last entries arrive</span>
+                                        @elseif ($entry === 'returning')
+                                            <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Handing back to the shop</x-badge>
+                                            <span class="mt-1 block text-xs text-gray-500">Since {{ $shop->entry_changed_at?->diffForHumans() }} · read-only</span>
+                                        @else
+                                            <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Runs in the shop · read-only copy</x-badge>
+                                        @endif
+                                        @if ($entry !== 'shop' && $shop?->last_error)
+                                            <span class="mt-1 block max-w-md text-xs text-red-700">{{ $shop->last_error }}</span>
+                                        @endif
+
+                                        {{-- The switch. On: the shop's computer enters the books.
+                                             Off: it is locked and they are entered here, to fix something. --}}
+                                        @if ($shop && $shop->isMerged())
+                                            @php($on = $entry === 'shop' || $entry === 'returning')
+                                            <form method="POST" action="{{ route('admin.shop-mirrors.entry', $shop) }}" class="mt-2 flex flex-wrap items-center gap-2"
+                                                  onsubmit="return confirm(this.dataset.ask)"
+                                                  data-ask="{{ $entry === 'shop'
+                                                      ? 'Pause '.$shop->name.'? Its computer sends its last entries and locks, showing “We are fixing an issue”, until you switch this back on.'
+                                                      : ($entry === 'office' ? 'Send your changes back to '.$shop->name.' and let it open again?' : 'Call off the pause for '.$shop->name.'?') }}">
+                                                @csrf
+                                                <input type="hidden" name="action" value="{{ $entry === 'shop' ? 'pause' : 'resume' }}">
+                                                <button type="submit" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}"
+                                                        @disabled($entry === 'returning')
+                                                        class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-50 {{ $on ? 'bg-emerald-700' : 'bg-gray-300' }}">
+                                                    <span class="inline-block h-[1.125rem] w-[1.125rem] rounded-full bg-white transition {{ $on ? 'translate-x-[1.375rem]' : 'translate-x-[0.1875rem]' }}"></span>
+                                                </button>
+                                                <span class="text-xs text-gray-600">
+                                                    {{ match ($entry) {
+                                                        'shop' => 'Shop computer: on',
+                                                        'pausing' => 'Off — waiting for the shop',
+                                                        'office' => 'Off — shop is paused',
+                                                        default => 'On — shop is taking its books back',
+                                                    } }}
+                                                </span>
+                                            </form>
+                                            @if ($entry === 'office' || $entry === 'returning')
+                                                <form method="POST" action="{{ route('admin.shop-mirrors.entry', $shop) }}" class="mt-1"
+                                                      onsubmit="return confirm('Give up the fix? {{ $shop->name }} opens with its own books as they were, and everything changed here is lost.')">
+                                                    @csrf
+                                                    <input type="hidden" name="action" value="discard">
+                                                    <button type="submit" class="text-xs font-medium text-red-700 hover:text-red-900">Give up the fix and reopen the shop</button>
+                                                </form>
+                                            @endif
+                                        @endif
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">

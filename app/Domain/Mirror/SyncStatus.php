@@ -100,32 +100,38 @@ class SyncStatus
 
     /**
      * Whether the platform answers. Any answer counts — it is the connection
-     * that is being asked about, not the page. Remembered briefly, so a screen
-     * that asks every few seconds does not knock on the door each time.
+     * that is being asked about, not the page.
+     *
+     * The scheduler asks once a minute and leaves the answer here
+     * ({@see routes/console.php}), so a screen never waits on the internet:
+     * with no connection the asking takes seconds, and on a shop's computer
+     * one slow request holds up every other one. A screen asks for itself
+     * only when nothing has been left (no scheduler running), or when
+     * someone presses Sync now ($fresh).
      */
     public function reachable(bool $fresh = false): bool
     {
-        $ask = function () {
-            $url = (string) config('mirror.push_url');
-            $origin = parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST).(parse_url($url, PHP_URL_PORT) ? ':'.parse_url($url, PHP_URL_PORT) : '');
-
-            try {
-                Http::timeout(4)->connectTimeout(3)->head($origin.'/up');
-
-                return true;
-            } catch (ConnectionException) {
-                return false;
-            } catch (\Throwable) {
-                // It answered, in some way that was not a refused connection.
-                return true;
-            }
-        };
-
-        if ($fresh) {
-            Cache::forget('mirror.reachable');
+        if (! $fresh && ($known = Cache::get('mirror.reachable')) !== null) {
+            return (bool) $known;
         }
 
-        return (bool) Cache::remember('mirror.reachable', 20, $ask);
+        $url = (string) config('mirror.push_url');
+        $origin = parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST).(parse_url($url, PHP_URL_PORT) ? ':'.parse_url($url, PHP_URL_PORT) : '');
+
+        try {
+            Http::timeout(4)->connectTimeout(2)->head($origin.'/up');
+            $answers = true;
+        } catch (ConnectionException) {
+            $answers = false;
+        } catch (\Throwable) {
+            // It answered, in some way that was not a refused connection.
+            $answers = true;
+        }
+
+        // Longer than the scheduler's minute, so its answer is always there.
+        Cache::put('mirror.reachable', $answers, 150);
+
+        return $answers;
     }
 
     private function read(string $file): ?array

@@ -53,7 +53,13 @@ echo "==> Installing PHP packages (without the development ones)"
 (cd "$KIT/app" && composer install --no-dev --optimize-autoloader --no-interaction --no-progress --quiet)
 
 cp "$ROOT/shop/set-env.php" "$KIT/set-env.php"
-cp "$ROOT/docs/shop-computer.md" "$KIT/READ ME FIRST.md"
+# A short step-by-step guide for the kit's own system when there is one,
+# with the full guide beside it.
+if [[ -f "$ROOT/shop/$OS/READ ME FIRST.txt" ]]; then
+  cp "$ROOT/docs/shop-computer.md" "$KIT/Full guide.md"
+else
+  cp "$ROOT/docs/shop-computer.md" "$KIT/READ ME FIRST.md"
+fi
 date -u +"%Y-%m-%d %H:%M UTC" > "$KIT/app/storage/app/kit-built.txt"
 
 if [[ "$OS" == "windows" ]]; then

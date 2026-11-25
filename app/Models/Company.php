@@ -37,6 +37,29 @@ class Company extends Model
         return $this->hasMany(CompanyProductImport::class)->latest('id');
     }
 
+    /** How a company's code is written: CMP-0001, CMP-0002 … */
+    public static function formatCode(int $number): string
+    {
+        return 'CMP-'.str_pad((string) $number, 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * The next free code for a business's new company. Codes are made here,
+     * never typed, and the database refuses a second company with the same
+     * one. Call it inside the transaction that creates the company, after
+     * locking the business row, so two people adding at once cannot get the same.
+     */
+    public static function nextCode(Business $business): string
+    {
+        $highest = static::forBusiness($business)
+            ->where('code', 'like', 'CMP-%')
+            ->pluck('code')
+            ->map(fn (string $code) => ctype_digit(substr($code, 4)) ? (int) substr($code, 4) : 0)
+            ->max() ?? 0;
+
+        return static::formatCode($highest + 1);
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('is_active', true);

@@ -249,6 +249,53 @@ class ShopMirrorController extends Controller
             ->with('status', "A new token was made for {$shopMirror->name}. The old one no longer works.");
     }
 
+    /**
+     * The shop's current token again, for a computer taking over from a lost
+     * or broken one. Nothing changes: a computer already sending with it
+     * carries on.
+     */
+    public function showToken(ShopMirror $shopMirror): RedirectResponse
+    {
+        Gate::authorize('manage-platform');
+        abort_if(MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop(), 404);
+
+        $token = $shopMirror->currentToken();
+
+        if ($token === null) {
+            return back()->withErrors(['status' => "{$shopMirror->name}'s token was made before tokens were kept, so it cannot be shown. Use New token once: from then on it can be shown again."]);
+        }
+
+        return redirect()->route('admin.shop-mirrors.index')
+            ->with('issued', ['name' => $shopMirror->name, 'token' => $token, 'again' => true]);
+    }
+
+    /**
+     * The shop's books as this site holds them, as a file its replacement
+     * computer restores with `mirror:restore`.
+     */
+    public function download(ShopMirror $shopMirror, \App\Domain\Mirror\CopyExport $export): RedirectResponse|\Symfony\Component\HttpFoundation\BinaryFileResponse
+    {
+        Gate::authorize('manage-platform');
+        abort_if(MirrorHost::active() || app(\App\Domain\Mirror\SyncStatus::class)->isShop(), 404);
+
+        @set_time_limit(600);
+
+        $path = tempnam(sys_get_temp_dir(), 'books');
+
+        try {
+            $export->write($shopMirror, $path);
+        } catch (\Throwable $e) {
+            @unlink($path);
+            report($e);
+
+            return back()->withErrors(['status' => "{$shopMirror->name}'s books could not be downloaded: ".mb_substr($e->getMessage(), 0, 300)]);
+        }
+
+        $name = 'books-'.($shopMirror->slug ?: 'shop-'.$shopMirror->id).'-'.now()->format('Y-m-d-His').'.jsonl.gz';
+
+        return response()->download($path, $name, ['Content-Type' => 'application/gzip'])->deleteFileAfterSend();
+    }
+
     /** Stops serving and accepting the copy. Its database is left as it is. */
     public function destroy(ShopMirror $shopMirror): RedirectResponse
     {

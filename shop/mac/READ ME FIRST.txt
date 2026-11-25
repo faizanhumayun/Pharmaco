@@ -1,0 +1,352 @@
+=====================================================================
+  PHARMACO FOR THE SHOP'S COMPUTER (MAC)
+  Installation and day-to-day guide
+=====================================================================
+
+The shop's main computer runs Pharmaco and keeps the real books, so the
+counter works with no internet. The other computers in the shop open it
+over the shop's own network. When there is internet, the main computer
+sends a copy of the books to the online site every five minutes. The
+owner can read that copy from anywhere, and it is also how the books are
+recovered if this Mac is lost, stolen or broken.
+
+    MAIN MAC (this kit)                    ONLINE SITE
+    Pharmaco + MySQL          -- every 5 min, when online -->  read-only copy
+    the real books                                            (owner reads it)
+         ^
+         |  shop network (no internet needed)
+    other counters / laptops
+
+Contents
+  Before you start
+  Step 1  On the online site: register the shop
+  Step 2  On the main Mac: install
+  Step 3  First sign-in and setting up the business
+  Step 4  The other computers in the shop
+  Step 5  Check that the online copy is being sent
+  Printing slips with no preview
+  Backups
+  If this Mac is lost, stolen or broken
+  When the back office pauses the shop for a fix
+  Updating to a newer kit
+  Commands (for support)
+  Problems and what to do
+  Uninstalling
+
+
+---------------------------------------------------------------------
+BEFORE YOU START
+---------------------------------------------------------------------
+
+Unlike the Windows kit, the Mac kit does not carry PHP and MySQL. It
+uses the ones on the Mac, or installs them with Homebrew:
+
+  - If MAMP is installed, its MySQL is used. Start MAMP first (its
+    Start button), and keep it starting with the Mac.
+  - Otherwise install Homebrew from https://brew.sh first. The installer
+    then installs PHP and MySQL itself. THIS NEEDS INTERNET, once.
+
+Also, on the main Mac:
+  - System Settings -> Users & Groups: turn on automatic login for the
+    shop's user. Pharmaco starts when that user is logged in.
+  - System Settings -> Energy (or Battery -> Options): stop the Mac
+    sleeping while the shop is open ("Prevent automatic sleeping").
+
+
+---------------------------------------------------------------------
+STEP 1  On the online site: register the shop  (once per shop)
+---------------------------------------------------------------------
+
+Done by the App Owner, in the back office of the online site.
+
+ 1. Back office -> Shop copies -> Register a shop. A name is all it needs.
+ 2. It shows two values. Keep them for Step 2:
+
+        MIRROR_PUSH_URL=https://<online site>/mirror/receive
+        MIRROR_PUSH_TOKEN=<a long code>
+
+    Lost them? "Show token" beside the shop shows the same token again
+    (nothing changes). "New token" makes a different one, and the old
+    one stops working at once.
+
+You can skip this step and add the two values later (see Step 5).
+
+
+---------------------------------------------------------------------
+STEP 2  On the main Mac: install
+---------------------------------------------------------------------
+
+ 1. Copy pharmaco-shop-mac.zip to the Mac and double-click it to unzip.
+ 2. Open the unzipped folder and double-click "Install Pharmaco".
+    If macOS refuses because it was downloaded: right-click it -> Open
+    -> Open.
+ 3. A Terminal window opens. It asks for two values: paste
+    MIRROR_PUSH_URL and MIRROR_PUSH_TOKEN from Step 1. Or press Return
+    twice to leave both empty and set up the online copy later.
+ 4. Wait for "Pharmaco is installed." It opens the browser at
+    http://localhost:8080 and prints the address the other computers
+    should use, for example http://192.168.1.20:8080. Write that down.
+ 5. If macOS asks whether "php" may accept incoming network
+    connections, click Allow. Without it the other computers cannot
+    reach this Mac.
+
+What it set up:
+  - The application in ~/Pharmaco (your home folder -> Pharmaco)
+      ~/Pharmaco/app        the application and its settings (.env)
+      ~/Pharmaco/logs       server.log and scheduler.log
+  - The books: the MySQL database "pharmaco" (MAMP's MySQL on port 8889
+    if MAMP is installed, otherwise Homebrew's on port 3306).
+  - The Pharmaco server, started with the Mac and restarted if it stops
+    (port 8080).
+  - The scheduler, every minute: sends the online copy, writes backups,
+    and listens for a pause from the back office.
+  - In the Applications folder: "Pharmaco" (opens it, starting it first
+    if needed; drag it to the Dock) and "Pharmaco Till" (prints
+    directly) when Google Chrome is installed.
+
+
+---------------------------------------------------------------------
+STEP 3  First sign-in and setting up the business
+---------------------------------------------------------------------
+
+ 1. Open http://localhost:8080/back-office/login and sign in with the
+    built-in back-office login (the App Owner's).
+ 2. Change its password straight away (Profile). Every installation
+    starts with the same one.
+ 3. Then either:
+      a) A NEW shop: create the business, add the owner and operators,
+         bring in companies and products, and finalise the opening
+         balance as usual.
+      b) A REPLACEMENT computer for a shop that already has books online:
+         do NOT create anything. Restore the books instead. See "If this
+         Mac is lost, stolen or broken" below.
+
+Importing an old POS .mdb file: the Mac reads it directly if mdbtools is
+installed (brew install mdbtools). Upload the .mdb on the import page.
+
+
+---------------------------------------------------------------------
+STEP 4  The other computers in the shop
+---------------------------------------------------------------------
+
+ 1. In the router, give the main Mac a fixed IP address, so the address
+    from Step 2 never changes.
+ 2. On each other computer (Windows or Mac), open that address in Chrome
+    or Edge, for example http://192.168.1.20:8080, and bookmark it.
+ 3. Nothing is installed on them, and they need no internet, only the
+    shop's network.
+ 4. On each computer, click "Name this device" at the top of the screen
+    and give it a name ("Counter 2", "Laptop"). Records show which
+    computer they were entered on.
+
+One person is signed in on one computer at a time. Signing in somewhere
+new signs that person out of the other computer.
+
+The main Mac must stay on, logged in and awake while anyone is working.
+
+
+---------------------------------------------------------------------
+STEP 5  Check that the online copy is being sent
+---------------------------------------------------------------------
+
+The bar at the top of every screen says where things stand:
+    Online - synced          all good
+    Online - sync pending    something is not sent yet; press "Sync now"
+                             or wait up to five minutes
+    Offline                  no internet; the shop keeps working, and the
+                             copy is sent when the internet comes back
+Hover over it to see the reason when something is wrong.
+
+Adding or changing the two values after installing:
+ 1. In Terminal:   open -e ~/Pharmaco/app/.env
+    (Finder hides files starting with a dot; this opens it in TextEdit.)
+ 2. Set the two lines:
+        MIRROR_PUSH_URL=https://<online site>/mirror/receive
+        MIRROR_PUSH_TOKEN=<the token>
+ 3. Save. Nothing needs restarting; the next send uses them.
+
+On the online site, Back office -> Shop copies shows when the last copy
+arrived, or why it failed. The owner signs in at the online site with the
+same email and password as in the shop, and sees the business read-only.
+
+
+---------------------------------------------------------------------
+PRINTING SLIPS WITH NO PREVIEW
+---------------------------------------------------------------------
+
+Use the "Pharmaco Till" icon in Applications (needs Google Chrome), and
+make the slip printer the DEFAULT printer (System Settings -> Printers &
+Scanners -> Default printer). Print then goes straight to it. Quit
+Chrome first if it is already open. The first time, that window asks
+you to sign in once (it keeps its own browser profile in
+~/Pharmaco/till-browser).
+
+
+---------------------------------------------------------------------
+BACKUPS
+---------------------------------------------------------------------
+
+Every copy sent online is also a full backup on this Mac. The last 14
+are kept in:
+    ~/Pharmaco/app/storage/app/private/mirror/out
+    (files named books-YYYY-MM-DD-HHMMSS.jsonl.gz)
+
+ - Copy that folder to a USB drive now and then, and keep it away
+   from the Mac.  (In Finder: Go -> Go to Folder, paste the path.)
+ - To make a backup now without sending it (see "Commands"):
+       php artisan mirror:push --local
+ - To keep more than 14, add MIRROR_KEEP_SNAPSHOTS=30 to the .env file.
+
+
+---------------------------------------------------------------------
+IF THIS MAC IS LOST, STOLEN OR BROKEN
+---------------------------------------------------------------------
+
+The online site holds the books as of the last copy that reached it, so
+at most the last few minutes before the Mac went offline are lost.
+
+ 1. On the online site: Back office -> Shop copies -> "Download books"
+    beside the shop. Keep the file it gives you:
+        books-<shop>-<date>.jsonl.gz
+    (A file from the USB backup works too.)
+ 2. Also press "Show token" and keep the token: the SAME token is used
+    on the new computer.
+ 3. Install on the new Mac (Step 2). When asked for the two values,
+    leave BOTH EMPTY for now (press Return twice).
+ 4. Copy the books file to the new Mac, for example to Downloads.
+ 5. In Terminal:
+        cd ~/Pharmaco/app
+        php artisan mirror:restore ~/Downloads/books-<shop>-<date>.jsonl.gz
+    Answer "yes". It replaces everything in this Mac's database with
+    the file, and says how many rows it restored.
+ 6. Sign in with the built-in back-office login (Step 3). The restore
+    keeps this computer's own back-office login and password. The shop's
+    owner and operators sign in with their usual email and password.
+ 7. Now add the two values to ~/Pharmaco/app/.env (Step 5) using the
+    token from point 2. Within five minutes the online copy is being
+    sent from the new Mac.
+
+Why the values are left empty until the restore: an empty new computer
+must never send its empty books. (The online site refuses them anyway
+and says so under Shop copies.)
+
+The replacement can just as well be a Windows computer: use the Windows
+kit and its guide; the books file is the same.
+
+If the shop was paused for a fix when the computer was lost: the
+downloaded file already contains the fix. After the restore, the back
+office chooses "Give up the fix and reopen the shop".
+
+
+---------------------------------------------------------------------
+WHEN THE BACK OFFICE PAUSES THE SHOP FOR A FIX
+---------------------------------------------------------------------
+
+Sometimes support has to correct something in the books. The books can
+only be entered in one place at a time, so:
+
+ 1. Support switches the shop off in the back office.
+ 2. Within a minute or two this Mac sends its last entries and LOCKS.
+    Every screen says "We are fixing an issue" with the support phone
+    number. Nothing can be entered, on purpose.
+ 3. When support switches the shop back on, the corrections come back
+    to this Mac, are checked, and it opens by itself.
+
+This Mac must be ONLINE for both the pause and the return. If it stays
+locked, check the internet and call the support number.
+
+
+---------------------------------------------------------------------
+UPDATING TO A NEWER KIT
+---------------------------------------------------------------------
+
+ 1. Get the new pharmaco-shop-mac.zip and unzip it.
+ 2. Double-click "Install Pharmaco" again.
+ 3. It replaces the application and KEEPS the books, the settings (.env)
+    and the backups. It asks no questions on an update.
+
+Update the online site at the same time: the shop's computer and the
+online site should run the same version.
+
+
+---------------------------------------------------------------------
+COMMANDS (FOR SUPPORT)
+---------------------------------------------------------------------
+
+Open Terminal (Applications -> Utilities -> Terminal), then:
+
+    cd ~/Pharmaco/app
+
+and run any of these:
+
+    php artisan mirror:push --force
+            send the online copy now, and print what happened
+    php artisan mirror:push --local
+            write a backup now, send nothing
+    php artisan mirror:restore <file>
+            put the books back from a backup or a downloaded file
+    php artisan ledger:verify
+            check that the books add up
+
+(With MAMP and no Homebrew PHP, "php" may not be found: use
+/Applications/MAMP/bin/php/php8.x.x/bin/php instead, with the version
+folder that is there.)
+
+What mirror:push --force prints:
+  "Sent. The online copy is up to date."
+        Working.
+  "Not sent: MIRROR_PUSH_URL and MIRROR_PUSH_TOKEN are not set"
+        Add the two values to ~/Pharmaco/app/.env (Step 5).
+  "The platform could not be reached" + a reason
+        "Could not resolve host": the address is mistyped, or there is
+        no internet.
+  "The platform did not accept the snapshot" + a reason
+        "token is not recognised": wrong token; use "Show token" under
+        Shop copies. "This computer has no businesses": restore the
+        books first (see "lost, stolen or broken"). Anything else:
+        send the reason to support.
+
+
+---------------------------------------------------------------------
+PROBLEMS AND WHAT TO DO
+---------------------------------------------------------------------
+
+Pharmaco does not open on this Mac
+  - Click the Pharmaco icon: it starts the server if it is not running.
+  - "Pharmaco could not be started": the database is not running.
+    With MAMP: open MAMP and press Start. With Homebrew, in Terminal:
+        brew services start mysql
+  - Still not: restart the Mac, then look at ~/Pharmaco/logs/server.log.
+
+Other computers cannot open it
+  - Is the main Mac on, logged in, awake, and on the same network?
+  - Is the address right? Its IP may have changed; give it a fixed IP
+    in the router (Step 4).
+  - System Settings -> Network -> Firewall: allow incoming connections
+    for "php".
+
+The bar says "sync pending" for a long time
+  - Check the internet, then run mirror:push --force (Commands) and
+    read what it says.
+
+The installer stopped with "STOPPED: ..."
+  - It says what is missing (Homebrew, MySQL not running, a PHP
+    extension). Fix that and run the installer again.
+
+Many computers working at once feel slow
+  - The built-in web server is meant for a counter or two and the
+    owner. A bigger shop should be moved to a full web server; ask
+    support.
+
+
+---------------------------------------------------------------------
+UNINSTALLING
+---------------------------------------------------------------------
+
+"Uninstall Pharmaco" stops Pharmaco starting with the Mac and removes
+the Pharmaco and Pharmaco Till icons. It deliberately leaves ~/Pharmaco
+and the database, because they hold the books. Take a backup (see
+"Backups") before removing anything by hand.
+
+---------------------------------------------------------------------
+The full technical guide is beside this file: "Full guide.md".

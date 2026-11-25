@@ -325,7 +325,7 @@ class ReturnPackage
      * point at such a row it is simply renumbered into the block. Where
      * something could, it stops: a moved id would leave a pointer behind.
      */
-    private function adoptStrays(ShopMirror $mirror): void
+    public function adoptStrays(ShopMirror $mirror): void
     {
         $base = MergedImporter::baseFor($mirror);
         $top = $base + MergedImporter::BLOCK;

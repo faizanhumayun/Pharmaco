@@ -256,8 +256,8 @@
              the MRP and the same figure again beside it. A distributor keeps
              both: the MRP on the pack, and the trade price it charges. --}}
         @php($cols = $business->sellsAtMrp()
-            ? 'grid-cols-[minmax(0,1fr)_10rem_7rem_7rem_2rem]'
-            : 'grid-cols-[minmax(0,1fr)_10rem_6rem_7rem_7rem_2rem]')
+            ? 'grid-cols-[minmax(9rem,1fr)_10rem_6rem_7rem_7rem_2rem]'
+            : 'grid-cols-[minmax(9rem,1fr)_10rem_6rem_6rem_7rem_7rem_2rem]')
         <div class="till-panes grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,5fr)_minmax(0,6.5fr)] sm:px-6">
 
             {{-- The shelf. --}}
@@ -388,6 +388,7 @@
                     @unless ($business->sellsAtMrp())
                         <span class="text-right">MRP</span>
                     @endunless
+                    <span class="text-right">Each</span>
                     <span class="text-right">Pack price</span>
                     <span class="text-right">Total</span>
                     <span></span>
@@ -408,6 +409,8 @@
                                       x-text="'Only ' + stockLabel(line) + ' in stock. The bill cannot be saved.'"></span>
                                 <span x-show="belowCost(line.price, line.cost)" x-cloak class="block text-xs font-medium text-red-700"
                                       x-text="'Below cost. Minimum price is Rs. ' + money(line.cost)"></span>
+                                <span x-show="line.raised" x-cloak class="block text-xs font-medium text-amber-700"
+                                      x-text="'Raised to the purchase price, Rs. ' + money(line.cost) + ' a pack'"></span>
                             </span>
 
                             {{-- A pharmacy counts in pieces: 20 is twenty tablets,
@@ -429,9 +432,29 @@
                                       x-text="line.mrp > 0 ? money(line.mrp) : '—'"></span>
                             @endunless
 
+                            {{-- What one piece sells for, typed over like the pack
+                                 price: change either, the other follows. A product
+                                 sold singly has only its one price. --}}
+                            <span>
+                                <template x-if="Number(line.per) > 1">
+                                    <input type="text" inputmode="decimal" :value="piece(line.price, line.per).toFixed(2)"
+                                           x-on:focus="$el.select()" x-on:change="setEach(line, $event.target.value); raiseToCost(line)"
+                                           x-on:keydown.enter.prevent="$event.target.blur()"
+                                           :title="'Price of one of ' + line.per + '. Type to change it; the pack price follows.'"
+                                           :class="belowCost(line.price, line.cost)
+                                               ? 'border-red-400 bg-red-50 text-red-800 focus:border-red-500 focus:ring-red-500'
+                                               : 'border-transparent bg-transparent text-slate-900 hover:border-slate-300 focus:border-emerald-700 focus:ring-emerald-600'"
+                                           class="w-full rounded-lg px-1 py-1.5 text-right font-mono text-sm tabular-nums">
+                                </template>
+                                <template x-if="! (Number(line.per) > 1)">
+                                    <span class="block text-right font-mono text-sm tabular-nums text-slate-400">—</span>
+                                </template>
+                            </span>
+
                             {{-- The price can be typed over; it only looks like a
                                  box once the pointer or the cursor is on it. --}}
-                            <input type="text" inputmode="decimal" x-model.number="line.price"
+                            <input type="text" inputmode="decimal" x-model.number="line.price" x-on:focus="$el.select()"
+                                   x-on:change="raiseToCost(line)" x-on:keydown.enter.prevent="$event.target.blur()"
                                    :title="line.mrp > 0 && Number(line.price) !== Number(line.mrp)
                                        ? 'MRP is ' + money(line.mrp) + '. Type to change the price.'
                                        : 'Price of one pack. Type to change it.'"
@@ -467,7 +490,7 @@
                               x-text="underpriced.length + ' ' + (underpriced.length === 1 ? 'item is' : 'items are') + ' priced below cost'"></span>
                     </p>
 
-                    <div class="flex items-center gap-6">
+                    <div class="flex flex-wrap items-center justify-end gap-x-6 gap-y-1">
                         <p class="flex items-baseline gap-3">
                             <span class="{{ $label }} text-slate-500">Subtotal</span>
                             <span class="font-mono text-base font-semibold tabular-nums text-slate-900" x-text="'Rs. ' + money(subtotal)"></span>
@@ -485,6 +508,8 @@
                                   :class="Number(discount) > 0 ? 'text-slate-900' : 'text-slate-300'"
                                   x-text="'− ' + money(discount)"></span>
                         </label>
+                        <p x-show="discountCapped" x-cloak class="basis-full text-right text-xs font-medium text-amber-700"
+                           x-text="'Discount limited to Rs. ' + money(maxDiscount) + ': more would sell below the purchase price.'"></p>
                     </div>
                 </div>
             </section>
@@ -893,7 +918,7 @@
              on the bill. Enter confirms, Escape cancels. --}}
         <div x-show="asking" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4"
              x-on:click.self="cancelAsk()" x-on:keydown.escape.window="cancelAsk()">
-            <div class="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl">
+            <div class="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl">
                 <p class="text-sm text-slate-500">Add to the bill</p>
                 <p class="mt-0.5 break-words text-lg font-semibold text-slate-900" x-text="asking?.name"></p>
                 <p class="text-sm text-slate-500">
@@ -950,33 +975,59 @@
                     </p>
                 </div>
 
-                <div class="mt-4 grid grid-cols-2 gap-3">
-                    <label class="block">
-                        <span class="text-xs uppercase tracking-wide text-slate-400">{{ $loose ? 'Qty' : 'Quantity' }}</span>
-                        <input x-ref="askQty" x-model.number="askQty" type="text" inputmode="numeric"
-                               x-on:keydown.enter.prevent="confirmAsk()"
-                               class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-center text-2xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
-                    </label>
-                    <label class="block">
-                        <span class="text-xs uppercase tracking-wide text-slate-400" x-text="looseMode && asking?.per > 1 ? 'Price per pack' : 'Price each'">Price each</span>
-                        <input x-model.number="askPrice" type="text" inputmode="decimal"
-                               x-on:keydown.enter.prevent="confirmAsk()"
-                               class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-right text-2xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
-                    </label>
-                </div>
+                {{-- How many: typed, or one tap below — the whole pack, or a
+                     usual count. A tap adds it straight to the bill. --}}
+                <label class="mt-4 block">
+                    <span class="text-xs uppercase tracking-wide text-slate-400"
+                          x-text="looseMode && asking?.per > 1 ? 'Quantity (pieces)' : 'Quantity'">Quantity</span>
+                    <input x-ref="askQty" x-model.number="askQty" type="text" inputmode="numeric"
+                           x-on:keydown.enter.prevent="askFloor() || confirmAsk()" x-on:focus="$el.select()"
+                           class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-center text-3xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
+                </label>
 
-                {{-- Qty is in pieces here; this says what one costs and what
-                     the figure typed comes to in packs. --}}
-                <p x-show="looseMode && asking?.per > 1" x-cloak class="mt-3 rounded-xl bg-slate-50 p-2 text-center text-xs text-slate-500"
-                   x-text="asking ? (asking.per + ' in a pack · Rs. ' + money(piece(askPrice, asking.per)) + ' each · ' + splitLabel(split(askQty, asking.per))) : ''"></p>
-
-                <div class="mt-3 flex flex-wrap gap-1">
+                <div class="mt-2 flex gap-1.5">
+                    <template x-if="looseMode && asking?.per > 1">
+                        <button type="button" x-on:click="askQty = asking.per; confirmAsk()" :disabled="askUnderpriced"
+                                :class="Number(askQty) === Number(asking?.per) ? 'bg-emerald-700 text-white' : 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-600/30 hover:bg-emerald-100'"
+                                class="shrink-0 basis-32 rounded-lg px-3 py-2 text-sm font-semibold leading-tight disabled:opacity-50">
+                            Full pack
+                            <span class="block text-[0.6875rem] font-medium opacity-80" x-text="asking?.per + ' pieces'"></span>
+                        </button>
+                    </template>
                     <template x-for="n in [1, 2, 5, 10, 20]" :key="n">
-                        <button type="button" x-on:click="askQty = n; confirmAsk()"
-                                class="rounded-lg bg-slate-100 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-200"
+                        <button type="button" x-on:click="askQty = n; confirmAsk()" :disabled="askUnderpriced"
+                                :class="Number(askQty) === n ? 'bg-emerald-700 text-white' : 'bg-slate-100 text-slate-800 hover:bg-slate-200'"
+                                class="min-w-0 flex-1 rounded-lg py-2 text-base font-semibold tabular-nums disabled:opacity-50"
                                 x-text="n"></button>
                     </template>
                 </div>
+
+                {{-- The price two ways, kept in step: what one piece sells for,
+                     and the whole pack. Change either; the other follows. A
+                     product sold singly has just the one price. --}}
+                <div class="mt-4 grid gap-3" :class="asking?.per > 1 ? 'grid-cols-2' : 'grid-cols-1'">
+                    <label class="block" x-show="asking?.per > 1" x-cloak>
+                        <span class="text-xs uppercase tracking-wide text-slate-400">Price each</span>
+                        <input x-model="askEach" x-on:input="askPrice = packFromEach(askEach, asking?.per); askRaised = false"
+                               x-on:change="askFloor()"
+                               type="text" inputmode="decimal" x-on:keydown.enter.prevent="askFloor() || confirmAsk()" x-on:focus="$el.select()"
+                               class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-right text-2xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
+                        <span class="mt-0.5 block text-right text-[0.6875rem] text-slate-400" x-text="'1 of ' + asking?.per"></span>
+                    </label>
+                    <label class="block">
+                        <span class="text-xs uppercase tracking-wide text-slate-400" x-text="asking?.per > 1 ? 'Whole pack' : 'Price each'">Price each</span>
+                        <input x-model="askPrice" x-on:input="askEach = piece(askPrice, asking?.per); askRaised = false"
+                               x-on:change="askFloor()"
+                               type="text" inputmode="decimal" x-on:keydown.enter.prevent="askFloor() || confirmAsk()" x-on:focus="$el.select()"
+                               class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-right text-2xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
+                        <span x-show="asking?.per > 1" class="mt-0.5 block text-right text-[0.6875rem] text-slate-400" x-text="asking?.per + ' pieces'"></span>
+                    </label>
+                </div>
+
+                <p x-show="askRaised" x-cloak class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+                    The price was raised to the purchase price, <span class="font-semibold" x-text="'Rs. ' + money(asking?.cost)"></span> a pack.
+                    It cannot be sold for less. Press Enter to add it.
+                </p>
 
                 {{-- Said before the item reaches the bill, not after. --}}
                 <div x-show="askUnderpriced" x-cloak class="mt-3 rounded-xl bg-red-50 p-3 ring-1 ring-red-200">
@@ -986,7 +1037,7 @@
                         A lower price is a loss on every
                         {{ $one }}, so it cannot be added to the bill.
                     </p>
-                    <button type="button" x-on:click="askPrice = asking.cost"
+                    <button type="button" x-on:click="askPrice = asking.cost; askEach = piece(asking.cost, asking.per)"
                             class="mt-2 rounded-lg bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800">
                         Use Rs. <span x-text="money(asking?.cost)"></span>
                     </button>
@@ -1088,9 +1139,36 @@
                     // the percentage typed at the till that it is worked out from.
                     discount: '',
                     discountPct: '',
+                    discountCapped: false,
+                    /*
+                     * Never so much that the bill sells below what its goods
+                     * cost: the most it can be is the bill less that cost. The
+                     * server refuses the same, whatever this sends.
+                     */
                     applyDiscount() {
                         const pct = Math.min(100, Math.max(0, Number(this.discountPct) || 0));
-                        this.discount = pct > 0 ? Math.round(this.subtotal * pct + Number.EPSILON) / 100 : '';
+                        let discount = pct > 0 ? Math.round(this.subtotal * pct + Number.EPSILON) / 100 : 0;
+
+                        this.discountCapped = discount > this.maxDiscount + 0.001;
+
+                        if (this.discountCapped) {
+                            discount = this.maxDiscount;
+                        }
+
+                        this.discount = discount > 0 ? discount : '';
+                    },
+                    /** What the goods on the bill cost, at the purchase price. */
+                    get billCost() {
+                        return this.cart.reduce((n, l) => n + (Math.floor(Number(l.qty) || 0)) * (Number(l.cost) || 0)
+                            + (Math.floor(Number(l.loose) || 0)) * this.piece(l.cost, l.per), 0);
+                    },
+                    get maxDiscount() {
+                        return Math.max(0, Math.floor((this.subtotal - this.billCost) * 100 + Number.EPSILON) / 100);
+                    },
+                    /** A bill line typed below cost: put back up to it, and said so. */
+                    raiseToCost(l) {
+                        l.raised = this.belowCost(l.price, l.cost);
+                        if (l.raised) l.price = Number(l.cost);
                     },
                     received: '',
                     customer: '',
@@ -1125,6 +1203,8 @@
                     asking: null,
                     askQty: 1,
                     askPrice: 0,
+                    askEach: 0,
+                    askRaised: false,
                     askLoose: 0,
 
                     // Why a saved bill is being corrected; only asked while editing.
@@ -1289,6 +1369,16 @@
                     piece(price, per) {
                         per = Number(per) || 1;
                         return per <= 1 ? (Number(price) || 0) : Math.round(((Number(price) || 0) / per) * 100 + Number.EPSILON) / 100;
+                    },
+                    /** The pack price for a price each: what is typed, times the pack. */
+                    packFromEach(each, per) {
+                        per = Number(per) || 1;
+                        each = Number(String(each ?? '').replace(/,/g, '')) || 0;
+                        return Math.round(each * per * 100 + Number.EPSILON) / 100;
+                    },
+                    /** A bill line priced by the piece: the pack follows. */
+                    setEach(l, each) {
+                        l.price = this.packFromEach(each, l.per);
                     },
                     lineTotal(l) {
                         return (Math.floor(Number(l.qty) || 0)) * (Number(l.price) || 0)
@@ -1521,7 +1611,23 @@
                         this.askQty = 1;
                         this.askLoose = 0;
                         this.askPrice = p.price;
+                        this.askEach = this.piece(p.price, p.per);
+                        this.askRaised = false;
                         this.$nextTick(() => { this.$refs.askQty.focus(); this.$refs.askQty.select(); });
+                    },
+                    /**
+                     * The dialog's price below cost: raised to it, and said so.
+                     * True when it raised it, so Enter stops there once and the
+                     * next Enter adds the item at the raised price.
+                     */
+                    askFloor() {
+                        if (! this.askUnderpriced) return false;
+
+                        this.askPrice = Number(this.asking.cost);
+                        this.askEach = this.piece(this.asking.cost, this.asking.per);
+                        this.askRaised = true;
+
+                        return true;
                     },
                     cancelAsk() {
                         this.asking = null;

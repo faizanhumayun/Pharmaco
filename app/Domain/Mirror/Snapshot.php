@@ -73,6 +73,38 @@ class Snapshot
         return ['path' => $path, 'tables' => $tables, 'rows' => $rows, 'hash' => hash_final($hash)];
     }
 
+    /** How many rows a snapshot file holds for one table; 0 when it has none. */
+    public function countRows(string $path, string $table): int
+    {
+        $file = gzopen($path, 'rb');
+
+        if ($file === false) {
+            throw new RuntimeException('The snapshot file could not be opened.');
+        }
+
+        $count = 0;
+        $inside = false;
+        $header = '{"table":'.json_encode($table).',';
+
+        try {
+            while (($line = gzgets($file)) !== false) {
+                if (str_starts_with($line, '{"table":')) {
+                    if ($inside) {
+                        break;
+                    }
+
+                    $inside = str_starts_with($line, $header);
+                } elseif ($inside && str_starts_with($line, '{"row":')) {
+                    $count++;
+                }
+            }
+        } finally {
+            gzclose($file);
+        }
+
+        return $count;
+    }
+
     /**
      * The tables that hold the books, in a steady order.
      *

@@ -375,6 +375,11 @@
             <x-add-product :business="$business" />
         @endcan
 
+        {{-- Adding a company, from any screen of the workspace. --}}
+        @can('configure', $business)
+            <x-add-company :business="$business" />
+        @endcan
+
         @stack('scripts')
     </body>
 </html>

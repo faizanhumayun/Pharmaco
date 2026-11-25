@@ -28,7 +28,7 @@
             <div class="mb-6 flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                 <span>A price list must belong to a company. This business has no companies yet.</span>
                 @can('configure', $business)
-                    <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-company')"
+                    <button type="button" x-data x-on:click="$dispatch('add-company')"
                             class="rounded-md bg-emerald-700 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-800">
                         Add a company
                     </button>
@@ -70,7 +70,7 @@
                                 <x-input-error :messages="$errors->get('company_id')" class="mt-2" />
 
                                 @can('configure', $business)
-                                    <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-company')"
+                                    <button type="button" x-data x-on:click="$dispatch('add-company')"
                                             class="mt-2 text-sm font-medium text-emerald-700 hover:text-emerald-800">
                                         Company not in the list? Add a company
                                     </button>
@@ -151,7 +151,4 @@
         </div>
     </div>
 
-    @can('configure', $business)
-        <x-add-company-drawer :business="$business" />
-    @endcan
 </x-workspace-layout>

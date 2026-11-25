@@ -73,17 +73,17 @@
      Ink by default — sign-in and the back office belong to neither side.
      A workspace sets side-pharmacy or side-distributor on <body> and takes
      that side's scale, defined just below. */
-  --accent-50: 239 235 225;
-  --accent-100: 230 225 213;
-  --accent-200: var(--line-rgb);
-  --accent-300: 196 191 177;
-  --accent-400: 126 136 130;
-  --accent-500: var(--muted-rgb);
-  --accent-600: 52 64 58;
-  --accent-700: var(--ink-rgb);
-  --accent-800: 13 22 19;
-  --accent-900: 8 14 12;
-  --accent-950: 4 8 7;
+  --a-50: 239 235 225;
+  --a-100: 230 225 213;
+  --a-200: var(--line-rgb);
+  --a-300: 196 191 177;
+  --a-400: 126 136 130;
+  --a-500: var(--muted-rgb);
+  --a-600: 52 64 58;
+  --a-700: var(--ink-rgb);
+  --a-800: 13 22 19;
+  --a-900: 8 14 12;
+  --a-950: 4 8 7;
 
   /* ---- 6. Charts --------------------------------------------------------
      Chosen to stay distinguishable for colour-blind readers. */
@@ -128,33 +128,33 @@
 
 /* The accent inside a pharmacy's workspace. */
 .side-pharmacy {
-  --accent-50: var(--pharmacy-tint-rgb);
-  --accent-100: 201 230 222;
-  --accent-200: 163 210 198;
-  --accent-300: 111 181 166;
-  --accent-400: 58 148 133;
-  --accent-500: 23 128 111;
-  --accent-600: 15 118 105;
-  --accent-700: var(--pharmacy-rgb);
-  --accent-800: 9 90 81;
-  --accent-900: 7 70 63;
-  --accent-950: 4 43 39;
+  --a-50: var(--pharmacy-tint-rgb);
+  --a-100: 201 230 222;
+  --a-200: 163 210 198;
+  --a-300: 111 181 166;
+  --a-400: 58 148 133;
+  --a-500: 23 128 111;
+  --a-600: 15 118 105;
+  --a-700: var(--pharmacy-rgb);
+  --a-800: 9 90 81;
+  --a-900: 7 70 63;
+  --a-950: 4 43 39;
 }
 
 /* The accent inside a distributor's workspace: violet, well away from the
    pharmacy's green and the receiving screen's blue. */
 .side-distributor {
-  --accent-50: var(--distributor-tint-rgb);
-  --accent-100: 225 215 245;
-  --accent-200: 200 184 235;
-  --accent-300: 168 144 220;
-  --accent-400: 137 106 201;
-  --accent-500: 113 78 184;
-  --accent-600: 101 65 172;
-  --accent-700: var(--distributor-rgb);
-  --accent-800: 73 44 130;
-  --accent-900: 58 35 103;
-  --accent-950: 36 21 66;
+  --a-50: var(--distributor-tint-rgb);
+  --a-100: 225 215 245;
+  --a-200: 200 184 235;
+  --a-300: 168 144 220;
+  --a-400: 137 106 201;
+  --a-500: 113 78 184;
+  --a-600: 101 65 172;
+  --a-700: var(--distributor-rgb);
+  --a-800: 73 44 130;
+  --a-900: 58 35 103;
+  --a-950: 36 21 66;
 }
 
 /* The colours a business may choose for its own screens in Settings
@@ -162,100 +162,164 @@
    over the usual colour, and before the receiving screen so that stays blue.
    To offer another colour, add its scale here and its name to the enum. */
 .accent-teal {
-  --accent-50: 223 240 235;
-  --accent-100: 201 230 222;
-  --accent-200: 163 210 198;
-  --accent-300: 111 181 166;
-  --accent-400: 58 148 133;
-  --accent-500: 23 128 111;
-  --accent-600: 15 118 105;
-  --accent-700: 11 110 99;
-  --accent-800: 9 90 81;
-  --accent-900: 7 70 63;
-  --accent-950: 4 43 39;
+  --a-50: 223 240 235;
+  --a-100: 201 230 222;
+  --a-200: 163 210 198;
+  --a-300: 111 181 166;
+  --a-400: 58 148 133;
+  --a-500: 23 128 111;
+  --a-600: 15 118 105;
+  --a-700: 11 110 99;
+  --a-800: 9 90 81;
+  --a-900: 7 70 63;
+  --a-950: 4 43 39;
 }
 .accent-violet {
-  --accent-50: 240 235 250;
-  --accent-100: 225 215 245;
-  --accent-200: 200 184 235;
-  --accent-300: 168 144 220;
-  --accent-400: 137 106 201;
-  --accent-500: 113 78 184;
-  --accent-600: 101 65 172;
-  --accent-700: 91 56 160;
-  --accent-800: 73 44 130;
-  --accent-900: 58 35 103;
-  --accent-950: 36 21 66;
+  --a-50: 240 235 250;
+  --a-100: 225 215 245;
+  --a-200: 200 184 235;
+  --a-300: 168 144 220;
+  --a-400: 137 106 201;
+  --a-500: 113 78 184;
+  --a-600: 101 65 172;
+  --a-700: 91 56 160;
+  --a-800: 73 44 130;
+  --a-900: 58 35 103;
+  --a-950: 36 21 66;
 }
 .accent-forest {
-  --accent-50: 232 242 233;
-  --accent-100: 208 229 211;
-  --accent-200: 168 208 173;
-  --accent-300: 121 180 129;
-  --accent-400: 76 148 87;
-  --accent-500: 46 122 59;
-  --accent-600: 36 107 49;
-  --accent-700: 28 92 41;
-  --accent-800: 22 74 33;
-  --accent-900: 17 58 26;
-  --accent-950: 10 36 16;
+  --a-50: 232 242 233;
+  --a-100: 208 229 211;
+  --a-200: 168 208 173;
+  --a-300: 121 180 129;
+  --a-400: 76 148 87;
+  --a-500: 46 122 59;
+  --a-600: 36 107 49;
+  --a-700: 28 92 41;
+  --a-800: 22 74 33;
+  --a-900: 17 58 26;
+  --a-950: 10 36 16;
 }
 .accent-wine {
-  --accent-50: 249 235 239;
-  --accent-100: 242 213 222;
-  --accent-200: 229 173 190;
-  --accent-300: 211 125 150;
-  --accent-400: 188 80 113;
-  --accent-500: 164 49 86;
-  --accent-600: 146 37 73;
-  --accent-700: 126 29 61;
-  --accent-800: 102 23 50;
-  --accent-900: 80 18 40;
-  --accent-950: 49 10 24;
+  --a-50: 249 235 239;
+  --a-100: 242 213 222;
+  --a-200: 229 173 190;
+  --a-300: 211 125 150;
+  --a-400: 188 80 113;
+  --a-500: 164 49 86;
+  --a-600: 146 37 73;
+  --a-700: 126 29 61;
+  --a-800: 102 23 50;
+  --a-900: 80 18 40;
+  --a-950: 49 10 24;
 }
 .accent-copper {
-  --accent-50: 251 233 210;
-  --accent-100: 247 217 180;
-  --accent-200: 240 190 135;
-  --accent-300: 229 156 86;
-  --accent-400: 211 122 44;
-  --accent-500: 190 98 20;
-  --accent-600: 177 86 12;
-  --accent-700: 163 74 7;
-  --accent-800: 133 60 6;
-  --accent-900: 104 47 6;
-  --accent-950: 64 28 3;
+  --a-50: 251 233 210;
+  --a-100: 247 217 180;
+  --a-200: 240 190 135;
+  --a-300: 229 156 86;
+  --a-400: 211 122 44;
+  --a-500: 190 98 20;
+  --a-600: 177 86 12;
+  --a-700: 163 74 7;
+  --a-800: 133 60 6;
+  --a-900: 104 47 6;
+  --a-950: 64 28 3;
 }
 .accent-graphite {
-  --accent-50: 238 240 242;
-  --accent-100: 222 226 230;
-  --accent-200: 192 199 206;
-  --accent-300: 152 162 172;
-  --accent-400: 110 122 134;
-  --accent-500: 82 94 106;
-  --accent-600: 68 79 90;
-  --accent-700: 54 64 74;
-  --accent-800: 43 51 60;
-  --accent-900: 33 40 47;
-  --accent-950: 20 25 30;
+  --a-50: 238 240 242;
+  --a-100: 222 226 230;
+  --a-200: 192 199 206;
+  --a-300: 152 162 172;
+  --a-400: 110 122 134;
+  --a-500: 82 94 106;
+  --a-600: 68 79 90;
+  --a-700: 54 64 74;
+  --a-800: 43 51 60;
+  --a-900: 33 40 47;
+  --a-950: 20 25 30;
 }
 
 /* The accent on the receiving screen, where stock comes in. Blue, so it can
    never be mistaken for the till, whichever side the business is on. Written
    after the two sides so that it wins on a page that carries both classes. */
 .mode-receiving {
-  --accent-50: 234 241 251;
-  --accent-100: 212 226 247;
-  --accent-200: 171 200 239;
-  --accent-300: 122 167 227;
-  --accent-400: 76 135 212;
-  --accent-500: 44 110 196;
-  --accent-600: 34 94 176;
-  --accent-700: 27 78 150;
-  --accent-800: 22 63 121;
-  --accent-900: 18 50 96;
-  --accent-950: 11 31 61;
+  --a-50: 234 241 251;
+  --a-100: 212 226 247;
+  --a-200: 171 200 239;
+  --a-300: 122 167 227;
+  --a-400: 76 135 212;
+  --a-500: 44 110 196;
+  --a-600: 34 94 176;
+  --a-700: 27 78 150;
+  --a-800: 22 63 121;
+  --a-900: 18 50 96;
+  --a-950: 11 31 61;
 }
+
+/* ---- The accent the screens use -----------------------------------------
+   Each scale above is written as --a-50 … --a-950; the screens read
+   --accent-50 … --accent-950, mapped here. The mapping is declared on every
+   element that may carry a scale (the body, and a colour sample in Settings),
+   so it reads that element's own scale. Strong colours, below, maps the same
+   names one step darker. */
+body, [class*="side-"], [class*="accent-"], .mode-receiving {
+  --accent-50: var(--a-50);
+  --accent-100: var(--a-100);
+  --accent-200: var(--a-200);
+  --accent-300: var(--a-300);
+  --accent-400: var(--a-400);
+  --accent-500: var(--a-500);
+  --accent-600: var(--a-600);
+  --accent-700: var(--a-700);
+  --accent-800: var(--a-800);
+  --accent-900: var(--a-900);
+  --accent-950: var(--a-950);
+}
+
+/* ---- STRONG COLOURS: for a dull or washed-out screen ----------------------
+   Switched on per computer (the device chip in the header → Screen), because
+   screens differ: a cheap LCD at the counter loses pale greys, hairlines and
+   light tints that a good monitor shows. Kept in the browser, so it applies
+   to that computer only. Set on <html> before the page is drawn
+   (partials/theme-script).
+
+   Everything moves toward ink: text is darker, lines and borders are clearly
+   visible, tinted backgrounds are a step deeper, buttons a step stronger.
+   The look stays the same — only clearer. */
+:root.screen-strong {
+  --muted-rgb: 52 62 57;
+  --line-rgb: 168 161 146;
+  --neutral-50: 238 234 224;
+  --neutral-100: 228 223 210;
+  --neutral-300: 150 143 128;
+  --neutral-400: 82 92 86;
+  --neutral-600: 40 50 45;
+  --neutral-700: 30 40 35;
+  --neutral-800: 20 30 26;
+  --ink-rgb: 8 14 12;
+  --alert-50: 246 213 210;
+  --alert-100: 237 174 170;
+  --alert-200: 224 127 121;
+  --alert-600: 160 24 18;
+  --alert-700: 130 20 14;
+}
+.screen-strong body, .screen-strong [class*="side-"], .screen-strong [class*="accent-"], .screen-strong .mode-receiving {
+  --accent-50: var(--a-100);
+  --accent-100: var(--a-200);
+  --accent-200: var(--a-300);
+  --accent-300: var(--a-400);
+  --accent-400: var(--a-500);
+  --accent-500: var(--a-600);
+  --accent-600: var(--a-700);
+  --accent-700: var(--a-800);
+  --accent-800: var(--a-900);
+  --accent-900: var(--a-950);
+  --accent-950: var(--a-950);
+}
+/* Thin type is the first thing a poor screen loses. */
+.screen-strong body { -webkit-font-smoothing: auto; font-weight: 500; }
+.screen-strong body :is(p, span, td, li, label, small, a):not([class*="font-"]) { font-weight: 500; }
 
 /* The calendar (Vanilla Calendar Pro, the one FlyonUI ships) in the product's
    own colours: the day chosen is the accent, the days between two ends its

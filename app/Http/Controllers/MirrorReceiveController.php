@@ -97,6 +97,22 @@ class MirrorReceiveController extends Controller
         fclose($whole);
         $disk->deleteDirectory($dir);
 
+        /*
+         * A computer with no businesses at all — a new installation whose
+         * books have not been restored yet — must not replace a copy that
+         * has them: for a lost or stolen computer, that copy is where the
+         * books come back from (Shop copies → Download books).
+         */
+        $held = $this->businessesHeld($mirror);
+
+        if ($held > 0 && app(\App\Domain\Mirror\Snapshot::class)->countRows($path, 'businesses') === 0) {
+            @unlink($path);
+            $message = "This computer has no businesses, and the copy here holds {$held}. If it replaces a lost or broken computer, restore the books on it first (Shop copies → Download books, then mirror:restore). Nothing was changed.";
+            $mirror->forceFill(['last_error' => $message])->save();
+
+            return response()->json(['message' => $message], 409);
+        }
+
         try {
             if ($mirror->isMerged()) {
                 // Into the platform's own database, in this shop's block of ids.
@@ -132,5 +148,26 @@ class MirrorReceiveController extends Controller
         }
 
         return response()->json(['loaded' => true, 'tables' => $done['tables'], 'rows' => $done['rows'], 'entry' => $mirror->entry]);
+    }
+
+    /** How many businesses the copy holds now. */
+    private function businessesHeld(ShopMirror $mirror): int
+    {
+        if ($mirror->isMerged()) {
+            return DB::connection('main')->table('businesses')->where('mirror_id', $mirror->id)->count();
+        }
+
+        try {
+            config(['database.connections.mirror' => $mirror->connectionConfig()]);
+            DB::purge('mirror');
+
+            return \Illuminate\Support\Facades\Schema::connection('mirror')->hasTable('businesses')
+                ? DB::connection('mirror')->table('businesses')->count()
+                : 0;
+        } catch (\Throwable) {
+            return 0;
+        } finally {
+            DB::purge('mirror');
+        }
     }
 }

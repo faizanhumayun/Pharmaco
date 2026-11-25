@@ -142,6 +142,41 @@
                         </div>
                     @endforeach
                 </dl>
+
+                {{-- What the bill earned: the sale, less what the goods cost.
+                     Cost is not for everyone's eyes, so it shows to those who
+                     may see the reports. Green while it is a profit. --}}
+                @can('viewReports', $business)
+                    @php($gp = $bill->grossProfit())
+                    @php($loss = $gp['profit']->isNegative())
+                    <div @class([
+                        'mt-3 flex flex-wrap items-center justify-between gap-x-6 gap-y-2 rounded-lg px-4 py-3 ring-1',
+                        'bg-emerald-50 ring-emerald-600/30' => ! $loss,
+                        'bg-red-50 ring-red-600/30' => $loss,
+                    ])>
+                        <div>
+                            <p @class(['text-[11px] font-semibold uppercase tracking-wide', 'text-emerald-800' => ! $loss, 'text-red-800' => $loss])>
+                                {{ $loss ? 'Loss on this bill' : 'Profit on this bill' }}
+                            </p>
+                            <p @class(['font-mono text-2xl font-bold tabular-nums', 'text-emerald-800' => ! $loss, 'text-red-800' => $loss])>
+                                Rs. {{ $rs($gp['profit']) }}
+                                @if ($gp['percent'] !== null)
+                                    <span class="text-sm font-semibold">({{ number_format($gp['percent'], 1) }}%)</span>
+                                @endif
+                            </p>
+                        </div>
+                        <dl class="flex gap-6 text-right text-sm">
+                            <div>
+                                <dt class="text-[11px] uppercase tracking-wide text-gray-600">Sale</dt>
+                                <dd class="font-mono font-semibold tabular-nums text-gray-900">{{ $rs($gp['sale']) }}</dd>
+                            </div>
+                            <div>
+                                <dt class="text-[11px] uppercase tracking-wide text-gray-600">Cost of goods</dt>
+                                <dd class="font-mono font-semibold tabular-nums text-gray-900">{{ $rs($gp['cost']) }}</dd>
+                            </div>
+                        </dl>
+                    </div>
+                @endcan
             </div>
 
             <x-panel title="History of this bill"

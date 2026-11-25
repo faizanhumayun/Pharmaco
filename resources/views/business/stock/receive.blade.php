@@ -20,7 +20,8 @@
     <div class="flex h-full flex-col" x-data="delivery({
         products: @js($products),
     })" x-on:keydown.window.f2.prevent="$refs.search?.focus()" x-on:keydown.window.f9.prevent="save()"
-       x-on:product-added.window="productAdded($event.detail)">
+       x-on:product-added.window="productAdded($event.detail)"
+       x-on:company-added.window="companyAdded($event.detail)">
 
         <header class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 bg-slate-900 px-4 py-3 text-white sm:px-6">
             <div class="flex items-center gap-3">
@@ -78,16 +79,25 @@
                 <section class="flex min-h-0 flex-col overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-slate-200">
                     <div class="shrink-0 space-y-3 border-b border-slate-200 p-4">
                         {{-- Who it came from: the list below is their catalogue. --}}
-                        <label class="flex items-center gap-3">
-                            <span class="{{ $label }} shrink-0 text-slate-500">Company</span>
-                            <select id="company_id" name="company_id" x-model="companyId" required data-search
-                                    class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
-                                <option value="">Select company…</option>
-                                @foreach ($companies as $company)
-                                    <option value="{{ $company->id }}">{{ $company->name }}</option>
-                                @endforeach
-                            </select>
-                        </label>
+                        <div class="flex items-center gap-3">
+                            <label for="company_id" class="{{ $label }} shrink-0 text-slate-500">Company</label>
+                            <div class="min-w-0 flex-1">
+                                <select id="company_id" name="company_id" x-ref="company" x-model="companyId" required data-search
+                                        class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
+                                    <option value="">Select company…</option>
+                                    @foreach ($companies as $company)
+                                        <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            {{-- A supplier not in the list yet: added here, and chosen. --}}
+                            @can('configure', $business)
+                                <button type="button" x-on:click="$dispatch('add-company')" title="Add a company that is not in the list"
+                                        class="shrink-0 rounded-lg border border-emerald-700 px-3 py-2.5 text-sm font-medium text-emerald-700 hover:bg-emerald-50">
+                                    Add company
+                                </button>
+                            @endcan
+                        </div>
 
                         <div class="relative">
                             <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500"
@@ -205,7 +215,10 @@
                             {{-- The line just added is scrolled to and held in
                                  colour for a moment, as on the till, so a long
                                  delivery never swallows what was just picked. --}}
+                            {{-- Enter walks the row: pack → packs → expiry → batch →
+                                 rate → MRP, then back to the search. --}}
                             <div :data-line="line.key" :class="[flash === line.key ? 'bg-emerald-50' : '', line.extra ? 'bg-slate-50/70' : '']"
+                                 x-on:keydown.enter="nextField($event)"
                                  class="{{ $cols }} grid items-center gap-3 border-b border-slate-200 px-4 py-2.5 transition-colors duration-500">
                                 <span class="min-w-0">
                                     <template x-if="! line.extra">
@@ -232,7 +245,7 @@
                                             {{-- "Nos" from the old system says nothing about the
                                                  pack, so it shows as 0 and asks for the real size.
                                                  Left at 0, the product is not changed. --}}
-                                            <input type="text" x-model="line.pack" :name="`lines[${i}][pack_size]`"
+                                            <input type="text" x-model="line.pack" :name="`lines[${i}][pack_size]`" data-step
                                                    x-on:focus="$el.select()"
                                                    placeholder="10/10" maxlength="60" title="Pack size. Change it if the carton shows a different size."
                                                    :class="String(line.pack).trim() === '0' ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
@@ -253,7 +266,8 @@
                                 {{-- Packs. Part of one is allowed where packs are opened:
                                      0.5 of a pack of 30 is 15 pieces, and it says so. --}}
                                 <span class="block">
-                                    <input type="text" inputmode="decimal" x-model="line.packs" :name="`lines[${i}][packs]`"
+                                    <input type="text" inputmode="decimal" x-model="line.packs" :name="`lines[${i}][packs]`" data-step data-qty
+                                           x-on:focus="$el.select()"
                                            :class="tried && lineProblem(line) ? 'border-red-500 bg-red-50' : 'border-slate-300'"
                                            class="w-full rounded-lg py-2 text-center font-mono text-lg font-semibold tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
                                     <span class="mt-0.5 block text-center text-[0.6875rem] leading-tight"
@@ -270,9 +284,11 @@
                                 <span class="flex items-center gap-1.5">
                                     <span class="min-w-0 flex-1 space-y-1 rounded-lg"
                                           :class="tried && ! line.expires_on ? 'ring-2 ring-red-500 ring-offset-2' : ''">
-                                        <input type="month" data-must x-model="line.expires_on" :name="`lines[${i}][expires_on]`"
+                                        {{-- Drawn as a box to type "08/27" into, whose month calendar
+                                             opens as soon as it gets the cursor (date-fields.js). --}}
+                                        <input type="month" data-must data-step x-model="line.expires_on" :name="`lines[${i}][expires_on]`"
                                                class="block w-full rounded-lg px-2 py-1 text-sm">
-                                        <input type="text" x-model="line.batch_no" :name="`lines[${i}][batch_no]`"
+                                        <input type="text" x-model="line.batch_no" :name="`lines[${i}][batch_no]`" data-step x-on:focus="$el.select()"
                                                placeholder="Batch no." maxlength="60"
                                                class="block w-full rounded-lg border-slate-300 px-2 py-1 font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:border-emerald-700 focus:ring-emerald-600">
                                     </span>
@@ -282,7 +298,7 @@
 
                                 <span>
                                     <template x-if="! line.extra">
-                                        <input type="text" inputmode="decimal" x-model.number="line.rate" :name="`lines[${i}][rate]`"
+                                        <input type="text" inputmode="decimal" x-model.number="line.rate" :name="`lines[${i}][rate]`" data-step x-on:focus="$el.select()"
                                                class="w-full rounded-lg border-slate-300 py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
                                     </template>
                                     <template x-if="line.extra">
@@ -298,7 +314,7 @@
                                 @unless ($business->sellsAtMrp())
                                     <span>
                                         <template x-if="! line.extra">
-                                            <input type="text" inputmode="decimal" x-model.number="line.trade" :name="`lines[${i}][trade]`" placeholder="—"
+                                            <input type="text" inputmode="decimal" x-model.number="line.trade" :name="`lines[${i}][trade]`" placeholder="—" data-step x-on:focus="$el.select()"
                                                    class="w-full rounded-lg border-slate-300 py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
                                         </template>
                                         <template x-if="line.extra">
@@ -310,7 +326,7 @@
                                 {{-- Printed on the pack. --}}
                                 <span>
                                     <template x-if="! line.extra">
-                                        <input type="text" inputmode="decimal" x-model.number="line.mrp" :name="`lines[${i}][mrp]`"
+                                        <input type="text" inputmode="decimal" x-model.number="line.mrp" :name="`lines[${i}][mrp]`" data-step x-on:focus="$el.select()"
                                                placeholder="{{ $sellRequired ? 'Required' : '—' }}"
                                                :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(line.mrp) > 0) ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
                                                class="w-full rounded-lg py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
@@ -416,6 +432,9 @@
              stock count. The dialog is the one every screen uses; here what it
              adds goes straight onto the delivery. --}}
         <x-add-product :business="$business" :reload="false" />
+        @can('configure', $business)
+            <x-add-company :business="$business" :reload="false" />
+        @endcan
     </div>
 
     @push('scripts')
@@ -513,6 +532,7 @@
 
                         this.lines.splice(last + 1, 0, batch);
                         this.flashOn(batch.key);
+                        this.focusRow(batch.key, '[data-qty]');
                     },
                     batchSeq: 0,
 
@@ -523,6 +543,43 @@
                             : this.lines.filter(l => l.id !== line.id);
                     },
 
+                    /** Puts the cursor in a row's field, its text selected. */
+                    focusRow(key, which) {
+                        this.$nextTick(() => {
+                            const field = this.$refs.delivery?.querySelector('[data-line="' + key + '"] ' + which);
+                            field?.focus();
+                            field?.select?.();
+                        });
+                    },
+
+                    /*
+                     * Enter in a row: the next field of the row, in the order
+                     * they stand; after the last, back to the search with what
+                     * was typed selected, so the next word replaces it.
+                     */
+                    nextField(event) {
+                        const here = event.target;
+
+                        if (! here.matches?.('[data-step]')) return;
+
+                        event.preventDefault();
+
+                        const row = here.closest('[data-line]');
+                        const steps = [...row.querySelectorAll('[data-step]')].filter(f => f.offsetParent !== null && ! f.disabled);
+                        const next = steps[steps.indexOf(here) + 1];
+
+                        if (! next) {
+                            this.$refs.search?.focus();
+                            this.$refs.search?.select();
+
+                            return;
+                        }
+
+                        // The expiry box opens its month calendar as it gets the cursor.
+                        next.focus();
+                        next.select?.();
+                    },
+
                     flashOn(key) {
                         this.flash = key;
                         clearTimeout(this.flashTimer);
@@ -531,6 +588,23 @@
                             this.$refs.delivery
                                 ?.querySelector('[data-line="' + key + '"]')
                                 ?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                        });
+                    },
+
+                    /** A company just added in its window: into the list, and chosen. */
+                    companyAdded(company) {
+                        const select = this.$refs.company;
+
+                        if (! select || ! company?.id) return;
+
+                        if (! [...select.options].some(o => o.value === String(company.id))) {
+                            select.add(new Option(company.name, company.id));
+                        }
+
+                        this.companyId = String(company.id);
+                        this.$nextTick(() => {
+                            select._kebabSync?.();
+                            this.$refs.search?.focus();
                         });
                     },
 
@@ -583,9 +657,10 @@
                         // Seen arriving: scrolled into view and held in colour briefly.
                         this.flashOn(String(product.id));
 
-                        // Back to the search with what was typed selected, so
-                        // the next thing typed starts a new search.
-                        this.$nextTick(() => { this.$refs.search?.focus(); this.$refs.search?.select(); });
+                        // Into the row, ready to confirm: a new product starts
+                        // at its pack size, one added again at its quantity.
+                        // Enter then walks the row and ends back at the search.
+                        this.focusRow(String(product.id), line ? '[data-qty]' : '[data-step]');
                     },
 
                     flash: null,

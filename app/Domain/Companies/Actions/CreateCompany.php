@@ -28,10 +28,15 @@ class CreateCompany
             // account to direct postings. Idempotent after the first company.
             $this->chart->openSubLedger($business, AccountCode::CompanyPayables, $by);
 
+            // One at a time per business, so two companies added at once
+            // cannot be given the same code.
+            Business::query()->whereKey($business->id)->lockForUpdate()->first();
+
             $company = Company::create([
                 'business_id' => $business->id,
                 'name' => $data['name'],
-                'code' => $data['code'] ?? null,
+                // Made by the system, never typed: no two companies share one.
+                'code' => Company::nextCode($business),
                 'credit_days' => $data['credit_days'] ?? null,
                 'contact' => $data['contact'] ?? null,
                 'phone' => $data['phone'] ?? null,

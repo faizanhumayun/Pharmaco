@@ -33,6 +33,7 @@
         reload: @js((bool) $reload),
      })"
      x-on:add-product.window="open($event.detail)"
+     x-on:company-added.window="companyAdded($event.detail)"
      x-show="showing" x-cloak x-on:keydown.escape.window="close()"
      class="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-gray-900/50 p-4"
      role="dialog" aria-modal="true" aria-label="Add a product">
@@ -184,6 +185,20 @@
                             this.$refs.form?._kebabSync?.();
                             this.$refs.name?.focus();
                         });
+                    },
+
+                    /** A company added in the other window joins this list, chosen. */
+                    companyAdded(company) {
+                        const select = this.$refs.company;
+
+                        if (! select || ! company?.id) return;
+
+                        if (! [...select.options].some(o => o.value === String(company.id))) {
+                            select.add(new Option(company.name, company.id));
+                        }
+
+                        this.draft.company_id = String(company.id);
+                        this.$nextTick(() => select._kebabSync?.());
                     },
 
                     another() {

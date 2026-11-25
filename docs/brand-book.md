@@ -12,6 +12,7 @@ The same product serves pharmacies and distributors, so every landing page secti
 - `ink` for text and for the primary button (label in `paper`). `muted` for secondary text.
 - `pharmacy` and `distributor` are for labels, links, icons and small solid fills inside their own column. Large areas use the tints.
 - `alert` means overdue, short or negative. Nothing else is red.
+- **Strong colours** is the same palette for a dull screen: darker text, visible lines, deeper tints, a step stronger accent. It is a choice of each computer (device chip → Screen). Any colour added to `tokens.css` must still read in both.
 
 ## Type
 

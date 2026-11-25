@@ -14,6 +14,11 @@
 #   PHARMACO_DB_NAME  PHARMACO_DB_USER  PHARMACO_DB_PASSWORD
 #   PHARMACO_ADMIN_EMAIL  PHARMACO_ADMIN_PASSWORD   (instead of the built-in login)
 #   PHARMACO_PUSH_URL  PHARMACO_PUSH_TOKEN  PHARMACO_NO_AUTOSTART=1
+#   PHARMACO_DB_REUSE=1   (use a database of that name that already has tables)
+#
+# It never shares a database with another copy of Pharmaco on the same Mac
+# (a developer's, say): its own is called pharmaco_shop, and one that already
+# holds tables is used only when you say so.
 #   PHARMACO_APP_DIR   (where Pharmaco.app is put; /Applications by default)
 #
 set -euo pipefail
@@ -23,7 +28,7 @@ TARGET="${PHARMACO_TARGET:-$HOME/Pharmaco}"
 PORT="${PHARMACO_PORT:-8080}"
 DB_HOST="${PHARMACO_DB_HOST:-127.0.0.1}"
 DB_PORT="${PHARMACO_DB_PORT:-3306}"
-DB_NAME="${PHARMACO_DB_NAME:-pharmaco}"
+DB_NAME="${PHARMACO_DB_NAME:-pharmaco_shop}"
 DB_USER="${PHARMACO_DB_USER:-root}"
 DB_PASSWORD="${PHARMACO_DB_PASSWORD-}"
 
@@ -93,13 +98,33 @@ if [[ $UPDATING == 0 ]]; then
     PUSH_URL="${PHARMACO_PUSH_URL}"; PUSH_TOKEN="${PHARMACO_PUSH_TOKEN-}"
   fi
 
-  say "Creating the database"
+  # Its own database, never another copy's. One of this name that already
+  # holds tables may be another Pharmaco's books: used only when you say so.
+  TABLES="$(mysql_do -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '$DB_NAME'")"
+
+  if [[ "$TABLES" != "0" && -z "${PHARMACO_DB_REUSE-}" ]]; then
+    echo
+    echo "A database called '$DB_NAME' already exists on this Mac and holds $TABLES tables."
+    echo "It may be another copy of Pharmaco (a development copy, or an earlier install)."
+    REUSE="$(ask "Type yes to use it for this installation, or press Return to stop")"
+    [[ "$REUSE" == "yes" ]] || fail "Nothing was changed. To install beside it, run again with another name: PHARMACO_DB_NAME=pharmaco_shop2"
+  fi
+
+  # The port must be free: another server on it would answer instead.
+  if lsof -nP -iTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
+    fail "Something on this Mac already uses port $PORT. Stop it, or run again with another port: PHARMACO_PORT=8090"
+  fi
+
+  say "Creating the database '$DB_NAME'"
   mysql_do -e "CREATE DATABASE IF NOT EXISTS \`$DB_NAME\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
 
+  # SESSION_COOKIE: its own sign-in cookie, so another Pharmaco on this
+  # Mac's localhost (a development copy) does not sign it out, or the reverse.
   php "$TARGET/set-env.php" "$TARGET/app" \
     APP_ENV=production APP_DEBUG=false "APP_URL=http://localhost:$PORT" LOG_LEVEL=warning \
     "DB_HOST=$DB_HOST" "DB_PORT=$DB_PORT" "DB_DATABASE=$DB_NAME" "DB_USERNAME=$DB_USER" "DB_PASSWORD=$DB_PASSWORD" \
-    "MIRROR_PUSH_URL=$PUSH_URL" "MIRROR_PUSH_TOKEN=$PUSH_TOKEN" ${ADMIN_SETTINGS[@]+"${ADMIN_SETTINGS[@]}"}
+    "MIRROR_PUSH_URL=$PUSH_URL" "MIRROR_PUSH_TOKEN=$PUSH_TOKEN" \
+    SESSION_COOKIE=pharmaco-shop-session ${ADMIN_SETTINGS[@]+"${ADMIN_SETTINGS[@]}"}
 
   php artisan key:generate --force --no-interaction >/dev/null
 fi
@@ -113,6 +138,10 @@ php artisan migrate --force --no-interaction
 # Quietly: what it would print includes the first login's email.
 [[ $UPDATING == 1 ]] || php artisan db:seed --force --no-interaction --quiet
 php artisan optimize:clear >/dev/null
+# The routes and the screens, prepared once here rather than on every page.
+# The settings are left uncached on purpose, so a change to .env takes effect.
+php artisan route:cache >/dev/null
+php artisan view:cache >/dev/null
 
 # --- start by itself ---------------------------------------------------------
 if [[ -z "${PHARMACO_NO_AUTOSTART-}" ]]; then
@@ -157,6 +186,7 @@ fi
 # A small application in the Applications folder: it makes sure Pharmaco is
 # running, then opens it in the browser. It can be dragged to the Dock.
 APP_DIR="${PHARMACO_APP_DIR:-/Applications}"
+[[ -z "${PHARMACO_APP_DIR-}" ]] || mkdir -p "$APP_DIR" 2>/dev/null || true
 [[ -w "$APP_DIR" ]] || { APP_DIR="$HOME/Applications"; mkdir -p "$APP_DIR"; }
 APP="$APP_DIR/Pharmaco.app"
 
@@ -204,6 +234,43 @@ LAUNCH
 chmod +x "$APP/Contents/MacOS/Pharmaco"
 touch "$APP"
 
+# --- the till, printing straight to the default printer ---------------------
+# Chrome started with --kiosk-printing sends Print to the default printer
+# with no preview. Only a fresh start with that switch does it, hence a
+# browser profile of its own.
+CHROME="/Applications/Google Chrome.app"
+TILL="$APP_DIR/Pharmaco Till.app"
+rm -rf "$TILL"
+
+if [[ -d "$CHROME" ]]; then
+  say "Adding the Pharmaco Till icon (prints directly)"
+  mkdir -p "$TILL/Contents/MacOS" "$TILL/Contents/Resources"
+  [[ -f "$KIT/AppIcon.icns" ]] && cp "$KIT/AppIcon.icns" "$TILL/Contents/Resources/AppIcon.icns"
+
+  cat > "$TILL/Contents/Info.plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleName</key><string>Pharmaco Till</string>
+  <key>CFBundleDisplayName</key><string>Pharmaco Till</string>
+  <key>CFBundleIdentifier</key><string>com.pharmaco.till</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleExecutable</key><string>Pharmaco Till</string>
+  <key>CFBundleIconFile</key><string>AppIcon</string>
+  <key>LSUIElement</key><true/>
+</dict></plist>
+PLIST
+
+  cat > "$TILL/Contents/MacOS/Pharmaco Till" <<LAUNCH
+#!/bin/bash
+# Pharmaco at the counter: Print goes straight to the default printer.
+open -na "Google Chrome" --args --kiosk-printing --user-data-dir="$TARGET/till-browser" --no-first-run --start-maximized "http://localhost:$PORT"
+LAUNCH
+  chmod +x "$TILL/Contents/MacOS/Pharmaco Till"
+  touch "$TILL"
+fi
+
 IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || echo 'this-computer')"
 
 cat <<DONE
@@ -211,6 +278,7 @@ cat <<DONE
 Pharmaco is $([[ $UPDATING == 1 ]] && echo updated || echo installed).
 
   To open it:             the Pharmaco icon in $APP_DIR (drag it to the Dock)
+$([[ -d "$TILL" ]] && echo "  To print with no preview: the Pharmaco Till icon; make the slip printer the default printer.")
   On this Mac:            http://localhost:$PORT
   From other computers:   http://$IP:$PORT   (on the same network)
   Sign in at:             http://localhost:$PORT/back-office/login

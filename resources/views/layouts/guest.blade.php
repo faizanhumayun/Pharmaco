@@ -11,6 +11,7 @@
         @include('partials.pharmaco-fonts')
 
         <!-- Scripts -->
+        @include('partials.theme-script')
         @vite(['resources/css/app.css', 'resources/js/app.js'])
     </head>
     <body class="font-sans text-gray-900 antialiased">

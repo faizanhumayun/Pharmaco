@@ -117,6 +117,27 @@ class PosBill extends Model
     }
 
     /**
+     * What this bill earned, once anything returned against it is taken
+     * off: the sale kept, less what those goods cost. Gross profit — before
+     * expenses — as the day and the reports count it.
+     *
+     * @return array{sale: Money, cost: Money, profit: Money, percent: ?float}
+     */
+    public function grossProfit(): array
+    {
+        $sale = $this->total->minus($this->returned());
+        $cost = $this->cost->minus(Money::sum($this->returns->pluck('cost')));
+        $profit = $sale->minus($cost);
+
+        return [
+            'sale' => $sale,
+            'cost' => $cost,
+            'profit' => $profit,
+            'percent' => $sale->isPositive() ? round((float) $profit->toDecimal() / (float) $sale->toDecimal() * 100, 1) : null,
+        ];
+    }
+
+    /**
      * The number on the paper: the day it was sold, then its place in that
      * day — 2910260001. Bills from before daily numbering keep the reference
      * they went out with.

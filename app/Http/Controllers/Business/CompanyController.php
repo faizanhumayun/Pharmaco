@@ -133,13 +133,12 @@ class CompanyController extends Controller
         ]);
     }
 
-    public function store(Request $request, Business $business, CreateCompany $action): RedirectResponse
+    public function store(Request $request, Business $business, CreateCompany $action): RedirectResponse|\Illuminate\Http\JsonResponse
     {
         $this->authorize('configure', $business);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:160'],
-            'code' => ['nullable', 'string', 'max:40'],
             'credit_days' => ['nullable', 'integer', 'min:0', 'max:365'],
             'contact' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:40'],
@@ -147,11 +146,20 @@ class CompanyController extends Controller
 
         $company = $action->handle($business, $validated, $request->user());
 
+        // From the Add a company window, which stays on the page it was opened on.
+        if ($request->wantsJson()) {
+            // A page that reloads to show it comes back with it already chosen.
+            session()->flash('created_company_id', $company->id);
+            session()->flash('status', "{$company->name} ({$company->code}) added with its own ledger ({$company->account->code}).");
+
+            return response()->json(['id' => $company->id, 'name' => $company->name, 'code' => $company->code, 'account' => $company->account->code]);
+        }
+
         return back()
             // So a company added from the import screen comes back already
             // chosen, rather than leaving you to find it in the list again.
             ->with('created_company_id', $company->id)
-            ->with('status', "{$company->name} added with its own ledger ({$company->account->code}).");
+            ->with('status', "{$company->name} ({$company->code}) added with its own ledger ({$company->account->code}).");
     }
 
     /**

@@ -34,7 +34,7 @@
             </nav>
 
             @can('configure', $business)
-                <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-company')"
+                <button type="button" x-data x-on:click="$dispatch('add-company')"
                         class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
                     Add a company
                 </button>
@@ -143,7 +143,7 @@
                                     <td class="px-4 py-2 sm:px-6">
                                         <a href="{{ route('businesses.companies.show', [$business, $company]) }}"
                                            class="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900">{{ $company->name }}</a>
-                                        <span class="block font-mono text-xs text-gray-400">Account {{ $company->account?->code ?? '—' }}</span>
+                                        <span class="block font-mono text-xs text-gray-400">{{ $company->code }} · Account {{ $company->account?->code ?? '—' }}</span>
                                     </td>
                                     @php($bought = $purchases[$company->id])
                                     <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-500">
@@ -179,7 +179,7 @@
                                     <td colspan="8" class="px-6 py-10 text-center text-gray-500">
                                         No companies yet. Until a company is added, payables are tracked as one
                                         total and a price list cannot be imported.
-                                        <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-company')"
+                                        <button type="button" x-data x-on:click="$dispatch('add-company')"
                                                 class="font-medium text-emerald-700 hover:text-emerald-800">Add a company</button>.
                                     </td>
                                 </tr>
@@ -213,7 +213,4 @@
         <div class="mt-4">{{ $companies->links() }}</div>
     </div>
 
-    @can('configure', $business)
-        <x-add-company-drawer :business="$business" />
-    @endcan
 </x-workspace-layout>

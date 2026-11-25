@@ -17,12 +17,13 @@ class ShopMirror extends Model
 
     protected $fillable = ['name', 'slug', 'host', 'database', 'db_username', 'db_password'];
 
-    protected $hidden = ['db_password', 'token_hash'];
+    protected $hidden = ['db_password', 'token_hash', 'token'];
 
     protected function casts(): array
     {
         return [
             'db_password' => 'encrypted',
+            'token' => 'encrypted',
             'last_synced_at' => 'datetime',
             'snapshot_made_at' => 'datetime',
             'entry_changed_at' => 'datetime',
@@ -64,14 +65,30 @@ class ShopMirror extends Model
         return blank($this->database);
     }
 
-    /** A new token for the shop to send with. Returned once; only its hash is kept. */
+    /**
+     * A new token for the shop to send with. The hash is what a request is
+     * checked against; the token itself is kept encrypted so it can be shown
+     * again for a replacement computer ({@see self::currentToken()}).
+     */
     public function issueToken(): string
     {
         $token = Str::random(64);
 
-        $this->forceFill(['token_hash' => hash('sha256', $token)])->save();
+        $this->forceFill(['token_hash' => hash('sha256', $token), 'token' => $token])->save();
 
         return $token;
+    }
+
+    /**
+     * The token the shop's computer sends with now, for a computer taking
+     * over from it. Null for a shop registered before tokens were kept: it
+     * needs "New token" once.
+     */
+    public function currentToken(): ?string
+    {
+        $token = $this->token;
+
+        return is_string($token) && $token !== '' && hash_equals((string) $this->token_hash, hash('sha256', $token)) ? $token : null;
     }
 
     public static function forToken(?string $token): ?self

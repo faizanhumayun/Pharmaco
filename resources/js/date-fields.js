@@ -368,6 +368,8 @@ function monthPicker() {
                 set(input, value);
                 input._dateSync?.();
                 close();
+                // Back to the box, ready for Enter to move on; not opened again.
+                if (input._monthText) input._monthText._quiet = true;
                 input._monthText?.focus();
             });
             grid.append(item);
@@ -409,6 +411,9 @@ function buildMonth(input) {
     text.placeholder = input.required || 'must' in input.dataset ? 'Expiry MM/YY *' : 'Expiry MM/YY';
     text.title = input.title || 'Expiry, as printed on the pack: month and year — 08/27';
     text.setAttribute('aria-label', 'Expiry month and year');
+    // A page that walks its fields with Enter (data-step) walks this box,
+    // not the hidden field behind it.
+    if ('step' in input.dataset) text.dataset.step = '';
 
     const button = document.createElement('button');
     button.type = 'button';
@@ -459,14 +464,10 @@ function buildMonth(input) {
         paint();
     });
 
-    text.addEventListener('keydown', event => {
-        if (event.key === 'ArrowDown' && event.altKey) { event.preventDefault(); button.click(); }
-    });
+    const isOpen = () => openPanel?.panel === monthPanel?.panel && monthPanel?.input === input;
 
-    button.addEventListener('click', () => {
+    const open = () => {
         const picker = monthPicker();
-
-        if (openPanel?.panel === picker.panel && picker.input === input) return close();
 
         close();
         picker.input = input;
@@ -476,8 +477,25 @@ function buildMonth(input) {
         picker.panel.classList.remove('hidden');
         place(picker.panel, wrapper);
         button.setAttribute('aria-expanded', 'true');
-        openPanel = { panel: picker.panel, button };
+        // The box itself is part of the control: clicking in it does not close it.
+        openPanel = { panel: picker.panel, button, wrap: wrapper, since: Date.now() };
+    };
+
+    text.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown' && event.altKey) { event.preventDefault(); button.click(); }
+        // Moving on (Enter on a page that walks its fields, or Tab) closes it.
+        if ((event.key === 'Enter' || event.key === 'Tab') && isOpen()) close();
     });
+
+    // The calendar opens as soon as the box gets the cursor — clicked,
+    // tabbed or Entered into. Typing "08/27" still works while it is open.
+    text.addEventListener('focus', () => {
+        if (text._quiet) { text._quiet = false; return; }
+        open();
+    });
+    text.addEventListener('click', () => { if (! isOpen()) open(); });
+
+    button.addEventListener('click', () => (isOpen() ? close() : open()));
 
     input.insertAdjacentElement('beforebegin', wrapper);
     wrapper.append(text, button, input);
@@ -547,10 +565,14 @@ export function startDateFields() {
     }).observe(document.body, { childList: true, subtree: true });
 
     document.addEventListener('click', event => {
-        if (openPanel && ! openPanel.panel.contains(event.target) && ! openPanel.button.contains(event.target)) close();
+        if (openPanel && ! openPanel.panel.contains(event.target) && ! openPanel.button.contains(event.target)
+            && ! openPanel.wrap?.contains(event.target)) close();
         queueMicrotask(resync);
     });
     document.addEventListener('keydown', event => { if (event.key === 'Escape') close(); });
-    window.addEventListener('scroll', event => { if (openPanel && ! openPanel.panel.contains(event.target)) close(); }, true);
+    // Not the scroll that bringing the field into view causes as it opens.
+    window.addEventListener('scroll', event => {
+        if (openPanel && ! openPanel.panel.contains(event.target) && Date.now() - (openPanel.since ?? 0) > 400) close();
+    }, true);
     window.addEventListener('resize', close);
 }

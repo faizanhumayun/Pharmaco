@@ -151,6 +151,9 @@ Route::middleware(['auth', 'platform.admin'])
                 Route::get('/', 'index')->name('index');
                 Route::post('/', 'store')->name('store');
                 Route::post('{shopMirror}/token', 'token')->name('token');
+                // The same token again, and the books, for a replacement computer.
+                Route::post('{shopMirror}/token/show', 'showToken')->name('token.show');
+                Route::post('{shopMirror}/download', 'download')->name('download');
                 // Where the shop's books are entered: paused for a fix, or handed back.
                 Route::post('{shopMirror}/entry', 'entry')->name('entry');
                 Route::put('support-phone', 'supportPhone')->name('support-phone');

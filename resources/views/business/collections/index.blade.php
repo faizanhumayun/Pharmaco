@@ -80,18 +80,18 @@
         {{-- The list on screen in three figures, right above it. --}}
         @php($billCount = $show === 'all' ? $allBills->total() : $rounds->sum(fn ($r) => $r['bills']->count()))
         @php($pendingNow = $show === 'all' ? $allPending : $total)
-        <div class="mb-4 grid gap-3 sm:grid-cols-3">
-            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                <p class="text-xs uppercase tracking-wide text-gray-400">{{ $show === 'all' ? 'Bills listed' : 'Pending bills' }}</p>
-                <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($billCount) }}</p>
-                <p class="mt-0.5 text-xs text-gray-500">
-                    @if ($show === 'all')
-                        {{ $allSince ? 'since ' . $allSince->format('j M Y') : 'matching the search' }}
-                    @else
-                        from {{ $rounds->count() }} {{ Str::plural('customer', $rounds->count()) }}
-                    @endif
-                </p>
-            </div>
+        {{-- Cost and profit are for those who may see the reports. --}}
+        @php($seesProfit = $show === 'all' && auth()->user()->can('viewReports', $business))
+        {{-- All bills: how many is already said under the search, so the
+             cards are the money — total, cost, profit, still to come in. --}}
+        <div @class(['mb-4 grid gap-3', 'sm:grid-cols-4' => $seesProfit, 'sm:grid-cols-2' => $show === 'all' && ! $seesProfit, 'sm:grid-cols-3' => $show !== 'all'])>
+            @if ($show !== 'all')
+                <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-gray-400">Pending bills</p>
+                    <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($billCount) }}</p>
+                    <p class="mt-0.5 text-xs text-gray-500">from {{ $rounds->count() }} {{ Str::plural('customer', $rounds->count()) }}</p>
+                </div>
+            @endif
 
             @if ($show === 'all')
                 <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
@@ -99,6 +99,19 @@
                     <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $rs($allTotal) }}</p>
                     <p class="mt-0.5 text-xs text-gray-500">Sum of the bill totals</p>
                 </div>
+                @if ($seesProfit)
+                    <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                        <p class="text-xs uppercase tracking-wide text-gray-400">Cost of goods</p>
+                        <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $rs($allCost) }}</p>
+                        <p class="mt-0.5 text-xs text-gray-500">What the goods sold cost, after returns</p>
+                    </div>
+                    @php($profitLoss = $allProfit->isNegative())
+                    <div class="rounded-md border px-4 py-3 shadow-sm {{ $profitLoss ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50' }}">
+                        <p class="text-xs uppercase tracking-wide {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">Gross profit</p>
+                        <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $profitLoss ? 'text-red-800' : 'text-emerald-800' }}">{{ $rs($allProfit) }}</p>
+                        <p class="mt-0.5 text-xs {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">On these bills, after returns</p>
+                    </div>
+                @endif
             @else
                 <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                     <p class="text-xs uppercase tracking-wide text-gray-400">Total pending in market</p>
@@ -131,7 +144,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach ([['Invoice','left'],['Date','left'],['Customer','left'],['Bill total','right'],['Paid at sale','right'],['Pending','right'],['','right']] as [$h,$align])
+                            @foreach (array_values(array_filter([['Invoice','left'],['Date','left'],['Customer','left'],['Bill total','right'], $seesProfit ? ['Gross profit','right'] : null, ['Paid at sale','right'],['Pending','right'],['','right']])) as [$h,$align])
                                 <th class="whitespace-nowrap px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                             @endforeach
                         </tr>
@@ -154,6 +167,13 @@
                                     @endif
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-900">{{ $rs($bill->total) }}</td>
+                                @if ($seesProfit)
+                                    @php($gp = $bill->grossProfit())
+                                    <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums font-semibold {{ $gp['profit']->isNegative() ? 'text-red-700' : 'text-emerald-700' }}"
+                                        @if ($gp['percent'] !== null) title="{{ number_format($gp['percent'], 1) }}% of the sale" @endif>
+                                        {{ $rs($gp['profit']) }}
+                                    </td>
+                                @endif
                                 <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-600">{{ $rs($bill->received) }}</td>
                                 <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums">
                                     @if ($row['owed']->isPositive())
@@ -186,7 +206,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-6 py-12 text-center">
+                                <td colspan="{{ $seesProfit ? 8 : 7 }}" class="px-6 py-12 text-center">
                                     <p class="text-base font-medium text-gray-900">No bills found</p>
                                     <p class="mt-1 text-sm text-gray-500">{{ $filtered ? 'No bills match the search.' : 'No bills in the last thirty days.' }}</p>
                                 </td>

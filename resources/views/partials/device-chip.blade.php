@@ -11,7 +11,7 @@
     <div x-data="deviceChip({ url: @js(route('device.update')), name: @js($device->name ?? ''), label: @js($device->label()) })"
          class="relative whitespace-nowrap text-xs" x-on:click.outside="open = false" x-on:keydown.escape="open = false">
         <button type="button" x-on:click="edit()" :aria-expanded="open"
-                title="This device. All entries made here are recorded under its name. Click to rename."
+                title="This device. All entries made here are recorded under its name. Click to rename it, or to change this screen's colours."
                 class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ring-1 ring-inset"
                 :class="name
                     ? '{{ $dark ? 'bg-slate-800 text-slate-200 ring-slate-600 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 ring-gray-500/20 hover:bg-gray-200' }}'
@@ -33,6 +33,20 @@
                 <button type="button" x-on:click="open = false" class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">Cancel</button>
                 <button type="submit" :disabled="saving" class="rounded-md bg-emerald-700 px-3 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:opacity-50">Save</button>
             </div>
+
+            {{-- This screen's colours: for a dull or washed-out display. --}}
+            <div class="mt-3 border-t border-gray-200 pt-3">
+                <p class="text-xs font-medium text-gray-700">Screen</p>
+                <div class="mt-1 grid grid-cols-2 gap-1 rounded-md bg-gray-100 p-1">
+                    <button type="button" x-on:click="setScreen('standard')"
+                            :class="screen === 'standard' ? 'bg-white text-gray-900 shadow ring-1 ring-gray-300' : 'text-gray-600 hover:text-gray-900'"
+                            class="rounded px-2 py-1 text-xs font-medium">Standard</button>
+                    <button type="button" x-on:click="setScreen('strong')"
+                            :class="screen === 'strong' ? 'bg-white text-gray-900 shadow ring-1 ring-gray-300' : 'text-gray-600 hover:text-gray-900'"
+                            class="rounded px-2 py-1 text-xs font-medium">Strong colours</button>
+                </div>
+                <p class="mt-1 whitespace-normal text-xs text-gray-500">Strong colours make text, lines and colours clearer on a dull or washed-out screen. Only this computer changes.</p>
+            </div>
         </form>
     </div>
 
@@ -42,6 +56,11 @@
                 function deviceChip({ url, name, label }) {
                     return {
                         name, label, draft: name, open: false, saving: false, error: '',
+                        screen: window.pharmacoScreen ? window.pharmacoScreen() : 'standard',
+
+                        setScreen(mode) {
+                            this.screen = window.pharmacoScreen ? window.pharmacoScreen(mode) : mode;
+                        },
 
                         edit() {
                             this.draft = this.name;

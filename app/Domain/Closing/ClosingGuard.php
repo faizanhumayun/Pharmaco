@@ -85,7 +85,12 @@ class ClosingGuard
             ?? $business->opening_date?->copy()->addDay()
             ?? $date;
 
-        $outstanding = $previousClosed ? 0 : (int) $due->diffInDays($date);
+        // By the calendar dates alone: the two can carry different
+        // timezones (the opening date is stored plain, today is the
+        // business's own), and hours between them miscount the days.
+        $outstanding = $previousClosed ? 0 : (int) round(
+            Carbon::parse($due->toDateString())->diffInDays(Carbon::parse($date->toDateString()))
+        );
 
         $checks[] = [
             'blocking' => true,

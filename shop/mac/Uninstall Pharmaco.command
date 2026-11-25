@@ -10,7 +10,8 @@ for job in server scheduler; do
   rm -f "$AGENTS/com.pharmaco.$job.plist"
 done
 
-rm -rf "/Applications/Pharmaco.app" "$HOME/Applications/Pharmaco.app"
+rm -rf "/Applications/Pharmaco.app" "$HOME/Applications/Pharmaco.app" \
+       "/Applications/Pharmaco Till.app" "$HOME/Applications/Pharmaco Till.app"
 
 echo "Pharmaco no longer starts by itself."
 echo "The application (~/Pharmaco) and its database were not touched."

@@ -24,7 +24,8 @@ snapshot.
 1. **Register the shop.** Back office → **Shop copies** → Register a shop. A
    name is all it needs.
 2. **Copy the two lines it shows** — `MIRROR_PUSH_URL` and `MIRROR_PUSH_TOKEN`.
-   The token is shown once. "New token" makes another if it is lost.
+   "Show token" shows the same token again at any time (for a replacement
+   computer); "New token" makes another and stops the old one working.
 
 There is nothing to create on the server: no database, no subdomain. The
 shop's copy is kept in the platform's own database, beside the businesses that
@@ -247,6 +248,31 @@ to keep more). Copy that folder to a USB drive now and then.
   whole installation, so do this only when the platform holds that one shop's
   data; from then on the shop's computer is the one that is used.
 
+### When the shop's computer is lost, stolen or broken
+
+The platform holds the books as of the last snapshot that reached it, so
+nothing beyond that is lost even with no USB copy.
+
+1. Back office → **Shop copies** → **Download books** beside the shop. The file
+   (`books-<shop>-<date>.jsonl.gz`) is the shop's records turned back into the
+   shop's own numbering: an ordinary snapshot.
+2. Install Pharmaco on the new computer. For the address and token use
+   **Show token**: the same token works, so nothing else has to change.
+3. Restore the file on it:
+   `php artisan mirror:restore C:\path\to\books-<shop>-<date>.jsonl.gz`
+4. Sign in with the new computer's own back-office login. A restore always
+   keeps this computer's back-office login (its password and the
+   administrator flag); the platform's administrator password never travels
+   in the file. The shop's people sign in as before.
+
+Until step 3 is done the online copy is protected: a snapshot with no
+businesses at all is refused when the copy has some, so a fresh installation
+sending its empty books cannot replace it. The refusal shows on Shop copies.
+
+If the shop was paused for a fix at the time, the file already holds the
+fix: give up the fix in the back office once the new computer is restored,
+and its books (which include the changes) become the copy again.
+
 ## Things to know
 
 - **One place enters, the other reads.** Never enter data on both. The online
@@ -254,7 +280,8 @@ to keep more). Copy that folder to a USB drive now and then.
 - **The copy is as old as the last snapshot.** If the shop has been offline
   since morning, the owner sees the morning. The bar at the top says so.
 - **If the shop's computer fails**, the books are safe up to the last snapshot
-  that reached the platform, and up to the last file on any USB copy.
+  that reached the platform (Download books, above), and up to the last file
+  on any USB copy.
 - **The Windows kit's built-in web server answers one request at a time.**
   That is fine for a counter or two and the owner. A shop with many computers
   working at once should be moved to a full web server later.

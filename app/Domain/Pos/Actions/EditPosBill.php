@@ -95,6 +95,16 @@ class EditPosBill
                 throw new LedgerException('The discount cannot be more than the bill total.');
             }
 
+            // Nor so much that the bill sells below what its goods cost:
+            // the same floor as each line's price, for the bill as a whole.
+            if ($discount->isPositive() && $total->lessThan($cost)) {
+                throw new LedgerException(sprintf(
+                    'The discount takes the bill below the purchase price of its goods (Rs. %s). The most discount on this bill is Rs. %s.',
+                    $cost->format(),
+                    $total->plus($discount)->minus($cost)->format(),
+                ));
+            }
+
             // A walk-in is a stranger: there is nobody to collect from later,
             // so a bill with no customer on it is paid in full or not saved.
             if (($customer === null || trim($customer) === '') && $received->lessThan($total)) {

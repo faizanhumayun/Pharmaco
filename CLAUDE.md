@@ -128,10 +128,17 @@ needs the internet. That computer holds the real books. The platform keeps a
   records made then are numbered from the shop's own block (`BlockIds`) so
   going home is the same subtraction for every row.
 
+- **A lost shop computer.** Shop copies → Download books (`CopyExport`)
+  turns a copy back into the shop's numbering as an ordinary snapshot for
+  `mirror:restore`, which keeps the new computer's own back-office login.
+  The token is kept encrypted (`ShopMirror::currentToken()`) so the
+  replacement reuses it, and the platform refuses a snapshot with no
+  businesses over a copy that has some.
+
 A copy is writable only in `office`, when the shop's computer is locked:
 one place at a time, always. Never sync in both directions at once — two places
 posting to one ledger is how books stop agreeing. `Snapshot`,
-`SnapshotImporter`, `MergedImporter`, `ReturnPackage` and `ReturnApplier` copy rows without their models on purpose — they are the
+`SnapshotImporter`, `MergedImporter`, `ReturnPackage`, `ReturnApplier` and `CopyExport` copy rows without their models on purpose — they are the
 third documented exception to the raw-SQL rule, with the balance service and
 `DeleteBusiness`. Setting a shop up: `docs/shop-computer.md`.
 
@@ -168,6 +175,11 @@ Every colour, font, corner and gap is defined once, in
   brand names (`paper`, `ink`, `line`…) all read CSS variables from that file.
 - Never write a hex colour, an `rgb(...)` literal or a font name in a view, a
   stylesheet or the Tailwind config. Use a utility, or `var(--token)`.
+- Accent scales are written `--a-50…950` and read as `--accent-50…950`, so
+  **Strong colours** (`html.screen-strong`, per computer, from the device
+  chip; `pharmacoScreen()` in `partials/theme-script.blade.php`) can map them
+  a step darker and deepen the neutrals for dull LCDs. A new colour must look
+  right in both.
 - Charts take colours from `themeColor('chart-1')` (see
   `partials/theme-script.blade.php`), which reads the same file.
 - The usage rules are in `docs/brand-book.md`. The landing page's words are in

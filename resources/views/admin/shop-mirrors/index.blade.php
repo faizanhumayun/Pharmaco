@@ -17,11 +17,16 @@
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         <x-flash />
 
-        {{-- The token, once. --}}
+        {{-- The token: when it is made, and again on request for a replacement computer. --}}
         @if ($issued)
             <div class="mb-6 rounded-md border border-emerald-300 bg-emerald-50 px-4 py-4 text-sm text-emerald-900 sm:px-6">
-                <p class="font-semibold">Settings for {{ $issued['name'] }}'s computer. Copy them now. The token will not be shown again.</p>
-                <p class="mt-1">Add these two lines to the <span class="font-mono">.env</span> file on the shop's computer:</p>
+                @if ($issued['again'] ?? false)
+                    <p class="font-semibold">{{ $issued['name'] }}'s current token. The computer already using it keeps working.</p>
+                    <p class="mt-1">Give these two values to the installer on the new computer, or add the lines to its <span class="font-mono">.env</span> file:</p>
+                @else
+                    <p class="font-semibold">Settings for {{ $issued['name'] }}'s computer. Copy them now. You can show the token again later from Show token.</p>
+                    <p class="mt-1">Add these two lines to the <span class="font-mono">.env</span> file on the shop's computer:</p>
+                @endif
                 <pre class="mt-2 overflow-x-auto rounded-md border border-emerald-200 bg-white px-3 py-2 font-mono text-xs text-gray-900">MIRROR_PUSH_URL={{ $receiveUrl }}
 MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
             </div>
@@ -87,7 +92,19 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                                             @endif
                                         </td>
                                         <td class="px-4 py-3 text-right sm:px-6">
-                                            <div class="flex items-center justify-end gap-3">
+                                            <div class="flex flex-wrap items-center justify-end gap-3">
+                                                @if ($mirror->last_synced_at)
+                                                    <form method="POST" action="{{ route('admin.shop-mirrors.download', $mirror) }}">
+                                                        @csrf
+                                                        <button class="text-sm font-medium text-emerald-700 hover:underline"
+                                                                title="The books as held here, as a file to restore on a replacement computer">Download books</button>
+                                                    </form>
+                                                @endif
+                                                <form method="POST" action="{{ route('admin.shop-mirrors.token.show', $mirror) }}">
+                                                    @csrf
+                                                    <button class="text-sm font-medium text-emerald-700 hover:underline"
+                                                            title="The token the shop sends with now, for a new computer. Nothing changes.">Show token</button>
+                                                </form>
                                                 <form method="POST" action="{{ route('admin.shop-mirrors.token', $mirror) }}"
                                                       onsubmit="return confirm('Create a new token? The shop\'s computer will stop sending until the new token is added to its settings.')">
                                                     @csrf
@@ -111,7 +128,22 @@ MIRROR_PUSH_TOKEN={{ $issued['token'] }}</pre>
                 </x-panel>
             </div>
 
-            <div>
+            <div class="space-y-6">
+                {{-- A lost, stolen or broken shop computer: the books come back from here. --}}
+                <x-panel title="Replacing a shop's computer" description="When a shop's computer is lost, stolen or broken.">
+                    <ol class="list-decimal space-y-2 py-4 pl-9 pr-4 text-sm text-gray-700 sm:pr-6">
+                        <li><span class="font-medium text-gray-900">Download books</span> beside the shop. The file holds its records as of the last snapshot shown here.</li>
+                        <li>Run the installer on the new computer. For the address and token, use <span class="font-medium text-gray-900">Show token</span>: the same token works on the new computer.</li>
+                        <li>Copy the file to the new computer and restore it, from <span class="font-mono text-xs">C:\Pharmaco\app</span>:
+                            <span class="mt-1 block break-all rounded bg-gray-50 px-2 py-1 font-mono text-xs text-gray-900">C:\Pharmaco\runtime\php\php.exe artisan mirror:restore C:\path\to\books-….jsonl.gz</span>
+                        </li>
+                        <li>Sign in with the new computer's own back-office login. The shop's people sign in as before.</li>
+                    </ol>
+                    <p class="border-t border-gray-100 px-4 py-3 text-xs text-gray-500 sm:px-6">
+                        Until the books are restored, the copy here is protected: a computer that sends no businesses at all is refused, so an empty new installation cannot replace it.
+                    </p>
+                </x-panel>
+
                 <x-panel title="Register a shop" description="Only a name is required.">
                     <form method="POST" action="{{ route('admin.shop-mirrors.store') }}" class="space-y-4 p-4 sm:p-6">
                         @csrf

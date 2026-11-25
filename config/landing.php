@@ -232,7 +232,8 @@ return [
             ['title' => 'Spreadsheet reports', 'body' => 'Reports for sales, purchases and stock, downloadable as spreadsheets.'],
             ['title' => 'Several businesses, one login', 'body' => 'Each business is fully separate.'],
             ['title' => 'Nothing to install', 'body' => 'Pharmaco runs in the browser.'],
-            ['title' => 'Works without internet', 'body' => 'A shop can run on its own computer and keep selling offline. The owner reads an up-to-date copy online, and support can pause a shop to fix its books and hand them straight back.'],
+            ['title' => 'Clear on any screen', 'body' => 'Strong colours make text, lines and colours easy to read on a dull or washed-out counter screen, set for each computer.'],
+            ['title' => 'Works without internet', 'body' => 'A shop can run on its own computer and keep selling offline. The owner reads an up-to-date copy online, and support can pause a shop to fix its books and hand them straight back. If the shop\'s computer is lost or stolen, its books come back from the online copy.'],
         ],
     ],
 

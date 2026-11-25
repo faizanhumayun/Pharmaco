@@ -29,10 +29,8 @@ class DashboardQuery
     private function watch(Business $business, Carbon $date): array
     {
         $watch = app(\App\Domain\Stock\ExpiryWatch::class);
-        $stock = app(\App\Domain\Stock\StockLedger::class);
         $outstanding = app(\App\Domain\Market\Outstanding::class);
 
-        $onHand = $stock->onHandByProduct($business);
         $costs = \App\Models\CompanyProduct::forBusiness($business)
             ->pluck('purchase_rate', 'id');
 
@@ -41,28 +39,29 @@ class DashboardQuery
         $expiredCount = 0;
         $expiringCount = 0;
 
-        // Pieces out of opened packs count too: a pharmacy's last few
-        // tablets of a batch are still stock that is running out of time.
-        $loose = $stock->looseByProduct($business);
         $perPack = \App\Models\CompanyProduct::forBusiness($business)->where('units_per_pack', '>', 1)->pluck('units_per_pack', 'id');
 
-        foreach ($watch->soonestByProduct($business) as $productId => $batch) {
-            $packs = max(0, (int) ($onHand[$productId] ?? 0));
-            $pieces = max(0, (int) ($loose[$productId] ?? 0));
-
-            if ($packs === 0 && $pieces === 0) {
-                continue;
-            }
-
+        /*
+         * Batch by batch, each at what that batch alone is worth — the same
+         * sum the Near expiry page shows. A product with one batch going out
+         * of date and a fresh one beside it is at risk for the first only;
+         * valuing the whole product would overstate it by the fresh stock.
+         * Loose pieces count: a pharmacy's last few tablets of a batch are
+         * still stock that is running out of time.
+         */
+        foreach ($watch->heldBatchesByProduct($business) as $productId => $batches) {
             $cost = Money::of($costs[$productId] ?? 0);
-            $value = $cost->times($packs)
-                ->plus(\App\Models\PosBillLine::piece($cost, max(1, (int) ($perPack[$productId] ?? 1)))->times($pieces));
+            $piece = \App\Models\PosBillLine::piece($cost, max(1, (int) ($perPack[$productId] ?? 1)));
 
-            match ($watch->stateFor($business, $batch['expires_on'])) {
-                'expired' => [$expired = $expired->plus($value), $expiredCount++],
-                'expiring' => [$expiring = $expiring->plus($value), $expiringCount++],
-                default => null,
-            };
+            foreach ($batches as $batch) {
+                $value = $cost->times($batch['packs'])->plus($piece->times($batch['loose'] ?? 0));
+
+                match ($watch->stateFor($business, $batch['expires_on'])) {
+                    'expired' => [$expired = $expired->plus($value), $expiredCount++],
+                    'expiring' => [$expiring = $expiring->plus($value), $expiringCount++],
+                    default => null,
+                };
+            }
         }
 
         $collectedBill = $outstanding->collectedByBill($business);

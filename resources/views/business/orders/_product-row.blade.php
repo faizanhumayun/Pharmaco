@@ -20,7 +20,7 @@
 
     <div class="text-right text-xs leading-tight text-gray-500">
         <p x-text="p.pack_size || '—'"></p>
-        <p class="text-gray-400" x-text="p.case_size ? 'case ' + p.case_size : ''"></p>
+        <p class="text-gray-400" x-text="p.case_size ? 'carton ' + p.case_size : ''"></p>
     </div>
 
     <div class="text-right leading-tight">

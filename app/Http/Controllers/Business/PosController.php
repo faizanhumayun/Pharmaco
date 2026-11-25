@@ -171,7 +171,47 @@ class PosController extends Controller
                 ->orderByDesc('id')
                 ->get(),
             'statementFor' => $this->statementsFor($request, $business, $soldToday),
+            // What is still to come in on each of today's unpaid bills, after
+            // anything already brought back or returned — so the history can
+            // take the rest in one press.
+            'stillOwed' => $this->stillOwed($business, $soldToday),
         ]);
+    }
+
+    /**
+     * What each of these bills still has owing on it, by bill id.
+     *
+     * Only bills that went on a customer's account and are not yet settled
+     * are in it, each with whose account the money goes to.
+     *
+     * @return array<int, array{owed: Money, pharmacy_id: int}>
+     */
+    private function stillOwed(Business $business, $bills): array
+    {
+        $unpaid = $bills->filter(fn (PosBill $bill) => $bill->pharmacy_id !== null && $bill->credit()->isPositive());
+
+        if ($unpaid->isEmpty()) {
+            return [];
+        }
+
+        $unpaid->load('returns');
+
+        $outstanding = app(\App\Domain\Market\Outstanding::class);
+        $collected = $outstanding->collectedByBill($business);
+        $rows = [];
+
+        foreach ($unpaid as $bill) {
+            $bill->setAttribute('collected', $collected[$bill->id] ?? Money::zero());
+            $owed = $outstanding->onBill($bill);
+            // Read only for the sum above; not part of the bill.
+            $bill->offsetUnset('collected');
+
+            if ($owed->isPositive()) {
+                $rows[$bill->id] = ['owed' => $owed, 'pharmacy_id' => (int) $bill->pharmacy_id];
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -223,6 +263,17 @@ class PosController extends Controller
             );
         } catch (LedgerException $e) {
             throw ValidationException::withMessages(['items' => $e->getMessage()]);
+        }
+
+        // A customer the till has just opened an account for: the phone
+        // number taken with the name goes on it. One already on file is
+        // never overwritten from here.
+        if ($request->filled('customer_phone') && $bill->pharmacy_id !== null) {
+            \App\Models\Pharmacy::forBusiness($business)
+                ->whereKey($bill->pharmacy_id)
+                ->where(fn ($q) => $q->whereNull('phone')->orWhere('phone', ''))
+                ->first()
+                ?->update(['phone' => trim((string) $request->input('customer_phone'))]);
         }
 
         /*

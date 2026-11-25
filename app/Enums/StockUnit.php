@@ -26,8 +26,8 @@ enum StockUnit: string
     public function description(): string
     {
         return match ($this) {
-            self::Pack => 'Sold as the company delivers them — a whole pack, box or carton. Usual for a distributor.',
-            self::Item => 'Sold as the customer needs them — single tablets, one bottle, one sachet. Usual for a pharmacy or medical store.',
+            self::Pack => 'Sold as the company delivers them: a whole pack, box or carton. Normally used by a distributor.',
+            self::Item => 'Sold as the customer needs them: single tablets, one bottle, one sachet. Normally used by a pharmacy or medical store.',
         };
     }
 

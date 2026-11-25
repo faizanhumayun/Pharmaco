@@ -22,7 +22,7 @@
             'level' => 'warning',
             'title' => 'Opening equity unexplained',
             'detail' => "Opening Balance Equity of {$openingEquity->format()} is still unexplained. "
-                . 'It stays here until it is accounted for or corrected.',
+                . 'It remains here until it is explained or corrected.',
         ];
     }
 
@@ -35,15 +35,15 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h1 class="text-xl font-semibold text-gray-900">What to do</h1>
+                <h1 class="text-xl font-semibold text-gray-900">Tasks</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    Where the business stands is the dashboard. This is what somebody has to do to
-                    finish {{ $day['date']->format('D d M Y') }}.
+                    Steps required to complete {{ $day['date']->format('D d M Y') }}.
+                    For the business position, open the Dashboard.
                 </p>
             </div>
             <a href="{{ route('businesses.show', $business) }}"
                class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                Where the business stands
+                Dashboard
             </a>
         </div>
     </x-slot>
@@ -58,7 +58,7 @@
             <div class="rounded-lg bg-white shadow-sm ring-1 ring-gray-200">
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-6">
                     <div>
-                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Completing the day</p>
+                        <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Steps to complete the day</p>
                         <p class="mt-0.5 text-sm text-gray-500">{{ $day['date']->format('D d M Y') }}</p>
                     </div>
 
@@ -115,7 +115,7 @@
                                     @if ($blocked)
                                         <span class="ml-1 text-xs font-medium uppercase tracking-wide text-gray-400">not yet</span>
                                     @elseif ($nothing)
-                                        <span class="ml-1 text-xs font-medium uppercase tracking-wide text-gray-400">nothing to do</span>
+                                        <span class="ml-1 text-xs font-medium uppercase tracking-wide text-gray-400">not required</span>
                                     @endif
                                 </p>
                                 <p class="mt-0.5 text-sm text-gray-600">{{ $step['detail'] }}</p>
@@ -153,7 +153,7 @@
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Attention</p>
                         <p class="mt-0.5 text-sm text-gray-500">
-                            Not today's work — what the figures themselves are saying
+                            Issues found in the figures
                         </p>
                     </div>
                     <x-badge :classes="$attention === []
@@ -161,15 +161,15 @@
                         : ($critical > 0
                             ? 'bg-red-600 text-white ring-red-700/20'
                             : 'bg-amber-500 text-white ring-amber-600/20')">
-                        {{ $attention === [] ? 'Nothing outstanding' : count($attention) . ' ' . Str::plural('item', count($attention)) }}
+                        {{ $attention === [] ? 'No issues' : count($attention) . ' ' . Str::plural('item', count($attention)) }}
                     </x-badge>
                 </div>
 
                 @if ($attention === [])
                     <p class="px-4 py-6 text-sm text-gray-500 sm:px-6">
-                        Nothing calculated needs answering for. Every check that runs — market credit against
-                        sales, collections against credit sales, cash cover, recurring cash differences, stock
-                        verification, and days left open — came back clear.
+                        No issues found. All checks are clear: market credit against sales, collections
+                        against credit sales, cash cover, recurring cash differences, stock verification
+                        and open days.
                     </p>
                 @else
                     <ul class="divide-y divide-gray-100">
@@ -197,10 +197,9 @@
         @endif
 
         <p class="text-xs leading-relaxed text-gray-500">
-            Nothing on this page can be ticked off or dismissed, and nothing about it is stored. Every step
-            and every item is worked out afresh from the records each time the page is opened, so a step is
-            done only when the thing it describes is actually in the books — never because somebody said it
-            was. That is also why the day can never be shown as complete when it is not.
+            Items on this page cannot be marked as done manually. Each step and item is calculated from
+            the records every time the page is opened. A step is shown as done only when it is recorded
+            in the accounts.
         </p>
     </div>
 </x-workspace-layout>

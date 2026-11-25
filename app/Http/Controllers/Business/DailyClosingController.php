@@ -131,7 +131,7 @@ class DailyClosingController extends Controller
 
         return redirect()
             ->route('businesses.closing.index', $business)
-            ->with('status', "Day closed. Nothing can now post on or before {$date}.");
+            ->with('status', "Day closed. No entry can now be posted on or before {$date}.");
     }
 
     public function reopen(Request $request, Business $business, string $date, ReopenDailyClosing $action): RedirectResponse
@@ -141,7 +141,7 @@ class DailyClosingController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'min:5', 'max:500'],
         ], [
-            'reason.required' => 'Say why this day is being reopened. It goes on the permanent record.',
+            'reason.required' => 'Enter the reason for reopening this day. It is kept on the permanent record.',
         ]);
 
         try {
@@ -150,6 +150,6 @@ class DailyClosingController extends Controller
             throw ValidationException::withMessages(['reason' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Day reopened. The superseded closing is kept for the record.');
+        return back()->with('status', 'Day reopened. The earlier closing is kept on record.');
     }
 }

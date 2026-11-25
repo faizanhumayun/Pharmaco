@@ -47,7 +47,7 @@ class CompanyProductImport extends Model
         static::updating(function (self $import) {
             if ($import->getOriginal('status') === ImportStatus::Committed->value) {
                 throw new ImmutableRecordException(
-                    'This import has already been applied. Import the company\'s next list rather than changing this one.'
+                    'This import has already been applied and cannot be changed. Import the company\'s next price list instead.'
                 );
             }
         });

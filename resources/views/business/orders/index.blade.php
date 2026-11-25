@@ -4,8 +4,8 @@
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Order forms</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    What you have asked companies to supply. An order commits nothing — the purchase is entered in
-                    Daily entry when the goods and the invoice arrive.
+                    Orders sent to companies. An order does not change the accounts. The purchase is entered in
+                    Daily entry when the goods and the invoice are received.
                 </p>
             </div>
             @can('manageOrders', $business)
@@ -23,19 +23,19 @@
         @if ($outstanding->isNotEmpty())
             <div class="mb-6 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-md border border-sky-200 bg-sky-50 px-4 py-3">
                 <span class="text-sm font-semibold text-sky-900">
-                    {{ $outstanding->count() }} {{ Str::plural('order', $outstanding->count()) }} outstanding
+                    {{ $outstanding->count() }} {{ Str::plural('order', $outstanding->count()) }} pending
                 </span>
                 <span class="text-sm text-sky-800">
-                    worth <span class="font-mono tabular-nums">{{ $outstandingTotal->format() }}</span>
+                    Total value <span class="font-mono tabular-nums">{{ $outstandingTotal->format() }}</span>
                 </span>
                 @php($oldest = $outstanding->sortBy('sent_at')->first())
                 @if ($oldest?->sent_at)
                     <span class="text-sm text-sky-800">
-                        oldest {{ $oldest->reference }}, sent {{ $oldest->sent_at->diffForHumans() }}
+                        Oldest: {{ $oldest->reference }}, sent {{ $oldest->sent_at->diffForHumans() }}
                     </span>
                 @endif
                 <a href="{{ route('businesses.orders.index', ['business' => $business, 'status' => 'sent']) }}"
-                   class="ml-auto text-sm font-semibold text-sky-900 underline">Show only these</a>
+                   class="ml-auto text-sm font-semibold text-sky-900 underline">Show pending orders</a>
             </div>
         @endif
 
@@ -55,7 +55,7 @@
                 <x-input-label for="status" value="Status" />
                 <select id="status" name="status"
                         class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                    <option value="">Any</option>
+                    <option value="">All statuses</option>
                     @foreach (App\Enums\OrderStatus::cases() as $status)
                         <option value="{{ $status->value }}" @selected($filters['status'] === $status->value)>{{ $status->label() }}</option>
                     @endforeach
@@ -68,7 +68,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach ([['Reference','left'],['Date','left'],['Company','left'],['Status','left'],['Delivery','left'],['Items','right'],['Discount','right'],['Total','right'],['By','left']] as [$h,$align])
+                            @foreach ([['Reference','left'],['Date','left'],['Company','left'],['Status','left'],['Delivery','left'],['Items','right'],['Discount','right'],['Total','right'],['Created by','left']] as [$h,$align])
                                 <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $h }}</th>
                             @endforeach
                         </tr>
@@ -86,12 +86,12 @@
                                 <td class="whitespace-nowrap px-3 py-2 text-sm">
                                     @if ($order->isOutstanding())
                                         <span class="text-sky-700">
-                                            waiting {{ $order->daysWaiting() }} {{ Str::plural('day', $order->daysWaiting()) }}
+                                            Waiting {{ $order->daysWaiting() }} {{ Str::plural('day', $order->daysWaiting()) }}
                                         </span>
                                     @elseif ($order->status === App\Enums\OrderStatus::Received)
                                         @php($exceptions = $order->deliveryExceptions()->count())
                                         @if ($exceptions === 0)
-                                            <span class="text-emerald-700">in full</span>
+                                            <span class="text-emerald-700">Received in full</span>
                                         @else
                                             <span class="text-amber-700">
                                                 {{ $exceptions }} {{ Str::plural('difference', $exceptions) }}
@@ -112,9 +112,9 @@
                             <tr>
                                 <td colspan="9" class="px-6 py-10 text-center text-gray-500">
                                     @if (array_filter($filters))
-                                        No order forms match that.
+                                        No order forms found.
                                     @else
-                                        No order forms yet. Write one and send it as a PDF or an image.
+                                        No order forms yet. Create one and send it as a PDF or an image.
                                     @endif
                                 </td>
                             </tr>

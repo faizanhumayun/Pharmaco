@@ -54,8 +54,8 @@ class TeamController extends Controller
             ->route('businesses.team.index', $business)
             ->with('status', $created
                 ? "{$member->name} can now sign in with {$member->email} and the password you set."
-                : "{$member->email} already had a login, so it was added to {$business->name} as it is. "
-                    . 'They sign in with their existing password — the one typed here was not used.');
+                : "{$member->email} already has a login, so it was added to {$business->name}. "
+                    . 'They sign in with their existing password. The password entered here was not used.');
     }
 
     public function update(

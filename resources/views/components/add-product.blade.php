@@ -40,7 +40,7 @@
         <div class="border-b border-gray-200 px-5 py-4">
             <h2 class="text-lg font-semibold text-gray-900">Add a product</h2>
             <p class="text-sm text-gray-500">
-                It joins the company's catalogue, so it can be received, counted and sold like any other.
+                The product is added to the company's list. It can then be received, counted and sold.
             </p>
         </div>
 
@@ -64,7 +64,7 @@
                     <x-input-label for="new_product_company" value="Company" />
                     <select id="new_product_company" x-ref="company" x-model="draft.company_id" data-search
                             class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        <option value="">Choose the company…</option>
+                        <option value="">Select company…</option>
                         @foreach ($companies as $company)
                             <option value="{{ $company->id }}">{{ $company->name }}</option>
                         @endforeach
@@ -89,7 +89,7 @@
                         <x-input-label for="new_product_form" value="Type" />
                         <select id="new_product_form" x-ref="form" x-model="draft.dosage_form"
                                 class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                            <option value="">Choose — tablet, syrup…</option>
+                            <option value="">Select type (tablet, syrup…)</option>
                             @foreach ($forms as $form)
                                 <option value="{{ $form }}">{{ $form }}</option>
                             @endforeach
@@ -106,9 +106,9 @@
                     <x-input-label for="new_product_pack" value="Pack size" />
                     <x-text-input id="new_product_pack" x-model="draft.pack_size" type="text" class="mt-1 block w-full" placeholder="10/10" maxlength="60" />
                     <p class="mt-1 text-xs text-gray-500">
-                        Strips × tablets, as on the box: “10/10”, “1/14”. Leave it blank for a bottle or a single item.
+                        Strips × tablets, as printed on the box: “10/10”, “1/14”. Leave blank for a bottle or a single item.
                         @if ($business->sellsLoose())
-                            <span class="font-medium text-gray-700" x-show="pieces > 1" x-text="'That is ' + pieces + ' to a pack.'"></span>
+                            <span class="font-medium text-gray-700" x-show="pieces > 1" x-text="'Total: ' + pieces + ' pieces per pack.'"></span>
                         @endif
                     </p>
                 </div>
@@ -126,7 +126,7 @@
                     </div>
                 </div>
 
-                <p class="text-xs text-gray-500">A code is given to it when it is added.</p>
+                <p class="text-xs text-gray-500">The product code is created automatically.</p>
                 <p class="text-sm text-red-600" x-show="errors.general" x-cloak x-text="errors.general"></p>
             </div>
 
@@ -205,9 +205,9 @@
 
                         this.errors = {};
 
-                        if (! this.draft.company_id) this.errors.company_id = 'Choose the company it comes from.';
-                        if (this.draft.brand_name.trim() === '') this.errors.brand_name = 'It needs a name.';
-                        if (! this.draft.dosage_form) this.errors.dosage_form = 'Choose its type.';
+                        if (! this.draft.company_id) this.errors.company_id = 'Select the company.';
+                        if (this.draft.brand_name.trim() === '') this.errors.brand_name = 'Enter the product name.';
+                        if (! this.draft.dosage_form) this.errors.dosage_form = 'Select the type.';
 
                         if (Object.keys(this.errors).length > 0) return;
 
@@ -233,7 +233,7 @@
                                 }
 
                                 if (Object.keys(this.errors).length === 0) {
-                                    this.errors.general = body.message || 'Could not add that product. Try again.';
+                                    this.errors.general = body.message || 'The product could not be added. Try again.';
                                 }
 
                                 return;
@@ -248,7 +248,7 @@
                                 this.showing = false;
                             }
                         } catch {
-                            this.errors.general = 'Could not reach the server. Check the connection and try again.';
+                            this.errors.general = 'The server could not be reached. Check the connection and try again.';
                         } finally {
                             this.saving = false;
                         }

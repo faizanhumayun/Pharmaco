@@ -168,7 +168,7 @@ class SaveDailyEntryRequest extends FormRequest
             // settles what was already owed to that company.
             if ($get('purchase_discount')->greaterThan($get('purchase_total'))) {
                 $v->errors()->add('purchase_discount',
-                    'The trade discount cannot exceed the purchase it applies to.');
+                    'The trade discount cannot be more than the purchase amount.');
             }
 
             $totalSales = $this->has('sale_total')
@@ -180,7 +180,7 @@ class SaveDailyEntryRequest extends FormRequest
 
                 if ($get('sale_cash')->greaterThan($entered)) {
                     $v->errors()->add('sale_cash',
-                        'Cash collected cannot exceed the day\'s sales. Record a recovery against '
+                        'Cash collected cannot be more than the day\'s sales. Record a collection against '
                         .'earlier credit under Market collections instead.');
                 }
             }
@@ -199,12 +199,12 @@ class SaveDailyEntryRequest extends FormRequest
                 ->exists();
 
             if (! $counterReturns && $get('sales_return')->greaterThan($totalSales)) {
-                $v->errors()->add('sales_return', "Returns cannot exceed the day's sales.");
+                $v->errors()->add('sales_return', "Returns cannot be more than the day's sales.");
             }
 
             if (! $counterReturns && $get('gross_profit')->greaterThan($totalSales->minus($get('sales_return')))) {
                 $v->errors()->add('gross_profit',
-                    'Gross profit cannot exceed net sales — that would make cost of goods negative.');
+                    'Gross profit cannot be more than net sales. That would make the cost of goods negative.');
             }
 
             // A posted day is amendable while it is open; the date rules above
@@ -230,7 +230,7 @@ class SaveDailyEntryRequest extends FormRequest
 
                 if ($date && $date->lessThan($limit)) {
                     $v->errors()->add('business_date',
-                        'Operators can only enter the last two days. Ask the owner for anything older.');
+                        'Operators can only enter the last two days. Ask the owner to enter older days.');
                 }
             }
         });
@@ -239,8 +239,8 @@ class SaveDailyEntryRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'business_date.before_or_equal' => 'A business day cannot be recorded before it has happened.',
-            'business_date.after_or_equal' => 'That day is closed, or falls on or before the opening '
+            'business_date.before_or_equal' => 'The date cannot be in the future.',
+            'business_date.after_or_equal' => 'This day is closed, or is on or before the opening '
                 .'date. Post an adjustment in the open period instead.',
             '*.regex' => 'Enter a plain amount, for example 150000 or 150,000.00',
         ];

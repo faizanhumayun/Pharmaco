@@ -131,7 +131,7 @@ class RowNormaliser
                 'field' => 'brand_name',
                 'level' => self::ERROR,
                 'message' => $row !== null && $row->filledCount() <= 2
-                    ? 'No product name — this line reads as a heading rather than a product.'
+                    ? 'No product name. This line looks like a heading, not a product.'
                     : 'No product name.',
             ];
         }
@@ -151,7 +151,7 @@ class RowNormaliser
             $issues[] = [
                 'field' => 'brand_name',
                 'level' => self::WARNING,
-                'message' => 'This line carries a name and no prices, so it reads as a heading rather than a product.',
+                'message' => 'This line has a name but no prices, so it looks like a heading, not a product.',
             ];
         }
 
@@ -284,7 +284,7 @@ class RowNormaliser
         return [mb_substr(strtolower($cell), 0, 40), [
             'field' => $label === 'dosage form' ? 'dosage_form' : 'pack_type',
             'level' => self::WARNING,
-            'message' => "\"{$cell}\" is not a {$label} this system recognises — kept as written.",
+            'message' => "\"{$cell}\" is not a {$label} this system recognises. It was kept as written.",
         ]];
     }
 }

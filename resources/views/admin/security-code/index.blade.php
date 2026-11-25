@@ -8,7 +8,7 @@
         <div>
             <h1 class="text-xl font-semibold text-gray-900">Security code</h1>
             <p class="mt-1 text-sm text-gray-500">
-                A code asked for before anyone reaches the site, in front of sign-in. The back office is never behind it.
+                A code that visitors must enter before they can use the site. The back office never requires it.
             </p>
         </div>
     </x-slot>
@@ -28,8 +28,8 @@
                             <x-badge :classes="$enabled ? 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' : 'bg-gray-100 text-gray-700 ring-gray-500/20'">{{ $enabled ? 'On' : 'Off' }}</x-badge>
                             <p class="text-sm text-gray-600">
                                 {{ $enabled
-                                    ? 'Visitors must enter a working code before the landing page or any business screen opens. Signing in stays open.'
-                                    : 'Anyone can reach the landing page and sign in without a code.' }}
+                                    ? 'Visitors must enter an active code before the landing page or any business screen opens. The sign-in page stays open.'
+                                    : 'Anyone can open the landing page and sign in without a code.' }}
                             </p>
                         </div>
 
@@ -46,7 +46,7 @@
                                 <tr>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Code</th>
                                     <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Given to</th>
-                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">State</th>
+                                    <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                                     <th class="px-4 py-3 sm:px-6"></th>
                                 </tr>
                             </thead>
@@ -56,20 +56,20 @@
                                         <td class="whitespace-nowrap px-4 py-2.5 font-mono text-gray-900 sm:px-6">{{ $code->code }}</td>
                                         <td class="px-4 py-2.5 text-gray-600">{{ $code->label ?: '—' }}</td>
                                         <td class="px-4 py-2.5">
-                                            <x-badge :classes="$code->status ? 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' : 'bg-gray-100 text-gray-700 ring-gray-500/20'">{{ $code->status ? 'Working' : 'Switched off' }}</x-badge>
+                                            <x-badge :classes="$code->status ? 'bg-emerald-50 text-emerald-800 ring-emerald-600/20' : 'bg-gray-100 text-gray-700 ring-gray-500/20'">{{ $code->status ? 'Active' : 'Inactive' }}</x-badge>
                                         </td>
                                         <td class="px-4 py-2.5 text-right sm:px-6">
                                             <form method="POST" action="{{ route('admin.security-code.codes.toggle', $code) }}">
                                                 @csrf
                                                 @method('PATCH')
                                                 <button class="text-sm font-medium {{ $code->status ? 'text-gray-600' : 'text-emerald-700' }} hover:underline">
-                                                    {{ $code->status ? 'Switch off' : 'Switch on' }}
+                                                    {{ $code->status ? 'Deactivate' : 'Activate' }}
                                                 </button>
                                             </form>
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="4" class="px-6 py-6 text-center text-gray-500">None yet.</td></tr>
+                                    <tr><td colspan="4" class="px-6 py-6 text-center text-gray-500">No codes yet.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -78,7 +78,7 @@
             </div>
 
             <div>
-                <x-panel title="Add a code" description="It works straight away.">
+                <x-panel title="Add a code" description="The code is active immediately.">
                     <form method="POST" action="{{ route('admin.security-code.codes.store') }}" class="space-y-4 p-4 sm:p-6">
                         @csrf
                         <div>
@@ -94,7 +94,7 @@
                         <button class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Add</button>
                     </form>
                     <p class="border-t border-gray-200 px-4 py-3 text-xs text-gray-500 sm:px-6">
-                        A code is asked for once per visit and again after signing out. It does not replace a password.
+                        A code is required once per visit and again after signing out. It does not replace a password.
                     </p>
                 </x-panel>
             </div>

@@ -1,9 +1,10 @@
 <x-workspace-layout :business="$business">
     <x-slot name="header">
+        <x-back-link :href="route('businesses.companies.show', [$business, $company])" :label="$company->name" />
         <h1 class="text-xl font-semibold text-gray-900">Price lists — {{ $company->name }}</h1>
         <p class="mt-1 text-sm text-gray-500">
-            Every file this company has sent, applied or not. They are kept because they are the document behind
-            each price in the catalogue.
+            All price list files from this company, applied or not. Each file is kept as the source of
+            the prices of its products.
         </p>
     </x-slot>
 
@@ -11,8 +12,6 @@
         <x-flash />
 
         <div class="mb-6 flex flex-wrap items-center gap-3">
-            <a href="{{ route('businesses.companies.show', [$business, $company]) }}"
-               class="text-sm text-gray-500 hover:text-gray-700">← {{ $company->name }}</a>
 
             @can('importProducts', $business)
                 <a href="{{ route('businesses.companies.imports.create', [$business, $company]) }}"
@@ -27,7 +26,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach ([['File','left'],['Date','left'],['Status','left'],['Rows','right'],['Added','right'],['Updated','right'],['Unchanged','right'],['By','left']] as [$heading,$align])
+                            @foreach ([['File','left'],['Date','left'],['Status','left'],['Rows','right'],['Added','right'],['Updated','right'],['Unchanged','right'],['Uploaded by','left']] as [$heading,$align])
                                 <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $heading }}</th>
                             @endforeach
                         </tr>

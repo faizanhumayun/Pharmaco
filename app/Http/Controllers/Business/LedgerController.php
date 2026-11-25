@@ -70,7 +70,15 @@ class LedgerController extends Controller
             ->get(['id', 'code', 'name', 'parent_id'])
             ->groupBy('parent_id');
 
+        // The day before, to say whether each figure went up or down. Not
+        // before the business opened: there is nothing to compare with.
+        $dayBefore = $asAt->copy()->subDay();
+        $comparable = ! $business->opening_date || $dayBefore->greaterThanOrEqualTo(Carbon::parse($business->opening_date->toDateString()));
+
         return view('business.ledger.index', [
+            'compareDate' => $comparable ? $dayBefore : null,
+            'balancesBefore' => $comparable ? $balances->all($business, $dayBefore) : null,
+            'positionBefore' => $comparable ? $balances->position($business, $dayBefore) : null,
             'business' => $business,
             'asAt' => $asAt,
             'accounts' => $accounts->groupBy(fn (Account $a) => $a->type->value),

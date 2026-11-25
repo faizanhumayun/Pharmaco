@@ -64,13 +64,13 @@
                                         @php($shop = $business->shopMirror)
                                         @php($entry = $shop?->entry ?? 'shop')
                                         @if ($entry === 'office')
-                                            <x-badge classes="mt-1 bg-red-50 text-red-800 ring-red-600/20">Back office · fixing</x-badge>
-                                            <span class="mt-1 block text-xs text-gray-500">Shop is locked · sent its last entries {{ $shop->entry_changed_at?->diffForHumans() }}</span>
+                                            <x-badge classes="mt-1 bg-red-50 text-red-800 ring-red-600/20">Back office · maintenance</x-badge>
+                                            <span class="mt-1 block text-xs text-gray-500">Shop is locked · last entries received {{ $shop->entry_changed_at?->diffForHumans() }}</span>
                                         @elseif ($entry === 'pausing')
                                             <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Waiting for the shop to lock</x-badge>
-                                            <span class="mt-1 block text-xs text-gray-500">Asked {{ $shop->entry_changed_at?->diffForHumans() }} · read-only until its last entries arrive</span>
+                                            <span class="mt-1 block text-xs text-gray-500">Requested {{ $shop->entry_changed_at?->diffForHumans() }} · read-only until the last entries are received</span>
                                         @elseif ($entry === 'returning')
-                                            <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Handing back to the shop</x-badge>
+                                            <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Returning to the shop</x-badge>
                                             <span class="mt-1 block text-xs text-gray-500">Since {{ $shop->entry_changed_at?->diffForHumans() }} · read-only</span>
                                         @else
                                             <x-badge classes="mt-1 bg-amber-50 text-amber-800 ring-amber-600/20">Runs in the shop · read-only copy</x-badge>
@@ -86,8 +86,8 @@
                                             <form method="POST" action="{{ route('admin.shop-mirrors.entry', $shop) }}" class="mt-2 flex flex-wrap items-center gap-2"
                                                   onsubmit="return confirm(this.dataset.ask)"
                                                   data-ask="{{ $entry === 'shop'
-                                                      ? 'Pause '.$shop->name.'? Its computer sends its last entries and locks, showing “We are fixing an issue”, until you switch this back on.'
-                                                      : ($entry === 'office' ? 'Send your changes back to '.$shop->name.' and let it open again?' : 'Call off the pause for '.$shop->name.'?') }}">
+                                                      ? 'Pause '.$shop->name.' for maintenance? The shop\'s computer will send its last entries and lock until you switch this back on.'
+                                                      : ($entry === 'office' ? 'Send your changes to '.$shop->name.' and reopen the shop?' : 'Cancel the pause for '.$shop->name.'?') }}">
                                                 @csrf
                                                 <input type="hidden" name="action" value="{{ $entry === 'shop' ? 'pause' : 'resume' }}">
                                                 <button type="submit" role="switch" aria-checked="{{ $on ? 'true' : 'false' }}"
@@ -98,18 +98,19 @@
                                                 <span class="text-xs text-gray-600">
                                                     {{ match ($entry) {
                                                         'shop' => 'Shop computer: on',
-                                                        'pausing' => 'Off — waiting for the shop',
-                                                        'office' => 'Off — shop is paused',
-                                                        default => 'On — shop is taking its books back',
+                                                        'pausing' => 'Off: waiting for the shop',
+                                                        'office' => 'Off: paused for maintenance',
+                                                        default => 'On: shop is receiving its records',
                                                     } }}
                                                 </span>
                                             </form>
                                             @if ($entry === 'office' || $entry === 'returning')
                                                 <form method="POST" action="{{ route('admin.shop-mirrors.entry', $shop) }}" class="mt-1"
-                                                      onsubmit="return confirm('Give up the fix? {{ $shop->name }} opens with its own books as they were, and everything changed here is lost.')">
+                                                      data-ask="Cancel maintenance? {{ $shop->name }} will reopen with its own records unchanged. All changes made here will be lost."
+                                                      onsubmit="return confirm(this.dataset.ask)">
                                                     @csrf
                                                     <input type="hidden" name="action" value="discard">
-                                                    <button type="submit" class="text-xs font-medium text-red-700 hover:text-red-900">Give up the fix and reopen the shop</button>
+                                                    <button type="submit" class="text-xs font-medium text-red-700 hover:text-red-900">Cancel maintenance and reopen the shop</button>
                                                 </form>
                                             @endif
                                         @endif
@@ -171,7 +172,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">No businesses match.</td></tr>
+                            <tr><td colspan="6" class="px-6 py-10 text-center text-gray-500">No businesses found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -201,43 +202,43 @@
                         <template x-if="mode === 'data'">
                             <div class="mt-3 space-y-2 text-sm">
                                 <div class="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-red-900">
-                                    <p class="font-semibold">Everything recorded in this business is destroyed.</p>
+                                    <p class="font-semibold">All data recorded in this business will be deleted.</p>
                                     <p class="mt-1">
                                         Products, stock, companies, customers, imports, the opening balance, and
                                         <strong x-text="target.transactions"></strong> ledger transactions,
                                         <strong x-text="target.entries"></strong> recorded days and
                                         <strong x-text="target.closings"></strong> closings.
-                                        Nothing can reconstruct them afterwards.
+                                        They cannot be recovered.
                                     </p>
                                 </div>
                                 <p class="text-gray-600">
-                                    <strong class="text-gray-900">Kept:</strong> the business itself, its settings, and its
-                                    members with their roles. It goes back to setup, ready for a new import and a new
-                                    opening balance.
+                                    <strong class="text-gray-900">Kept:</strong> the business, its settings, and its
+                                    members with their roles. The business returns to setup. You can then import again
+                                    and enter a new opening balance.
                                 </p>
                             </div>
                         </template>
 
                         <template x-if="mode === 'business' && target.hasHistory">
                             <div class="mt-3 rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
-                                <p class="font-semibold">This business has financial history.</p>
+                                <p class="font-semibold">This business has financial records.</p>
                                 <p class="mt-1">
-                                    Deleting it destroys
+                                    Deleting it will permanently delete
                                     <strong x-text="target.transactions"></strong> ledger transactions,
                                     <strong x-text="target.entries"></strong> recorded days and
-                                    <strong x-text="target.closings"></strong> closings — including the record
-                                    of who entered what. Nothing can reconstruct them afterwards.
+                                    <strong x-text="target.closings"></strong> closings, including the record
+                                    of who entered them. They cannot be recovered.
                                 </p>
                                 <p class="mt-2">
-                                    If you only want to stop activity, <strong>suspend</strong> the business
-                                    instead and the records stay intact.
+                                    To stop activity only, <strong>suspend</strong> the business
+                                    instead. The records will be kept.
                                 </p>
                             </div>
                         </template>
 
                         <template x-if="mode === 'business' && ! target.hasHistory">
                             <p class="mt-2 text-sm text-gray-600">
-                                This business has no financial history, so nothing is lost but its setup:
+                                This business has no financial records. Only its setup will be deleted:
                                 the chart of accounts, expense categories, member access and any draft.
                             </p>
                         </template>
@@ -259,7 +260,7 @@
                                 class="text-sm font-medium text-gray-600 hover:text-gray-900">Cancel</button>
                         <button type="submit" :disabled="typed !== target.name"
                                 class="rounded-md bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800 disabled:cursor-not-allowed disabled:bg-gray-300">
-                            <span x-text="mode === 'data' ? 'Delete the data' : 'Delete permanently'"></span>
+                            <span x-text="mode === 'data' ? 'Delete data' : 'Delete permanently'"></span>
                         </button>
                     </div>
                 </form>

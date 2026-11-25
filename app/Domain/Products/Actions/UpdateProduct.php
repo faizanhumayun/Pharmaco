@@ -64,11 +64,11 @@ class UpdateProduct
             }
 
             if ($product->brand_name === null) {
-                throw new LedgerException('A product has to have a name.');
+                throw new LedgerException('Enter the product name.');
             }
 
             if ($product->mrp !== null && $product->trade_price !== null && $product->trade_price->greaterThan($product->mrp)) {
-                throw new LedgerException('The trade price cannot be above the MRP printed on the pack.');
+                throw new LedgerException('The trade price cannot be more than the MRP printed on the pack.');
             }
 
             /*
@@ -84,7 +84,7 @@ class UpdateProduct
 
                 if ($moved) {
                     throw new LedgerException(
-                        'Loose pieces of this product have already been sold or moved, so the number in a pack can no longer be changed.'
+                        'Loose pieces of this product have already been sold or moved, so the number of pieces in a pack cannot be changed.'
                     );
                 }
             }

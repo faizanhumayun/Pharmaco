@@ -38,11 +38,11 @@ class CorrectOpeningBalance
         }
 
         if ($amount->isZero()) {
-            throw new LedgerException('A correction of zero changes nothing.');
+            throw new LedgerException('Enter an amount other than zero.');
         }
 
         if (trim($reason) === '') {
-            throw new LedgerException('An opening balance correction must say why.');
+            throw new LedgerException('Enter the reason for this opening balance correction.');
         }
 
         $business = $opening->business;
@@ -109,7 +109,7 @@ class CorrectOpeningBalance
 
         if ($unallocated === null || ! $unallocated->is_postable) {
             throw new LedgerException(
-                $account->label() . ' is split across sub-accounts with no unallocated ledger to correct into.'
+                $account->label() . ' has sub-accounts but no Unallocated account, so the correction cannot be posted.'
             );
         }
 

@@ -7,9 +7,10 @@
 <x-workspace-layout :business="$business">
     <x-slot name="header">
         <div>
-            <h1 class="text-xl font-semibold text-gray-900">Take goods back — bill {{ $bill->reference() }}</h1>
+            <x-back-link :href="route('businesses.pos.bills.edit', [$business, $bill])" :label="'Bill ' . $bill->reference()" />
+            <h1 class="text-xl font-semibold text-gray-900">Return items for bill {{ $bill->reference() }}</h1>
             <p class="mt-1 text-sm text-gray-500">
-                {{ $bill->business_date->format('l j F Y') }} · {{ $bill->customer_name ?? 'Cash sale' }} · Rs. {{ $rs($bill->total) }}
+                {{ $bill->business_date->format('l j F Y') }} · {{ $bill->customer_name ?? 'Walk-in customer' }} · Rs. {{ $rs($bill->total) }}
             </p>
         </div>
     </x-slot>
@@ -19,15 +20,15 @@
 
         @if ($dayClosed)
             <div class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                Today is closed, so a return cannot be recorded on it. Reopen the day on its closing page first.
+                Today is closed. A return cannot be recorded. Reopen the day from the closing page first.
             </div>
         @endif
 
         <form method="POST" action="{{ route('businesses.pos.bills.return.store', [$business, $bill]) }}">
             @csrf
 
-            <x-panel title="What is coming back"
-                     description="Enter only what the customer has brought back. It goes into stock again at the cost it went out at.">
+            <x-panel title="Items to return"
+                     description="Enter only the items the customer has returned. They are added back to stock at their original cost.">
                 @if ($errors->any())
                     <div class="border-b border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 sm:px-6">
                         @foreach ($errors->all() as $error) <p>{{ $error }}</p> @endforeach
@@ -41,8 +42,8 @@
                                 <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Item</th>
                                 <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Price</th>
                                 <th class="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Sold</th>
-                                <th class="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Already back</th>
-                                <th class="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Coming back now</th>
+                                <th class="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Already returned</th>
+                                <th class="px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide text-gray-500">Returning now</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
@@ -70,7 +71,7 @@
                                             @endif
                                             <span class="ml-1 text-xs text-gray-400">of {{ $size > 1 ? intdiv($left, $size).' + '.($left % $size) : $left }}</span>
                                         @else
-                                            <span class="text-xs text-gray-400">all returned</span>
+                                            <span class="text-xs text-gray-400">All returned</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -81,12 +82,12 @@
 
                 <div class="border-t border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 sm:px-6">
                     @if ($owing->isPositive())
-                        Rs. {{ $rs($owing) }} is still owed on this bill. The return comes off that first; only anything beyond it is handed back in cash.
+                        Rs. {{ $rs($owing) }} is pending on this bill. The return is first deducted from the pending amount. Any amount above it is refunded in cash.
                     @else
-                        This bill is fully paid, so the value of what comes back is handed back in cash from the drawer.
+                        This bill is fully paid. The value of the returned items is refunded from cash in hand.
                     @endif
                     @if ($bill->discount->isPositive())
-                        The bill carried a discount of Rs. {{ $rs($bill->discount) }}, so each item is worth its share of what was actually charged.
+                        This bill had a discount of Rs. {{ $rs($bill->discount) }}. Each item is valued at its share of the amount actually charged.
                     @endif
                 </div>
 
@@ -94,7 +95,7 @@
                     <div class="min-w-0 flex-1">
                         <x-input-label for="reason" value="Reason (optional)" />
                         <input id="reason" name="reason" type="text" maxlength="255" value="{{ old('reason') }}"
-                               placeholder="Wrong item, not needed, short-dated…"
+                               placeholder="Wrong item, not needed, near expiry…"
                                class="mt-1 block w-full max-w-2xl rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     </div>
                     <div class="flex items-center gap-2">
@@ -102,7 +103,7 @@
                            class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Cancel</a>
                         <button @disabled($dayClosed)
                                 class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">
-                            Record the return
+                            Record return
                         </button>
                     </div>
                 </div>

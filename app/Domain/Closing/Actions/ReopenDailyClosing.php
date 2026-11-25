@@ -22,7 +22,7 @@ class ReopenDailyClosing
     public function handle(Business $business, Carbon $date, string $reason, User $by): DailyClosing
     {
         if (trim($reason) === '') {
-            throw new LedgerException('Reopening a closed day must say why.');
+            throw new LedgerException('Enter the reason for reopening this day.');
         }
 
         $closing = DailyClosing::forBusiness($business)
@@ -31,7 +31,7 @@ class ReopenDailyClosing
             ->first();
 
         if ($closing === null) {
-            throw new LedgerException('That day is not closed.');
+            throw new LedgerException('This day is not closed.');
         }
 
         if (! $business->locked_through_date?->equalTo($date)) {

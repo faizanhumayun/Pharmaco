@@ -156,7 +156,7 @@ class OrderController extends Controller
             return back()->withErrors(['status' => $e->getMessage()]);
         }
 
-        return back()->with('status', "{$order->reference} marked as sent. It is now fixed as a record of what was asked for.");
+        return back()->with('status', "{$order->reference} marked as sent. It can no longer be changed.");
     }
 
     /** The goods-received check: what was ordered, against what turned up. */
@@ -237,7 +237,7 @@ class OrderController extends Controller
         $packs = $order->receiptLines->sum('packs');
 
         $message = sprintf(
-            '%s received — %s %s into stock now.',
+            '%s received. %s %s added to stock.',
             $order->reference,
             number_format($packs),
             Str::plural($business->unit()->one(), $packs),
@@ -260,11 +260,11 @@ class OrderController extends Controller
 
             $message .= $entry?->isEditable()
                 ? sprintf(
-                    ' The invoice is on the entry for %s and reaches the books when that day is posted.',
+                    ' The invoice is on the day entry for %s and will be in the accounts when that day is posted.',
                     $entry->business_date->format('j M Y'),
                 )
                 : sprintf(
-                    ' The invoice is on the books, on the entry for %s.',
+                    ' The invoice is in the accounts, on the day entry for %s.',
                     $entry?->business_date->format('j M Y'),
                 );
         }

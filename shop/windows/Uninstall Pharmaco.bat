@@ -13,6 +13,7 @@ schtasks /Delete /TN "Pharmaco Server" /F >nul 2>&1
 schtasks /Delete /TN "Pharmaco Scheduler" /F >nul 2>&1
 netsh advfirewall firewall delete rule name="Pharmaco" >nul 2>&1
 del "%PUBLIC%\Desktop\Pharmaco.url" >nul 2>&1
+del "%PUBLIC%\Desktop\Pharmaco Till (prints directly).lnk" >nul 2>&1
 
 echo Pharmaco no longer starts by itself.
 echo The application and the books in C:\Pharmaco were not touched.

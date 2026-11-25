@@ -127,13 +127,13 @@ class DayChecklist
 
         return [
             'key' => 'deliveries',
-            'title' => 'Take in deliveries',
+            'title' => 'Receive deliveries',
             'state' => $movements > 0 ? self::DONE : self::NONE,
             'detail' => $movements > 0
-                ? "{$movements} " . str('line')->plural($movements) . ' taken into stock today.'
-                : 'Nothing has come in today. Stock goes in against an order form, or on its own.',
-            'why' => 'Stock has to be in the books before it is sold out of them, or the count will '
-                . 'disagree with the shelf.',
+                ? "{$movements} " . str('line')->plural($movements) . ' added to stock today.'
+                : 'No delivery received today. Stock can be received against an order form or without one.',
+            'why' => 'Stock must be recorded before it is sold. Otherwise the stock in the system will '
+                . 'not match the actual stock.',
             'route' => $user->can('manageOrders', $business) ? 'businesses.stock.receive' : 'businesses.orders.index',
             'action' => 'Add stock',
         ];
@@ -164,14 +164,14 @@ class DayChecklist
 
         return [
             'key' => 'counter',
-            'title' => "Ring up the day's sales",
+            'title' => "Record the day's sales",
             'state' => $bills->isNotEmpty() ? self::DONE : self::TODO,
             'detail' => $bills->isNotEmpty()
                 ? $bills->count() . ' ' . str('bill')->plural($bills->count()) . ' — ' . $total->format() . '.'
-                : 'No bill has been rung up today.',
-            'why' => 'Every bill writes itself onto the day, so the day and the till can never disagree.',
+                : 'No bill has been created today.',
+            'why' => 'Every bill is added to the day entry automatically, so the day entry and the POS always match.',
             'route' => 'businesses.pos.index',
-            'action' => 'Sell at the counter',
+            'action' => 'Open POS',
             'new_tab' => true,
         ];
     }
@@ -201,13 +201,13 @@ class DayChecklist
             'state' => $recorded > 0 ? self::DONE : ($open->isNotEmpty() ? self::TODO : self::NONE),
             'detail' => $recorded > 0
                 ? "{$recorded} " . str('collection')->plural($recorded) . ' recorded today. '
-                    . $open->count() . ' ' . str('bill')->plural($open->count()) . ' still out — ' . $owed->format() . '.'
+                    . $open->count() . ' ' . str('bill')->plural($open->count()) . ' still pending — ' . $owed->format() . '.'
                 : ($open->isNotEmpty()
                     ? $open->count() . ' ' . str('bill')->plural($open->count()) . ' still unpaid — ' . $owed->format()
                         . ', across ' . $open->pluck('customer_name')->filter()->unique()->count() . ' customers.'
-                    : 'Nothing is outstanding. Every bill has been paid for.'),
-            'why' => 'Cash that came back but was not recorded is a shortage in the drawer and a customer '
-                . 'still shown as owing.',
+                    : 'No amount is pending. Every bill has been paid.'),
+            'why' => 'If collected cash is not recorded, the cash count will not match and the customer '
+                . 'will still show a pending amount.',
             'route' => 'businesses.collections.index',
             'action' => 'Record a collection',
         ];
@@ -229,8 +229,8 @@ class DayChecklist
             'state' => $lines > 0 || $cash->isPositive() ? self::DONE : self::NONE,
             'detail' => $lines > 0 || $cash->isPositive()
                 ? $cash->format() . ' recorded' . ($lines > 0 ? " across {$lines} " . str('line')->plural($lines) : '') . '.'
-                : 'Nothing recorded. Anything paid out of the drawer belongs here before it is counted.',
-            'why' => 'An expense left out is cash missing from the drawer with nothing to explain it.',
+                : 'No expense recorded. Record every amount paid from the cash drawer before the cash is counted.',
+            'why' => 'If an expense is not recorded, the cash will be short with no explanation.',
             'route' => 'businesses.expenses.index',
             'action' => 'Add an expense',
         ];
@@ -249,15 +249,15 @@ class DayChecklist
 
         return [
             'key' => 'count',
-            'title' => "Count today's sheet",
+            'title' => "Complete today's stock count",
             'state' => $counted > 0 ? self::DONE : self::TODO,
             'detail' => $counted > 0
                 ? "{$counted} " . str('product')->plural($counted) . ' counted today.'
-                : 'Nothing counted today. The sheet picks the lines worth checking by value and movement.',
-            'why' => 'Stock is the one balance with no independent check. Counting a few lines a day is '
-                . 'what keeps its figure worth anything.',
+                : 'No product counted today. The count sheet selects the products to check by value and movement.',
+            'why' => 'Stock is the only balance that nothing else checks. Counting a few products every day '
+                . 'keeps the stock figure correct.',
             'route' => 'businesses.stock.audit',
-            'action' => 'Open the sheet',
+            'action' => 'Open the count sheet',
         ];
     }
 
@@ -282,11 +282,11 @@ class DayChecklist
             'title' => 'Approve stock differences',
             'state' => self::TODO,
             'detail' => "{$open} " . str('count')->plural($open) . ' found a difference and '
-                . ($open === 1 ? 'is' : 'are') . ' waiting to be agreed.',
-            'why' => 'A difference changes what the business says it holds, so it is the owner who agrees it, '
-                . 'not whoever counted.',
+                . ($open === 1 ? 'is' : 'are') . ' waiting for approval.',
+            'why' => 'A difference changes the recorded stock, so the owner must approve it, '
+                . 'not the person who counted.',
             'route' => 'businesses.stock.audit',
-            'action' => 'Review them',
+            'action' => 'Review differences',
         ];
     }
 
@@ -303,13 +303,13 @@ class DayChecklist
             'state' => $posted ? self::DONE : self::TODO,
             'detail' => match (true) {
                 $posted => 'Posted. The day is in the ledger.',
-                $entry !== null => 'Saved as a draft. Nothing a draft says is in the ledger yet — it has '
-                    . 'to be posted to count.',
-                default => 'Not entered yet. Bills rung up at the counter are waiting on it.',
+                $entry !== null => 'Saved as a draft. A draft is not in the ledger yet. '
+                    . 'Post it to include it.',
+                default => 'Not entered yet. Bills created at the POS are waiting for the day entry.',
             },
-            'why' => 'Posting is what puts the day into the ledger. Until then no report includes it.',
+            'why' => 'Posting adds the day to the ledger. Until the day is posted, no report includes it.',
             'route' => $entry !== null ? 'businesses.daily.index' : 'businesses.daily.create',
-            'action' => $posted ? 'See the day' : ($entry !== null ? 'Post it' : 'Enter the day'),
+            'action' => $posted ? 'View the day' : ($entry !== null ? 'Post it' : 'Enter the day'),
         ];
     }
 
@@ -333,12 +333,12 @@ class DayChecklist
                 default => self::TODO,
             },
             'detail' => match (true) {
-                $finalized => 'Closed and agreed'
+                $finalized => 'Closed and confirmed'
                     . ($closing->hasCashVariance() ? ' — with a cash difference recorded.' : '.'),
-                ! $posted => 'Waiting on the day being posted. There is nothing to check the drawer against yet.',
-                default => 'The day is posted. Count the drawer and agree it against what the day says.',
+                ! $posted => 'Waiting for the day to be posted. The cash cannot be checked until then.',
+                default => 'The day is posted. Count the cash and compare it with the day\'s figure.',
             },
-            'why' => 'A figure nobody counted is a figure nobody has stood behind. This is the check.',
+            'why' => 'A figure is reliable only after someone has counted and confirmed it. Closing the day is that check.',
             'route' => 'businesses.closing.show',
             'action' => 'Close the day',
         ];
@@ -361,10 +361,10 @@ class DayChecklist
             'key' => 'earlier',
             'title' => $open === 1 ? 'An earlier day is still open' : "{$open} earlier days are still open",
             'state' => self::TODO,
-            'detail' => 'Posted but never closed. They are in the ledger, but nobody has agreed the cash.',
-            'why' => 'Historical figures get their credibility from somebody having agreed they were right.',
+            'detail' => 'Posted but not closed. They are in the ledger, but no one has confirmed the cash.',
+            'why' => 'Past figures are reliable only after someone has confirmed they are correct.',
             'route' => 'businesses.closing.index',
-            'action' => 'Close them',
+            'action' => 'Close these days',
         ];
     }
 }

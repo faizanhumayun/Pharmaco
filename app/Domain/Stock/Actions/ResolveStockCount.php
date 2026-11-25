@@ -24,7 +24,7 @@ class ResolveStockCount
     public function approve(StockCount $count, User $by, ?string $reason = null): StockCount
     {
         if (! $count->isOpen()) {
-            throw new RuntimeException('That count has already been dealt with.');
+            throw new RuntimeException('This count has already been resolved.');
         }
 
         return DB::transaction(function () use ($count, $by, $reason) {
@@ -43,7 +43,7 @@ class ResolveStockCount
                 $difference,
                 StockMovementType::Adjustment,
                 trim(sprintf(
-                    'Stock count %s — books %s, shelf %s. %s',
+                    'Stock count %s — system %s, counted %s. %s',
                     $count->business_date->format('j M Y'),
                     $count->expectedLabel(),
                     $count->countedLabel(),
@@ -67,14 +67,14 @@ class ResolveStockCount
     public function dismiss(StockCount $count, User $by, ?string $reason = null): StockCount
     {
         if (! $count->isOpen()) {
-            throw new RuntimeException('That count has already been dealt with.');
+            throw new RuntimeException('This count has already been resolved.');
         }
 
         $count->forceFill([
             'status' => StockCount::DISMISSED,
             'approved_by' => $by->id,
             'approved_at' => now(),
-            'note' => trim(($count->note ? $count->note.' — ' : '').($reason ?? 'Judged a miscount')),
+            'note' => trim(($count->note ? $count->note.' — ' : '').($reason ?? 'Marked as a counting mistake')),
         ])->save();
 
         return $count->fresh();

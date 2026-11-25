@@ -44,7 +44,7 @@ class ReturnLine extends Model
 
     public function label(): string
     {
-        return trim(($this->pharmacy?->name ?? $this->pharmacy_name ?? 'Counter customer')
+        return trim(($this->pharmacy?->name ?? $this->pharmacy_name ?? 'Walk-in customer')
             .($this->reference ? " · {$this->reference}" : ''));
     }
 }

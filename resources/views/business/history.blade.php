@@ -50,36 +50,36 @@
         $kept = $per100($totals['net_profit'], $totals['sales']);
         $says['money'] = $totals['sales']->isZero()
             ? 'No sales were recorded in this range.'
-            : 'Customers bought ' . $rs($totals['sales']) . ' worth of medicine. After paying for that stock and '
-                . 'for expenses, the business ' . ($totals['net_profit']->isNegative() ? 'lost ' : 'kept ')
+            : 'Total sales were ' . $rs($totals['sales']) . '. After the cost of stock and '
+                . 'expenses, the ' . ($totals['net_profit']->isNegative() ? 'net loss was ' : 'net profit was ')
                 . $rs($totals['net_profit'])
-                . ($kept === null ? '.' : ' — about Rs. ' . abs($kept)
-                    . ($totals['net_profit']->isNegative() ? ' lost for every Rs. 100 sold.' : ' out of every Rs. 100 sold.'));
+                . ($kept === null ? '.' : '. This is about Rs. ' . abs($kept)
+                    . ($totals['net_profit']->isNegative() ? ' of loss for every Rs. 100 sold.' : ' of profit for every Rs. 100 sold.'));
 
         $gap = $end['net_position'];
         $moved = $gap->minus($opening['net_position']);
-        $says['worth'] = 'Right now the business owns ' . $rs($end['assets']) . ' and owes ' . $rs($end['liabilities']) . '. '
+        $says['worth'] = 'Total assets are ' . $rs($end['assets']) . ' and total liabilities are ' . $rs($end['liabilities']) . '. '
             . ($gap->isNegative()
-                ? 'It owes ' . $rs($gap) . ' more than it owns.'
-                : 'It owns ' . $rs($gap) . ' more than it owes.')
-            . ($moved->isZero() ? '' : ' That is ' . $rs($moved) . ($moved->isPositive() ? ' better' : ' worse')
+                ? 'Liabilities are more than assets by ' . $rs($gap) . '.'
+                : 'Assets are more than liabilities by ' . $rs($gap) . '.')
+            . ($moved->isZero() ? '' : ' This is ' . $rs($moved) . ($moved->isPositive() ? ' better' : ' worse')
                 . ' than at the start of this range.');
 
         $owed = $end['receivables']->minus($opening['receivables']);
-        $says['market'] = 'You gave ' . $rs($totals['credit_sales']) . ' of medicine on credit and collected '
-            . $rs($totals['collections']) . ' back. The market now owes you ' . $rs($end['receivables'])
+        $says['market'] = 'Credit sales were ' . $rs($totals['credit_sales']) . ' and collections were '
+            . $rs($totals['collections']) . '. The pending amount from the market is now ' . $rs($end['receivables'])
             . ($owed->isZero() ? '.' : ', ' . $rs($owed) . ($owed->isPositive() ? ' more' : ' less') . ' than at the start of this range.');
 
         $held = $end['cash']->plus($end['stock'])->plus($end['receivables']);
         $cashShare = $per100($end['cash'], $held);
-        $says['where'] = 'Of the money the business has, ' . $rs($end['cash']) . ' is cash, '
-            . $rs($end['stock']) . ' is medicine on the shelves and ' . $rs($end['receivables']) . ' is still with the market'
-            . ($cashShare === null ? '.' : ' — only about Rs. ' . max(0, $cashShare) . ' of every Rs. 100 is cash you can spend today.');
+        $says['where'] = 'The business holds ' . $rs($end['cash']) . ' in cash, '
+            . $rs($end['stock']) . ' in stock and ' . $rs($end['receivables']) . ' pending from the market'
+            . ($cashShare === null ? '.' : '. About Rs. ' . max(0, $cashShare) . ' of every Rs. 100 is cash available today.');
 
         $says['margin'] = $totals['margin'] === null
-            ? 'Once there are sales, this shows how much is left from each sale after paying for the medicine.'
-            : 'On average, from every Rs. 100 of sales, Rs. ' . (int) round($totals['margin'])
-                . ' was left after paying for the medicine itself — before rent, salaries and other expenses come out of it.';
+            ? 'When sales are recorded, this shows the amount left from each sale after the cost of the medicine.'
+            : 'On average, Rs. ' . (int) round($totals['margin'])
+                . ' was left from every Rs. 100 of sales after the cost of the medicine. Rent, salaries and other expenses are not deducted here.';
     }
 @endphp
 
@@ -90,7 +90,7 @@
             {{ $from->format('d M Y') }} – {{ $to->format('d M Y') }} ·
             {{ strtolower($granularities[$granularity]) }} ·
             {{ count($rows) }} {{ Str::plural('period', count($rows)) }}.
-            Built from the ledger, so open days count too.
+            Calculated from the ledger. Open days are included.
         </p>
     </x-slot>
 
@@ -160,9 +160,9 @@
                 <div class="px-6 py-16 text-center">
                     <p class="text-sm text-gray-600">No activity in this range.</p>
                     <p class="mt-1 text-sm text-gray-500">
-                        Enter and post a day, or widen the range, and the trends fill in.
+                        Enter and post a day, or select a wider range.
                         @if ($startingPoint)
-                            The starting position above is where the business began.
+                            The starting position is shown above.
                         @endif
                     </p>
                 </div>
@@ -177,16 +177,16 @@
             --}}
             <div class="grid gap-6 2xl:grid-cols-2">
                 @foreach ([
-                    ['money', 'Are we making money?',
-                        'Blue bars are what customers bought. The orange line is what the business kept after paying for the stock and the expenses — below zero means that period lost money.', true],
-                    ['worth', 'What we own against what we owe',
-                        'Blue is everything the business has: cash, medicine in stock, and money the market owes it. Orange is what it owes companies and others. When blue is above orange, the business is worth something; when orange is above, it owes more than it has.', false],
-                    ['market', 'Is the market paying us back?',
-                        'Orange bars are medicine given on credit. Blue bars are money collected back. When orange keeps beating blue, more and more of your money is sitting with customers.', false],
-                    ['where', 'Where is our money?',
-                        'Each bar is everything the business holds at the end of that period, split into cash, stock on the shelves, and money still with the market. Only the blue part can pay a bill today.', false],
-                    ['margin', 'How much is left from every Rs. 100 sold?',
-                        'Only the cost of the medicine is taken out here. Rent, salaries and other expenses still have to come out of what is left.', false],
+                    ['money', 'Sales and net profit',
+                        'Blue bars show sales. The orange line shows net profit after the cost of stock and expenses. Below zero means a loss in that period.', true],
+                    ['worth', 'Assets and liabilities',
+                        'Blue shows total assets: cash, stock and the pending amount from the market. Orange shows total liabilities: amounts payable to companies and others. If orange is above blue, liabilities are more than assets.', false],
+                    ['market', 'Credit sales and collections',
+                        'Orange bars show credit sales. Blue bars show collections. If orange stays higher than blue, the pending amount from customers is increasing.', false],
+                    ['where', 'Cash, stock and receivables',
+                        'Each bar shows the total held at the end of the period, divided into cash, stock and the pending amount from the market. Only the blue part is cash.', false],
+                    ['margin', 'Margin on every Rs. 100 sold',
+                        'Only the cost of the medicine is deducted here. Rent, salaries and other expenses are not deducted.', false],
                 ] as [$id, $title, $howTo, $wide])
                     <x-panel :title="$title" :description="$howTo" :class="$wide ? '2xl:col-span-2' : ''">
                         <div class="p-4 sm:p-6">
@@ -214,7 +214,7 @@
                     ['Net profit', $totals['net_profit'], $previous['net_profit'], true],
                     ['Purchases', $totals['purchases'], $previous['purchases'], null],
                     ['Collections', $totals['collections'], $previous['collections'], true],
-                    ['Δ market credit', $totals['receivable_delta'], $previous['receivable_delta'], false],
+                    ['Market credit change', $totals['receivable_delta'], $previous['receivable_delta'], false],
                 ] as [$label, $value, $prior, $higherIsBetter])
                     @php($pct = $change($value, $prior))
                     <div class="px-4 py-4 sm:px-6">
@@ -224,7 +224,7 @@
                         </dd>
                         <p class="mt-1 text-xs">
                             @if ($pct === null)
-                                <span class="text-gray-400">no comparable period</span>
+                                <span class="text-gray-400">no previous period to compare</span>
                             @else
                                 @php($good = $higherIsBetter === null ? null : ($higherIsBetter ? $pct >= 0 : $pct <= 0))
                                 <span class="{{ $good === null ? 'text-gray-500' : ($good ? 'text-emerald-700' : 'text-red-700') }}">
@@ -248,7 +248,7 @@
                 read differently anyway — flows add up, balances carry forward.
             --}}
             <x-panel title="Trading"
-                     description="What happened in each period. These add up to the totals at the bottom.">
+                     description="Figures for each period. The totals are shown at the bottom.">
                 <table class="w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
@@ -292,7 +292,7 @@
             </x-panel>
 
             <x-panel title="Position"
-                     description="Closing balances at the end of each period, carried forward from the opening row. These are not added up.">
+                     description="Closing balances at the end of each period, carried forward from the opening row. These are not totalled.">
                 <table class="w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
@@ -427,8 +427,8 @@
                         data: {
                             labels,
                             datasets: [
-                                line('Money kept (after stock and expenses)', @json($series('net_profit')), ORANGE),
-                                bar('What customers bought', @json($series('sales')), BLUE),
+                                line('Net profit (after stock cost and expenses)', @json($series('net_profit')), ORANGE),
+                                bar('Sales', @json($series('sales')), BLUE),
                             ],
                         },
                         options: options(),
@@ -438,8 +438,8 @@
                         data: {
                             labels: withOpening,
                             datasets: [
-                                line('What we own', @json($positionSeries('assets')), BLUE),
-                                line('What we owe', @json($positionSeries('liabilities')), ORANGE),
+                                line('Assets', @json($positionSeries('assets')), BLUE),
+                                line('Liabilities', @json($positionSeries('liabilities')), ORANGE),
                             ],
                         },
                         options: options(),
@@ -449,8 +449,8 @@
                         data: {
                             labels,
                             datasets: [
-                                bar('Given on credit', @json($series('credit_sales')), ORANGE),
-                                bar('Collected back', @json($series('collections')), BLUE),
+                                bar('Credit sales', @json($series('credit_sales')), ORANGE),
+                                bar('Collections', @json($series('collections')), BLUE),
                             ],
                         },
                         options: options(),
@@ -462,8 +462,8 @@
                             datasets: [
                                 // A 2px white edge separates the stacked parts.
                                 bar('Cash', @json($positionSeries('cash')), BLUE, { borderRadius: 0, borderColor: '#fff', borderWidth: 2 }),
-                                bar('Medicine in stock', @json($positionSeries('stock')), ORANGE, { borderRadius: 0, borderColor: '#fff', borderWidth: 2 }),
-                                bar('Still with the market', @json($positionSeries('receivables')), AQUA, { borderRadius: 0, borderColor: '#fff', borderWidth: 2 }),
+                                bar('Stock', @json($positionSeries('stock')), ORANGE, { borderRadius: 0, borderColor: '#fff', borderWidth: 2 }),
+                                bar('Pending from market', @json($positionSeries('receivables')), AQUA, { borderRadius: 0, borderColor: '#fff', borderWidth: 2 }),
                             ],
                         },
                         options: options({ stacked: true }),
@@ -473,7 +473,7 @@
                         data: {
                             labels,
                             datasets: [
-                                line('Left from every Rs. 100 sold', @json(array_map(fn ($r) => $r['margin'], $rows)), BLUE, { spanGaps: true }),
+                                line('Margin on every Rs. 100 sold',@json(array_map(fn ($r) => $r['margin'], $rows)), BLUE, { spanGaps: true }),
                             ],
                         },
                         options: {
@@ -481,7 +481,7 @@
                             // One series: the title names it, so no legend box.
                             plugins: {
                                 legend: { display: false },
-                                tooltip: { callbacks: { label: c => ` Rs. ${c.parsed.y?.toFixed(0) ?? '—'} left from every Rs. 100 sold` } },
+                                tooltip: { callbacks: { label: c => ` Rs. ${c.parsed.y?.toFixed(0) ?? '—'} margin on every Rs. 100 sold` } },
                             },
                         },
                     });

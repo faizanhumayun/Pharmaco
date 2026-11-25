@@ -20,10 +20,10 @@
 
     // What the back office is for, in the words on its own screens.
     $looksAfter = [
-        ['Businesses', 'Sets each pharmacy and distributor up, and suspends one when it has to.'],
-        ['Opening positions', 'Enters where a business stands on its first day, then locks it.'],
+        ['Businesses', 'Sets up each pharmacy and distributor, and suspends a business when required.'],
+        ['Opening positions', 'Enters the opening position of a business on its first day, then locks it.'],
         ['People', 'Creates every account. There is no public sign-up.'],
-        ['Payment methods', 'Keeps the list of wallets and banks businesses can be paid through.'],
+        ['Payment methods', 'Maintains the list of wallets and banks that businesses can receive payments through.'],
     ];
 @endphp
 <!doctype html>
@@ -46,11 +46,11 @@
             <div class="ph-login__body">
                 <div class="ph-login__intro">
                     <p class="text-label">{{ $backoffice ? 'Back office sign in' : 'Business sign in' }}</p>
-                    <h1 class="text-heading">{{ $backoffice ? 'Run the platform.' : 'Open the books.' }}</h1>
+                    <h1 class="text-heading">{{ $backoffice ? 'Manage the platform' : 'Sign in to your business' }}</h1>
                     <p class="text-body">
                         {{ $backoffice
-                            ? 'For the people who set up and look after businesses on '.$name.'.'
-                            : 'For owners, managers and staff. Use the email and password your account was set up with.' }}
+                            ? 'For staff who set up and manage businesses on '.$name.'.'
+                            : 'For owners, managers and staff. Use the email and password of your account.' }}
                     </p>
                 </div>
 
@@ -105,7 +105,7 @@
                         <p class="text-small">Work at a pharmacy or a distributor?</p>
                         <a class="ph-button ph-button--quiet" href="{{ route('login') }}">Business sign in</a>
                     @else
-                        <p class="text-small">Run the platform?</p>
+                        <p class="text-small">Platform staff?</p>
                         <a class="ph-button ph-button--quiet" href="{{ route('backoffice.login') }}">Back office sign in</a>
                     @endif
                 </div>
@@ -113,8 +113,8 @@
 
             <p class="text-small ph-login__note">
                 {{ $backoffice
-                    ? 'Back office accounts belong to no business and see every one of them.'
-                    : 'Accounts are created for you by whoever runs your business on '.$name.'. There is no public sign-up.' }}
+                    ? 'Back office accounts are not part of any business and can view all businesses.'
+                    : 'Your account is created by the person who manages your business on '.$name.'. There is no public sign-up.' }}
             </p>
         </main>
 
@@ -122,7 +122,7 @@
         <aside class="ph-login__aside" aria-label="About {{ $name }}">
             @if ($backoffice)
                 <p class="text-label">Back office</p>
-                <p class="ph-hero-title">The platform behind every set of books.</p>
+                <p class="ph-hero-title">The platform that manages every business.</p>
 
                 <ul class="ph-login__list">
                     @foreach ($looksAfter as [$what, $does])

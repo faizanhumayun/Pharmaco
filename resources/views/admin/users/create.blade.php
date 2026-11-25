@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h1 class="text-xl font-semibold text-gray-900">New user</h1>
-        <p class="mt-1 text-sm text-gray-500">Assign them to a business afterwards to give them access.</p>
+        <p class="mt-1 text-sm text-gray-500">After creating the user, add them to a business to give access.</p>
     </x-slot>
 
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">

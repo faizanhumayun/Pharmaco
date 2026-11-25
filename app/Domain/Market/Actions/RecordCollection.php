@@ -46,15 +46,15 @@ class RecordCollection
         $date ??= $business->today();
 
         if (! $amount->isPositive()) {
-            throw new LedgerException('A collection has to be an amount of money.');
+            throw new LedgerException('Enter a collection amount greater than zero.');
         }
 
         if ($via !== null && ($via->business_id !== $business->id || ! $via->is_active)) {
-            throw new LedgerException('That payment method is not switched on for this business.');
+            throw new LedgerException('This payment method is not enabled for this business.');
         }
 
         if ($against !== null && $against->business_id !== $business->id) {
-            throw new LedgerException('That bill belongs to another business.');
+            throw new LedgerException('This bill belongs to another business.');
         }
 
         return DB::transaction(function () use ($business, $pharmacy, $amount, $by, $date, $against, $note, $via) {

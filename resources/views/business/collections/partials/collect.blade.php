@@ -18,7 +18,7 @@
             <p class="text-sm text-gray-500">Collect from</p>
             <p class="text-lg font-semibold text-gray-900" x-text="taking?.name"></p>
             <p class="text-sm text-gray-500">
-                owes <span class="font-medium text-gray-900" x-text="'Rs. ' + money(taking?.owed)"></span>
+                Pending <span class="font-medium text-gray-900" x-text="'Rs. ' + money(taking?.owed)"></span>
                 on <span x-text="taking?.bills?.length"></span>
                 <span x-text="taking?.bills?.length === 1 ? 'bill' : 'bills'"></span>
             </p>
@@ -39,7 +39,7 @@
                 </button>
                 <button type="button" x-on:click="amount = String(taking?.owed ?? 0)"
                         class="rounded-md bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-200">
-                    Everything <span x-text="money(taking?.owed)"></span>
+                    Full amount <span x-text="money(taking?.owed)"></span>
                 </button>
             </div>
 
@@ -53,7 +53,7 @@
                             <span class="flex items-center gap-2">
                                 <span class="tabular-nums text-gray-900" x-text="'Rs. ' + money(row.applied)"></span>
                                 <span class="text-xs" :class="row.settled ? 'text-emerald-700' : 'text-amber-700'"
-                                      x-text="row.settled ? 'settled' : 'part paid'"></span>
+                                      x-text="row.settled ? 'Paid' : 'Part paid'"></span>
                             </span>
                         </li>
                     </template>
@@ -61,11 +61,11 @@
 
                 <p x-show="onAccount > 0" x-cloak class="mt-2 border-t border-gray-200 pt-2 text-sm text-gray-600">
                     <span class="font-medium text-gray-900" x-text="'Rs. ' + money(onAccount)"></span>
-                    more than every open bill — it stays on their account as credit.
+                    is more than all pending bills. It stays on the customer account as credit.
                 </p>
 
                 <p class="mt-2 border-t border-gray-200 pt-2 text-sm">
-                    <span class="text-gray-600">Still owes after this</span>
+                    <span class="text-gray-600">Pending after this</span>
                     <span class="float-right font-semibold tabular-nums"
                           :class="remaining > 0 ? 'text-amber-800' : 'text-emerald-800'"
                           x-text="'Rs. ' + money(remaining)"></span>
@@ -89,13 +89,13 @@
 
             <label class="mt-4 block">
                 <span class="text-sm font-medium text-gray-700">Note <span class="font-normal text-gray-400">optional</span></span>
-                <input name="note" type="text" maxlength="255" placeholder="e.g. collected on delivery"
+                <input name="note" type="text" maxlength="255" placeholder="e.g. received on delivery"
                        class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
             </label>
 
             <p class="mt-3 text-xs leading-relaxed text-gray-500">
-                Recorded on today's entry — {{ $today->format('l j F Y') }} — because that is when the
-                money arrived. The bills it pays off keep the figures they were sold with.
+                Recorded on today's entry ({{ $today->format('l j F Y') }}), the date the
+                money was received. The original bill figures do not change.
             </p>
         </div>
 

@@ -99,8 +99,8 @@ class ReceiveOrder
             // which leaves rows behind and satisfies this.
             if ($order->receiptLines()->count() === 0) {
                 throw new RuntimeException(
-                    'Nothing has been checked off, so there is no delivery to record. '
-                    .'Tick what arrived, or use Record change to mark a line as none arrived.'
+                    'No item has been checked, so there is no delivery to record. '
+                    .'Tick the items that arrived, or use Record change to mark a line as none arrived.'
                 );
             }
 

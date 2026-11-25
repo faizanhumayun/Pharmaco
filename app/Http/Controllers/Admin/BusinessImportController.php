@@ -201,7 +201,7 @@ class BusinessImportController extends Controller
         ImportOldPos $action,
     ): RedirectResponse {
         abort_if($import->business_id !== $business->id, 404);
-        abort_unless($import->isPending(), 409, 'That import has already been dealt with.');
+        abort_unless($import->isPending(), 409, 'This import has already been completed or discarded.');
 
         $take = [
             'companies' => $request->boolean('companies'),
@@ -290,7 +290,7 @@ class BusinessImportController extends Controller
     public function destroy(Business $business, BusinessImport $import): RedirectResponse
     {
         abort_if($import->business_id !== $business->id, 404);
-        abort_unless($import->isPending(), 409, 'That import has already been dealt with.');
+        abort_unless($import->isPending(), 409, 'This import has already been completed or discarded.');
 
         Storage::disk(self::DISK)->delete((string) $import->path);
 

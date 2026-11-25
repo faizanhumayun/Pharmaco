@@ -94,7 +94,7 @@ class Account extends Model
     public function notPostableReason(): string
     {
         return $this->children()->exists()
-            ? 'it has sub-accounts, so postings belong on those instead'
+            ? 'it has sub-accounts, so post to a sub-account instead'
             : 'the account is not in use';
     }
 

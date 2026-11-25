@@ -186,7 +186,7 @@ class DailyEntryPostingService
             $add(
                 TransactionType::SalesReturn, $return->onAccount(),
                 AccountCode::SalesReturns, $return->pharmacy?->account?->code ?? $receivables,
-                'Return taken off account — '.$return->label(),
+                'Return deducted from account — '.$return->label(),
             );
         }
 

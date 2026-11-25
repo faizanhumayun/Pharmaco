@@ -18,7 +18,7 @@ it('renders the chart of accounts with derived balances', function () {
         ->assertOk()
         ->assertSee('15,093.00')
         // The one check, in the page's plain wording.
-        ->assertSee('✓ Books check out', escape: false)
+        ->assertSee('✓ Accounts are balanced', escape: false)
         ->assertSee('Cash in Hand');
 });
 

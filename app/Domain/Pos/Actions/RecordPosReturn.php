@@ -46,7 +46,7 @@ class RecordPosReturn
         // Compared as calendar dates: one is in the business's timezone and
         // the other is a bare date, so comparing instants would be wrong.
         if ($date->toDateString() < $bill->business_date->toDateString()) {
-            throw new LedgerException('Goods cannot come back before they were sold.');
+            throw new LedgerException('The return date cannot be before the bill date.');
         }
 
         return DB::transaction(function () use ($bill, $business, $items, $reason, $by, $date) {
@@ -67,7 +67,7 @@ class RecordPosReturn
                 $line = $bill->lines->firstWhere('id', (int) ($item['line_id'] ?? 0));
 
                 if ($line === null) {
-                    throw new LedgerException('One of those items is not on this bill.');
+                    throw new LedgerException('One of the items is not on this bill.');
                 }
 
                 $size = max(1, $line->units_per_pack);
@@ -85,7 +85,7 @@ class RecordPosReturn
 
                 if ($pieces > $left) {
                     throw new LedgerException(sprintf(
-                        '%s: only %s of this bill\'s quantity is left to return.',
+                        '%s: only %s can still be returned on this bill.',
                         $line->name,
                         $size > 1 ? intdiv($left, $size).' + '.($left % $size).' loose' : $left,
                     ));
@@ -113,7 +113,7 @@ class RecordPosReturn
             }
 
             if ($rows === []) {
-                throw new LedgerException('Nothing was entered as coming back.');
+                throw new LedgerException('Enter the quantity being returned for at least one item.');
             }
 
             /*

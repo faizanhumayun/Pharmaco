@@ -8,7 +8,7 @@
                 </div>
                 <p class="mt-1 text-sm text-gray-500">
                     {{ $business->business_type->label() }} · {{ $business->currency }} · {{ $business->timezone }} ·
-                    counted in {{ $business->unit()->many() }}
+                    stock counted in {{ $business->unit()->many() }}
                 </p>
             </div>
             <div class="flex gap-2">
@@ -73,7 +73,7 @@
                                 @endif
                             </div>
                         @empty
-                            <p class="px-4 py-6 text-sm text-gray-500 sm:px-6">Nobody has access to this business yet.</p>
+                            <p class="px-4 py-6 text-sm text-gray-500 sm:px-6">No one has access to this business yet.</p>
                         @endforelse
                     </div>
 
@@ -122,11 +122,11 @@
                             </dd>
                         </div>
                         <div class="flex justify-between px-4 py-3 sm:px-6">
-                            <dt class="text-gray-500">Closed through</dt>
+                            <dt class="text-gray-500">Closed up to</dt>
                             <dd class="tabular-nums font-medium text-gray-900">{{ $business->locked_through_date?->format('d M Y') ?? '—' }}</dd>
                         </div>
                         <div class="flex justify-between px-4 py-3 sm:px-6">
-                            <dt class="text-gray-500">Records activity</dt>
+                            <dt class="text-gray-500">Accepts transactions</dt>
                             <dd class="font-medium {{ $business->acceptsTransactions() ? 'text-emerald-700' : 'text-gray-500' }}">
                                 {{ $business->acceptsTransactions() ? 'Yes' : 'Not yet' }}
                             </dd>
@@ -148,7 +148,7 @@
                             Change status
                         </button>
                         <p class="text-xs text-gray-500">
-                            Activation is earned by finalizing an opening balance, not granted here.
+                            A business becomes active when its opening balance is finalized. It cannot be activated here.
                         </p>
                     </form>
                 </x-panel>

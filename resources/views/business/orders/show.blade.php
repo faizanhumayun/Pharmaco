@@ -10,14 +10,15 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
+                <x-back-link :href="route('businesses.orders.index', $business)" :label="'All orders'" />
                 <div class="flex flex-wrap items-center gap-3">
                     <h1 class="text-xl font-semibold text-gray-900">{{ $order->reference }}</h1>
                     <x-badge :classes="$order->status->badgeClasses()">{{ $order->status->label() }}</x-badge>
                 </div>
                 <p class="mt-1 text-sm text-gray-500">
                     {{ $order->company->name }} · {{ $order->business_date->format('j M Y') }} ·
-                    written by {{ $order->creator->name }}
-                    @if ($order->sent_at) · sent {{ $order->sent_at->diffForHumans() }} @endif
+                    Created by {{ $order->creator->name }}
+                    @if ($order->sent_at) · Sent {{ $order->sent_at->diffForHumans() }} @endif
                 </p>
             </div>
 
@@ -64,7 +65,7 @@
                 @if ($canManage && $order->isOutstanding())
                     <a href="{{ route('businesses.orders.receive', [$business, $order]) }}"
                        class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                        Record the delivery
+                        Save delivery
                     </a>
                 @endif
 
@@ -116,8 +117,8 @@
 
         @if ($order->isOutstanding())
             <p class="mb-6 text-sm text-gray-500 print:hidden">
-                Sent {{ $order->sent_at?->diffForHumans() }} and still outstanding. When the delivery arrives,
-                record what actually came — then enter the invoice in Daily entry.
+                Sent {{ $order->sent_at?->diffForHumans() }} and not yet received. When the delivery is received,
+                save the quantities received, then enter the invoice in Daily entry.
             </p>
         @endif
 
@@ -162,26 +163,26 @@
 
             <x-panel class="mb-6 print:hidden"
                      title="Delivery"
-                     :description="$order->received_at?->format('j M Y') . ' · recorded by ' . ($order->receiver?->name ?? '—')">
+                     :description="$order->received_at?->format('j M Y') . ' · Saved by ' . ($order->receiver?->name ?? '—')">
                 <div class="flex flex-wrap items-center gap-x-6 gap-y-2 border-b border-gray-200 px-4 py-3 sm:px-6">
                     @if (! $hasForm)
                         {{-- Nothing was ordered on paper, so every line is
                              "unordered" and calling that a difference would be
                              counting the whole delivery as an exception. --}}
                         <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">
-                            Recorded without an order form
+                            Received without an order form
                         </x-badge>
                     @elseif ($exceptions->isEmpty())
-                        <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20">Everything arrived as ordered ✓</x-badge>
+                        <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20">All items received as ordered ✓</x-badge>
                     @else
                         <x-badge classes="bg-amber-50 text-amber-800 ring-amber-600/20">
-                            {{ $exceptions->count() }} {{ Str::plural('difference', $exceptions->count()) }} against the order
+                            {{ $exceptions->count() }} {{ Str::plural('difference', $exceptions->count()) }} from the order
                         </x-badge>
                     @endif
 
                     <span class="text-sm text-gray-500">
-                        ordered <span class="font-mono tabular-nums">{{ $order->total()->format() }}</span>
-                        · received <span class="font-mono font-semibold tabular-nums text-gray-900">{{ $order->receivedTotal()->format() }}</span>
+                        Ordered <span class="font-mono tabular-nums">{{ $order->total()->format() }}</span>
+                        · Received <span class="font-mono font-semibold tabular-nums text-gray-900">{{ $order->receivedTotal()->format() }}</span>
                     </span>
                 </div>
 
@@ -192,10 +193,10 @@
                             Invoice <span class="font-medium text-gray-900">{{ $bill->invoice_no ?? '—' }}</span>
                         </span>
                         <span class="text-gray-500">
-                            billed <span class="font-mono font-semibold tabular-nums text-gray-900">{{ $bill->amount->format() }}</span>
+                            Bill amount <span class="font-mono font-semibold tabular-nums text-gray-900">{{ $bill->amount->format() }}</span>
                         </span>
                         <span class="text-gray-500">
-                            paid <span class="font-mono tabular-nums text-gray-900">{{ $bill->paid->format() }}</span>
+                            Paid <span class="font-mono tabular-nums text-gray-900">{{ $bill->paid->format() }}</span>
                         </span>
                         @php($owed = $bill->pending())
                         {{-- A negative is not a negative debt: it is money paid
@@ -205,11 +206,11 @@
                         @if ($owed->isNegative())
                             <span class="text-sky-700">
                                 <span class="font-mono font-semibold tabular-nums">{{ $owed->absolute()->format() }}</span>
-                                paid beyond this bill
+                                paid in excess of this bill
                             </span>
                         @else
                             <span class="{{ $owed->isZero() ? 'text-gray-500' : 'text-amber-700' }}">
-                                pending <span class="font-mono font-semibold tabular-nums">{{ $owed->format() }}</span>
+                                Pending <span class="font-mono font-semibold tabular-nums">{{ $owed->format() }}</span>
                             </span>
                         @endif
 
@@ -217,7 +218,7 @@
                              only in the ledger once that day is posted. --}}
                         <a href="{{ route('businesses.daily.show', [$business, $bill->dailyEntry]) }}"
                            class="ml-auto text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                            On the daily entry for {{ $bill->dailyEntry->business_date->format('j M Y') }}
+                            In the daily entry of {{ $bill->dailyEntry->business_date->format('j M Y') }}
                             ({{ strtolower($bill->dailyEntry->status->label()) }}) →
                         </a>
                     </div>
@@ -231,22 +232,22 @@
                         <span>
                             <span class="font-semibold">{{ number_format($order->receiptLines->sum('packs')) }}
                             {{ Str::plural($business->unit()->one(), $order->receiptLines->sum('packs')) }}</span>
-                            are already counted in stock and can be sold.
+                            already added to stock and available for sale.
                         </span>
                         <a href="{{ route('businesses.stock.index', $business) }}"
-                           class="ml-auto font-medium underline">See stock</a>
+                           class="ml-auto font-medium underline">View stock</a>
                     </div>
 
                     @if ($bill->dailyEntry->isEditable())
                         <div class="flex flex-wrap items-center gap-3 border-b border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-900 sm:px-6">
                             <span>
-                                The money has not reached the ledger yet — what the stock is
-                                worth, the payable to {{ $order->company->name }} and the cash paid
-                                all move when the daily entry for
+                                The amounts are not in the accounts yet. The stock value,
+                                the amount payable to {{ $order->company->name }} and the cash paid
+                                are recorded when the daily entry of
                                 {{ $bill->dailyEntry->business_date->format('j M Y') }} is posted.
                             </span>
                             <a href="{{ route('businesses.daily.show', [$business, $bill->dailyEntry]) }}"
-                               class="ml-auto font-semibold underline">Post that day</a>
+                               class="ml-auto font-semibold underline">Open daily entry</a>
                         </div>
                     @endif
                 @endif
@@ -266,7 +267,7 @@
                                     <td class="px-3 py-2 sm:px-6">
                                         <span class="font-medium text-gray-900">{{ $row['line']?->label() ?? $row['receipt']->label() }}</span>
                                         @if ($row['line'] === null)
-                                            <x-badge classes="ml-2 bg-sky-50 text-sky-800 ring-sky-600/20">not ordered</x-badge>
+                                            <x-badge classes="ml-2 bg-sky-50 text-sky-800 ring-sky-600/20">Not ordered</x-badge>
                                         @endif
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-600">
@@ -277,7 +278,7 @@
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono tabular-nums {{ $row['difference'] === 0 ? 'text-gray-400' : ($row['difference'] < 0 ? 'font-semibold text-amber-700' : 'font-semibold text-sky-700') }}">
                                         @if ($row['difference'] === 0)
-                                            as ordered
+                                            As ordered
                                         @else
                                             {{ $row['difference'] > 0 ? '+' : '' }}{{ number_format($row['difference']) }}
                                         @endif
@@ -288,7 +289,7 @@
                                         @elseif ($row['receipt'] === null && $row['line'] !== null)
                                             {{-- Distinct from a recorded zero: this one was never
                                                  checked off at all, so nobody said why. --}}
-                                            <span class="text-gray-400">not checked off</span>
+                                            <span class="text-gray-400">Not checked</span>
                                         @endif
                                     </td>
                                 </tr>
@@ -302,19 +303,19 @@
 
         @if ($order->isEditable())
             <p class="mb-6 text-sm text-gray-500 print:hidden">
-                This is still a draft. Send the PDF or the image to the company, then mark it sent — after that it
-                is fixed, so their copy and yours cannot disagree.
+                This order is a draft. Send the PDF or the image to the company, then mark it as sent.
+                After that, the order cannot be changed.
             </p>
         @endif
 
         @if ($hasForm && ! $business->address && ! $business->phone && ! $business->email && ! $business->ntn)
             <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 print:hidden">
-                This order goes out with only your business name on it — no address, phone or NTN.
+                This order form shows only your business name. It has no address, phone or NTN.
                 @can('update', $business)
-                    <a href="{{ route('admin.businesses.edit', $business) }}" class="font-semibold underline">Add them</a>
-                    and every order form from now on carries them.
+                    <a href="{{ route('admin.businesses.edit', $business) }}" class="font-semibold underline">Add these details</a>
+                    to show them on all future order forms.
                 @else
-                    Ask the App Owner to add them.
+                    Ask the App Owner to add these details.
                 @endcan
             </div>
         @endif
@@ -434,7 +435,7 @@
             </table>
 
             <div class="mt-4 flex flex-wrap justify-between gap-6 text-sm text-gray-600">
-                <p>{{ number_format($order->totalPacks()) }} packs across {{ $order->lines->count() }} {{ Str::plural('item', $order->lines->count()) }}</p>
+                <p>{{ number_format($order->totalPacks()) }} packs in {{ $order->lines->count() }} {{ Str::plural('item', $order->lines->count()) }}</p>
                 <p>Prepared by {{ $order->creator->name }}</p>
             </div>
 
@@ -446,7 +447,7 @@
             @endif
 
             <p class="mt-6 border-t border-gray-200 pt-3 text-xs text-gray-400">
-                This is an order, not an invoice. Prices are as quoted and subject to the company's confirmation.
+                This is an order, not an invoice. Prices are as quoted and must be confirmed by the company.
             </p>
         </div>
         @endif

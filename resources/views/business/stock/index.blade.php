@@ -4,7 +4,7 @@
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Stock</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    What has come in, and the one independent check on the balance that is an estimate.
+                    Stock received, stock in hand, and stock counts to check the estimated stock value.
                 </p>
             </div>
 
@@ -25,7 +25,7 @@
                 </div>
                 {{-- The other side of what was received: what the goods sold at
                      the till cost, less what came back. --}}
-                <div class="rounded-md bg-gray-100 px-3 py-2" title="What the stock sold at the counter cost, less goods returned">
+                <div class="rounded-md bg-gray-100 px-3 py-2" title="Cost of stock sold at POS, less returned goods">
                     <p class="text-xs uppercase tracking-wide text-gray-500">Stock sold · {{ strtolower($period['label']) }}</p>
                     <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $soldValue->format() }}</p>
                 </div>
@@ -83,7 +83,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="sticky top-0 z-10 bg-gray-50">
                         <tr>
-                            @foreach ([['Received','left'],['Reference','left'],['Supplier','left'],['Items','right'],['Value','right'],['Invoice','left'],['Reached the books','left']] as [$h,$align])
+                            @foreach ([['Received','left'],['Reference','left'],['Supplier','left'],['Items','right'],['Value','right'],['Invoice','left'],['In accounts','left']] as [$h,$align])
                                 <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $h }}</th>
                             @endforeach
                         </tr>
@@ -107,16 +107,16 @@
                                     @if ($entry === null)
                                         {{-- Goods with no bill behind them never touch the ledger, so the
                                              book value above does not know about this one. --}}
-                                        <span class="text-gray-400">no invoice yet</span>
+                                        <span class="text-gray-400">No invoice yet</span>
                                     @elseif ($entry->isEditable())
                                         <a href="{{ route('businesses.daily.show', [$business, $entry]) }}"
                                            class="text-amber-700 hover:text-amber-800">
-                                            not yet — {{ $entry->business_date->format('j M') }} is a draft
+                                            Not yet. Entry of {{ $entry->business_date->format('j M') }} is a draft
                                         </a>
                                     @else
                                         <a href="{{ route('businesses.daily.show', [$business, $entry]) }}"
                                            class="text-emerald-700 hover:text-emerald-800">
-                                            yes — posted {{ $entry->business_date->format('j M') }}
+                                            Yes. Posted {{ $entry->business_date->format('j M') }}
                                         </a>
                                     @endif
                                 </td>
@@ -124,8 +124,8 @@
                         @empty
                             <tr>
                                 <td colspan="7" class="px-6 py-10 text-center text-gray-500">
-                                    Nothing received {{ strtolower($period['label']) }}.
-                                    Deliveries appear here once an order form is received.
+                                    No stock received {{ strtolower($period['label']) }}.
+                                    Deliveries are shown here after an order is received.
                                 </td>
                             </tr>
                         @endforelse
@@ -140,7 +140,7 @@
                     <input type="hidden" name="period" value="{{ $periodKey }}">
                     <div>
                         <x-input-label for="q" value="Search products" />
-                        <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search a product"
+                        <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search products"
                            class="mt-1 block w-64 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     </div>
 
@@ -181,7 +181,7 @@
                             @empty
                                 <tr>
                                     <td colspan="6" class="px-6 py-10 text-center text-gray-500">
-                                        Nothing in stock yet. Quantities build up as deliveries are recorded.
+                                        No products in stock. Quantities increase when deliveries are saved.
                                     </td>
                                 </tr>
                             @endforelse
@@ -209,11 +209,10 @@
                 @endif
 
                 <p class="shrink-0 border-t border-gray-200 px-4 py-2 text-xs text-gray-500 sm:px-6">
-                    Quantities are the sum of every movement: deliveries add, adjustments correct. Selling is not
-                    yet recorded per product, so until the point of sale is built these do not come down on their
-                    own — record breakage, expiry and opening stock as an adjustment on the product.
-                    <span class="text-gray-400">Value at cost is each product's current rate, for comparing against
-                    the stock value of {{ $bookValue->format() }} — the ledger holds the figure that counts.</span>
+                    Quantities are the total of all stock movements: deliveries add stock, sales reduce it and adjustments correct it.
+                    Record breakage, expiry and opening stock as an adjustment on the product.
+                    <span class="text-gray-400">Value at cost uses each product's current rate. Compare it with
+                    the stock value of {{ $bookValue->format() }}. The stock value in the accounts is the official figure.</span>
                 </p>
             </div>
 
@@ -226,7 +225,7 @@
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="sticky top-0 z-10 bg-gray-50">
                                     <tr>
-                                        @foreach (['Date', 'Stock value', 'Counted', 'Variance', 'Drift', 'Reason', 'Verified by'] as $h)
+                                        @foreach (['Date', 'Stock value', 'Counted', 'Variance', 'Variance %', 'Reason', 'Verified by'] as $h)
                                             <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ in_array($h, ['Date','Reason','Verified by']) ? 'text-left' : 'text-right' }}">{{ $h }}</th>
                                         @endforeach
                                     </tr>
@@ -243,7 +242,7 @@
                                             <td class="whitespace-nowrap px-3 py-2 text-gray-500">{{ $v->verifier->name }}</td>
                                         </tr>
                                     @empty
-                                        <tr><td colspan="7" class="px-6 py-10 text-center text-gray-500">Stock has never been counted.</td></tr>
+                                        <tr><td colspan="7" class="px-6 py-10 text-center text-gray-500">No stock count recorded yet.</td></tr>
                                     @endforelse
                                 </tbody>
                             </table>
@@ -280,15 +279,15 @@
                         <div>
                             <x-input-label for="reason" value="Notes" />
                             <x-text-input id="reason" name="reason" type="text" class="mt-1 block w-full"
-                                          placeholder="Expiry write-off and breakage found in Godown 2" />
+                                          placeholder="e.g. Expired and broken stock found in Godown 2" />
                         </div>
 
                         <button class="w-full rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                            Record count
+                            Save count
                         </button>
                         <p class="text-xs text-gray-500">
-                            The difference posts to profit and loss as a real cost. Expiry, breakage and theft are
-                            invisible to the derived cost model — this is where they surface.
+                            The difference is recorded in profit and loss as a cost. Losses from expiry, breakage
+                            and theft are recorded only through a stock count.
                         </p>
                     </form>
                 </div>

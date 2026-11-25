@@ -55,7 +55,7 @@
                             <dd class="tabular-nums text-slate-900">− Rs. {{ $rs($bill->received) }}</dd>
                         </div>
                         <div class="flex justify-between border-t border-slate-200 pt-2 text-base font-bold">
-                            <dt class="text-slate-900">Owes now</dt>
+                            <dt class="text-slate-900">Pending now</dt>
                             <dd class="tabular-nums {{ $account['owes']->isPositive() ? 'text-amber-800' : 'text-emerald-800' }}">
                                 Rs. {{ $rs($account['owes']) }}
                             </dd>
@@ -66,7 +66,7 @@
                         {{-- Said plainly rather than folded in silently: a day
                              still being entered has not reached the ledger. --}}
                         <p class="mt-3 border-t border-slate-200 pt-2 text-xs leading-relaxed text-slate-500">
-                            Rs. {{ $rs($account['posted']) }} is on the books; the remaining
+                            Rs. {{ $rs($account['posted']) }} is posted in the accounts. The remaining
                             Rs. {{ $rs($account['unposted']) }} is from bills on days not yet posted,
                             including this one.
                         </p>
@@ -74,7 +74,7 @@
 
                     <a href="{{ route('businesses.pharmacies.show', [$business, $account['customer']]) }}"
                        class="mt-3 inline-block text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                        Their full account →
+                        Customer account →
                     </a>
                 </div>
             @elseif ($saved['account'] === null && ! $saved['print'])

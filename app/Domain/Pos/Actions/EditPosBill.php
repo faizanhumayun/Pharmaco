@@ -56,11 +56,11 @@ class EditPosBill
         $reason = trim($reason);
 
         if ($reason === '') {
-            throw new LedgerException('Say why the bill is being changed.');
+            throw new LedgerException('Enter the reason for changing this bill.');
         }
 
         if ($via !== null && ($via->business_id !== $business->id || ! $via->is_active)) {
-            throw new LedgerException('That payment method is not switched on for this business.');
+            throw new LedgerException('This payment method is not enabled for this business.');
         }
 
         if (! $received->isPositive()) {
@@ -73,8 +73,8 @@ class EditPosBill
 
             if ($bill->returns->isNotEmpty()) {
                 throw new LedgerException(
-                    'Goods have already been returned against this bill, so it can no longer be edited. '
-                    .'Take anything further back as another return.'
+                    'Items have already been returned against this bill, so it cannot be edited. '
+                    .'Record any further return as a new return.'
                 );
             }
 
@@ -92,7 +92,13 @@ class EditPosBill
             $total = $total->minus($discount);
 
             if ($total->isNegative()) {
-                throw new LedgerException('The discount is more than the bill.');
+                throw new LedgerException('The discount cannot be more than the bill total.');
+            }
+
+            // A walk-in is a stranger: there is nobody to collect from later,
+            // so a bill with no customer on it is paid in full or not saved.
+            if (($customer === null || trim($customer) === '') && $received->lessThan($total)) {
+                throw new LedgerException('A walk-in bill must be paid in full. Add a customer to keep an amount pending.');
             }
 
             // Money already collected against this bill cannot be left paying
@@ -103,7 +109,7 @@ class EditPosBill
 
             if ($collected->greaterThan($newCredit)) {
                 throw new LedgerException(sprintf(
-                    'Rs. %s has since been collected against this bill, but the change would leave only Rs. %s owing on it.',
+                    'Rs. %s has already been collected against this bill. After this change, the pending amount would be only Rs. %s.',
                     $collected->format(), $newCredit->format(),
                 ));
             }

@@ -105,7 +105,7 @@ class StockAuditController extends Controller
         ]);
 
         if (! $request->boolean('agrees') && $data['counted_packs'] === null) {
-            return back()->withErrors(['counted_packs' => 'Say how many are on the shelf, or that it agrees.']);
+            return back()->withErrors(['counted_packs' => 'Enter the counted quantity, or confirm that the count matches.']);
         }
 
         $product = CompanyProduct::forBusiness($business)->findOrFail($data['company_product_id']);
@@ -120,9 +120,9 @@ class StockAuditController extends Controller
         );
 
         return back()->with('status', $count->difference() === 0
-            ? sprintf('%s counted — the shelf agrees.', $product->label())
+            ? sprintf('%s counted. The count matches the system.', $product->label())
             : sprintf(
-                '%s counted %s against the books. It is waiting to be approved.',
+                '%s counted %s compared with the system. It is waiting for approval.',
                 $product->label(),
                 $count->differenceLabel(),
             ));
@@ -149,7 +149,7 @@ class StockAuditController extends Controller
         }
 
         return back()->with('status', $data['decision'] === 'approve'
-            ? 'Stock corrected to what was counted.'
-            : 'Left as it was — the count was judged a miscount.');
+            ? 'Stock corrected to the counted quantity.'
+            : 'Stock was not changed. The count was marked as a counting mistake.');
     }
 }

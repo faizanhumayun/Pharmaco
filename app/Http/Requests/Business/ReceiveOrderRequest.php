@@ -48,6 +48,43 @@ class ReceiveOrderRequest extends FormRequest
         ];
     }
 
+    /**
+     * Whatever arrived has to say when it expires.
+     *
+     * Stock with no date can never be warned about, so none is taken in
+     * without one. A line nothing came for has no date to give. Every line
+     * short of one is named, rather than only the first.
+     *
+     * @return list<\Closure>
+     */
+    public function after(): array
+    {
+        return [function (\Illuminate\Validation\Validator $validator) {
+            $has = fn (array $row, string $key) => (int) ($row[$key] ?? 0) > 0;
+            $blank = fn (array $row) => trim((string) ($row['expires_on'] ?? '')) === '';
+            $names = $this->route('order')?->lines->keyBy('id') ?? collect();
+
+            foreach ((array) $this->input('lines', []) as $id => $row) {
+                if (is_array($row) && ($has($row, 'packs') || $has($row, 'cartons')) && $blank($row)) {
+                    $validator->errors()->add('expires_on', sprintf(
+                        '%s: enter the expiry printed on the pack.',
+                        $names->get($id)?->label() ?? 'A line',
+                    ));
+                }
+            }
+
+            foreach ((array) $this->input('extras', []) as $row) {
+                if (is_array($row) && ($has($row, 'packs') || $has($row, 'cartons') || $has($row, 'loose')) && $blank($row)) {
+                    $validator->errors()->add('expires_on', sprintf(
+                        '%s: enter the expiry printed on the pack.',
+                        \App\Models\CompanyProduct::forBusiness($this->route('business'))
+                            ->find((int) ($row['company_product_id'] ?? 0))?->label() ?? 'An extra item that was not on the order',
+                    ));
+                }
+            }
+        }];
+    }
+
     /** @return array<string, mixed> */
     public function receiptData(): array
     {

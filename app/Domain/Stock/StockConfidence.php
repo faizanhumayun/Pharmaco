@@ -29,7 +29,7 @@ class StockConfidence
                 'drift' => null,
                 'stale' => true,
                 'label' => 'never verified',
-                'detail' => 'Stock has never been counted, so its error is unbounded and growing.',
+                'detail' => 'Stock has never been counted, so the stock figure may be wrong.',
             ];
         }
 

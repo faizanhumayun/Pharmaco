@@ -39,21 +39,65 @@ class CollectionController extends Controller
         // One query for every allocation on the page, rather than one per bill.
         $collected = $outstanding->collectedByBill($business);
 
-        $bills = $outstanding->bills($business)
+        // What the list is narrowed to: an invoice number, a customer's
+        // name, and the dates the bills were rung up between.
+        $filters = $request->validate([
+            'show' => ['nullable', 'in:pending,all'],
+            'invoice' => ['nullable', 'string', 'max:40'],
+            'customer' => ['nullable', 'string', 'max:120'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+
+        $show = $filters['show'] ?? 'pending';
+        $invoice = mb_strtolower(trim((string) ($filters['invoice'] ?? '')));
+        $customer = mb_strtolower(trim((string) ($filters['customer'] ?? '')));
+        $from = $filters['from'] ?? null;
+        $to = $filters['to'] ?? null;
+        $filtered = $invoice !== '' || $customer !== '' || $from !== null || $to !== null;
+
+        $matches = fn (PosBill $bill) => ($invoice === '' || str_contains(mb_strtolower($bill->reference()), $invoice))
+            && ($customer === '' || str_contains(mb_strtolower((string) $bill->customer_name), $customer))
+            && ($from === null || $bill->business_date->toDateString() >= $from)
+            && ($to === null || $bill->business_date->toDateString() <= $to);
+
+        $pending = $outstanding->bills($business)
             ->each(fn (PosBill $bill) => $bill->setAttribute(
                 'collected', $collected[$bill->id] ?? Money::zero()
             ))
             ->filter(fn (PosBill $bill) => $outstanding->onBill($bill)->isPositive())
             ->values();
 
-        $search = trim((string) $request->query('q'));
+        $bills = $pending->filter($matches)->values();
 
-        if ($search !== '') {
-            $bills = $bills->filter(
-                fn (PosBill $bill) => str_contains(mb_strtolower((string) $bill->customer_name), mb_strtolower($search))
-                    || str_contains(mb_strtolower($bill->reference()), mb_strtolower($search))
-            )->values();
-        }
+        /*
+         * Every bill, paid or not, for looking one up. With nothing asked
+         * for it is the last thirty days: the whole history is a search away
+         * and is not loaded for a page nobody has narrowed.
+         */
+        $allFrom = $show === 'all' && ! $filtered ? $today->copy()->subDays(30)->toDateString() : $from;
+
+        $all = $show !== 'all' ? collect() : PosBill::forBusiness($business)
+            ->with('returns')
+            ->when($allFrom !== null, fn ($q) => $q->whereDate('business_date', '>=', $allFrom))
+            ->when($to !== null, fn ($q) => $q->whereDate('business_date', '<=', $to))
+            ->when($customer !== '', fn ($q) => $q->whereRaw('LOWER(customer_name) LIKE ?', ['%'.addcslashes($customer, '%_\\').'%']))
+            ->orderByDesc('business_date')
+            ->orderByDesc('id')
+            ->get()
+            ->filter(fn (PosBill $bill) => $invoice === '' || str_contains(mb_strtolower($bill->reference()), $invoice))
+            ->values()
+            ->each(fn (PosBill $bill) => $bill->setAttribute('collected', $collected[$bill->id] ?? Money::zero()));
+
+        $page = max(1, (int) $request->query('page', 1));
+        $allBills = new \Illuminate\Pagination\LengthAwarePaginator(
+            $all->forPage($page, 50)->map(fn (PosBill $bill) => [
+                'bill' => $bill,
+                'owed' => $outstanding->onBill($bill),
+            ])->values(),
+            $all->count(), 50, $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
 
         /*
          * Grouped by who owes it, because collection is a round of customers
@@ -82,7 +126,16 @@ class CollectionController extends Controller
         return view('business.collections.index', [
             'business' => $business,
             'rounds' => $rounds,
-            'search' => $search,
+            'show' => $show,
+            'filtered' => $filtered,
+            'allBills' => $allBills,
+            // The All bills list in three figures: how many, what they came
+            // to, and what is still to come in on them.
+            'allTotal' => Money::sum($all->pluck('total')),
+            'allPending' => Money::sum($all->map(fn (PosBill $bill) => $outstanding->onBill($bill))),
+            'allSince' => $show === 'all' && ! $filtered ? $today->copy()->subDays(30) : null,
+            'pendingCount' => $pending->count(),
+            'customersByName' => $customers,
             'today' => $today,
             'total' => Money::sum($rounds->pluck('owed')),
             // What the ledger says the whole market owes, which includes the
@@ -128,6 +181,6 @@ class CollectionController extends Controller
         // Back where the collecting was done — the round, or the day whose
         // invoice it was — rather than always to the list.
         return back()
-            ->with('status', "Collected Rs. {$data['amount']} from {$pharmacy->name} — on the entry for {$entry->business_date->format('j M Y')}.");
+            ->with('status', "Collected Rs. {$data['amount']} from {$pharmacy->name}. Recorded on the day entry for {$entry->business_date->format('j M Y')}.");
     }
 }

@@ -18,7 +18,7 @@
                 <a href="{{ route('businesses.products.index', $business) }}"
                    class="block rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm hover:border-emerald-600">
                     <p class="text-sm font-semibold text-gray-900">Products &amp; price lists</p>
-                    <p class="mt-1 text-sm text-gray-500">Look up a pack size, a rate, or what a company sells.</p>
+                    <p class="mt-1 text-sm text-gray-500">View pack sizes, rates and company products.</p>
                 </a>
             @endcan
 
@@ -26,15 +26,15 @@
                 <a href="{{ route('businesses.orders.index', $business) }}"
                    class="block rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm hover:border-emerald-600">
                     <p class="text-sm font-semibold text-gray-900">Order forms</p>
-                    <p class="mt-1 text-sm text-gray-500">Orders raised to companies.</p>
+                    <p class="mt-1 text-sm text-gray-500">Orders placed with companies.</p>
                 </a>
             @endcan
         </div>
 
         @if ($role === \App\Enums\BusinessRole::OrderBooker)
             <div class="rounded-md border border-gray-200 bg-white px-4 py-3 text-sm text-gray-600">
-                Booking orders from pharmacies is being built. Until then, the price lists above are the
-                reference for quoting.
+                Order booking from pharmacies is coming soon. Until then, use the price lists above for
+                quotations.
             </div>
         @endif
     </div>

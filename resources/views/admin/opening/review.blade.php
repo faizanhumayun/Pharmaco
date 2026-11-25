@@ -21,9 +21,9 @@
                 <p class="font-semibold">This opening position is negative.</p>
                 <p class="mt-1">
                     Liabilities exceed assets by <strong>{{ $position->netPosition()->absolute()->format(withCurrency: true) }}</strong>.
-                    That is either a real finding the business owner needs to know about — trading
-                    substantially on supplier credit — or the position is incomplete, most commonly
-                    unrecorded fixed assets, cash held elsewhere, or stock valued below cost.
+                    Either the business depends heavily on supplier credit, which the business owner
+                    should know, or the figures are incomplete. Common causes are unrecorded fixed
+                    assets, cash held elsewhere, or stock valued below cost.
                 </p>
                 <p class="mt-2">Confirm it, or go back and revise the figures.</p>
             </div>
@@ -38,14 +38,13 @@
                     @endif
                 </p>
                 <p class="mt-1">
-                    The difference has to go somewhere for the entry to balance, so it posts to
-                    <strong>3900 Opening Balance Equity</strong>.
+                    The difference is posted to
+                    <strong>3900 Opening Balance Equity</strong> so that the entry balances.
                     @if ($position->needsExplanation())
-                        It is large relative to the assets declared, so it needs an explanation before
-                        this can be finalized — otherwise it becomes a silent plug that quietly distorts
-                        the position on every screen from now on.
+                        It is large compared with the total assets. Enter an explanation before
+                        finalizing.
                     @else
-                        It stays visible on the ledger until it is explained or corrected.
+                        It remains visible in the ledger until it is explained or corrected.
                     @endif
                 </p>
             </div>
@@ -75,8 +74,8 @@
 
                     <p class="text-xs text-gray-500">
                         Finalizing posts the opening journal and activates the business.
-                        There is no un-finalize: corrections afterwards are adjustment transactions,
-                        recorded against whoever makes them.
+                        This cannot be undone. Later corrections are posted as adjustment transactions
+                        under the name of the user who makes them.
                     </p>
                 </div>
 

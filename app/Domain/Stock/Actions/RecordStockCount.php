@@ -45,7 +45,7 @@ class RecordStockCount
         }
 
         if ($counted !== null && ($counted < 0 || $countedLoose < 0)) {
-            throw new RuntimeException('A shelf cannot hold less than nothing.');
+            throw new RuntimeException('The counted quantity cannot be less than zero.');
         }
 
         return DB::transaction(function () use ($business, $product, $counted, $countedLoose, $by, $note) {

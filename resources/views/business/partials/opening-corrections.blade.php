@@ -4,7 +4,7 @@
 --}}
 @if ($startingPoint->corrections->isNotEmpty())
     <div class="mt-3 border-t border-gray-100 pt-3">
-        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Corrected since</p>
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Later corrections</p>
         <ul class="mt-1 space-y-1 text-sm">
             @foreach ($startingPoint->corrections as $correction)
                 @foreach ($correction->lines->reject(fn ($l) => $l->account->code === \App\Enums\AccountCode::OpeningBalanceEquity->value) as $line)

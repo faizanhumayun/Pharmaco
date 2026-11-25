@@ -40,7 +40,7 @@ class SaveOrder
             $lines = $this->buildLines($data['lines'] ?? [], $catalogue);
 
             if ($lines === []) {
-                throw new RuntimeException('An order form needs at least one product on it.');
+                throw new RuntimeException('Add at least one product to the order.');
             }
 
             $attributes = [

@@ -85,10 +85,22 @@ class ExpiringStockController extends Controller
 
         $show = $request->query('show') === 'expired' ? 'expired' : 'near';
 
+        // Narrowing the list on screen: a product's name or code, its
+        // company, a batch number. The totals above it stay the whole picture.
+        $find = fn (string $key) => mb_strtolower(trim((string) $request->query($key)));
+        [$product, $company, $batch] = [$find('product'), $find('company'), $find('batch')];
+
+        $listed = ($show === 'expired' ? $expired : $near)
+            ->filter(fn (array $row) => ($product === '' || str_contains(mb_strtolower($row['product']->label().' '.$row['product']->code), $product))
+                && ($company === '' || str_contains(mb_strtolower((string) $row['product']->company?->name), $company))
+                && ($batch === '' || str_contains(mb_strtolower((string) $row['batch_no']), $batch)))
+            ->values();
+
         return view('business.stock.expiring', [
             'business' => $business,
             'show' => $show,
-            'rows' => $show === 'expired' ? $expired : $near,
+            'rows' => $listed,
+            'searched' => $product !== '' || $company !== '' || $batch !== '',
             'today' => $today,
             'within' => $within ?? $business->expiryAlertMonths(),
             'near' => $near,

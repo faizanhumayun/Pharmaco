@@ -137,7 +137,7 @@ class RecordDeliveryPurchase
         if (! $entry->isEditable()) {
             throw new RuntimeException(
                 'This delivery\'s invoice is on a daily entry that has been posted, so the bill cannot be changed '
-                .'here. Amend that day instead — the goods on this delivery can still be corrected.'
+                .'here. Amend that day instead. The items on this delivery can still be corrected.'
             );
         }
     }

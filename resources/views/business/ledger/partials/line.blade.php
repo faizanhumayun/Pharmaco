@@ -17,7 +17,7 @@
     $showingAll = $opened && $opened->id === $account->id && $children;
 
     $zero = \App\Support\Money::zero();
-    $subName = fn ($sub) => str_ends_with($sub->code, '-000') ? 'Not yet split by ' . $noun : $sub->name;
+    $subName = fn ($sub) => str_ends_with($sub->code, '-000') ? 'Not assigned to any ' . $noun : $sub->name;
 
     $holding = $hasSubs
         ? $subs->get($account->id, collect())
@@ -54,12 +54,35 @@
             @if ($line['hint'])
                 <span class="ml-2 text-xs text-gray-500">{{ $line['hint'] }}</span>
             @endif
+
+            {{-- What the figure is, in everyday words. --}}
+            @if ($line['about'] ?? null)
+                <span class="block text-xs text-gray-500">{{ $line['about'] }}</span>
+            @endif
         </div>
 
-        <div @class(['whitespace-nowrap font-mono tabular-nums', 'text-red-700' => $line['negative'], 'text-gray-900' => ! $line['negative']])>
-            {{ $line['amount'] }}
+        <div class="text-right">
+            <div @class(['whitespace-nowrap font-mono tabular-nums', 'text-red-700' => $line['negative'], 'text-gray-900' => ! $line['negative']])>
+                {{ $line['amount'] }}
+            </div>
+            {{-- Up or down since the day before. --}}
+            @if (($balancesBefore ?? null) && ($m = $move($line['money'], $balancesBefore[$line['code']] ?? $zero, $upGood[$line['type'] ?? ''] ?? null)) && $m['arrow'] !== '•')
+                <div class="whitespace-nowrap text-xs font-semibold {{ $m['class'] }}" title="{{ $since }}">{{ $m['arrow'] }} {{ $m['text'] }}</div>
+            @endif
         </div>
     </div>
+
+    {{-- How much of its block this line is: a glance says where the
+         money sits before any figure is read. --}}
+    @if ($line['share'] ?? null)
+        <div class="flex items-center gap-2 px-4 pb-3 sm:px-6">
+            <div class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-gray-100">
+                <div @class(['h-full rounded-full', 'bg-emerald-600' => ($line['tone'] ?? '') === 'has', 'bg-amber-500' => ($line['tone'] ?? '') !== 'has'])
+                     style="width: {{ $line['share'] }}%"></div>
+            </div>
+            <span class="w-12 shrink-0 text-right text-xs tabular-nums text-gray-500">{{ rtrim(rtrim(number_format($line['share'], 1), '0'), '.') }}%</span>
+        </div>
+    @endif
 
     @if ($hasSubs)
         <div x-show="open" x-cloak class="border-t border-gray-100 bg-gray-50 text-sm">
@@ -75,7 +98,7 @@
             @if ($showingAll)
                 <div class="flex flex-wrap items-center justify-between gap-3 py-2 pl-10 pr-4 sm:pr-6">
                     <a href="{{ request()->fullUrlWithQuery(['under' => null, 'page' => null]) }}#acc-{{ $line['code'] }}"
-                       class="font-medium text-emerald-700 hover:underline">‹ Only those with a balance</a>
+                       class="font-medium text-emerald-700 hover:underline">‹ Only with a balance</a>
                     <div class="min-w-0 flex-1">{{ $children->fragment('acc-' . $line['code'])->links() }}</div>
                 </div>
             @else

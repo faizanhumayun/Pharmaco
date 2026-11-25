@@ -25,7 +25,7 @@ class BillLines
     public function build(Business $business, array $items, array $knownCosts = []): array
     {
         if ($items === []) {
-            throw new LedgerException('A bill with nothing on it is not a sale.');
+            throw new LedgerException('Add at least one item to the bill.');
         }
 
         $products = CompanyProduct::forBusiness($business)
@@ -45,7 +45,7 @@ class BillLines
             }
 
             if (isset($lines[$product->id])) {
-                throw new LedgerException("{$product->brand_name} is on the bill twice. Put it on one line.");
+                throw new LedgerException("{$product->brand_name} is on the bill twice. Enter it on one line only.");
             }
 
             $size = max(1, (int) $product->units_per_pack);
@@ -57,7 +57,7 @@ class BillLines
             $loose %= $size;
 
             if ($quantity < 1 && $loose < 1) {
-                throw new LedgerException("{$product->brand_name}: a sale of nothing is not a sale.");
+                throw new LedgerException("{$product->brand_name}: enter a quantity greater than zero.");
             }
 
             $unitPrice = Money::of($item['unit_price'] ?? $product->sellingPriceFor($business) ?? 0);
@@ -76,7 +76,7 @@ class BillLines
              */
             if ($unitCost->isPositive() && $unitPrice->lessThan($unitCost)) {
                 throw new LedgerException(
-                    "{$product->brand_name}: Rs. {$unitPrice->format()} is below its purchase price of Rs. {$unitCost->format()}."
+                    "{$product->brand_name}: the price of Rs. {$unitPrice->format()} is less than the purchase price of Rs. {$unitCost->format()}."
                 );
             }
 

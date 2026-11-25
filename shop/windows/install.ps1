@@ -183,6 +183,27 @@ try {
 
     Set-Content -Path "$env:PUBLIC\Desktop\Pharmaco.url" -Encoding ASCII -Value @('[InternetShortcut]', "URL=http://localhost:$Port")
 
+    # A second shortcut for the counter: the browser opened so that Print sends
+    # the slip straight to the default printer, with no preview in between.
+    # Only a browser started with this switch does that, and only when it is
+    # started fresh - hence a profile folder of its own.
+    $Browser = @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Microsoft\Edge\Application\msedge.exe",
+        "$env:ProgramFiles\Microsoft\Edge\Application\msedge.exe"
+    ) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+
+    if ($Browser) {
+        $Link = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:PUBLIC\Desktop\Pharmaco Till (prints directly).lnk")
+        $Link.TargetPath = $Browser
+        $Link.Arguments = "--kiosk-printing --user-data-dir=`"$Target\till-browser`" --no-first-run --start-maximized http://localhost:$Port"
+        $Link.IconLocation = "$Browser,0"
+        $Link.Description = 'Pharmaco, with slips printed straight to the default printer'
+        $Link.Save()
+    }
+
     $addresses = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
         Where-Object { $_.IPAddress -notmatch '^(127\.|169\.254\.)' } | ForEach-Object { "http://$($_.IPAddress):$Port" }
 
@@ -190,6 +211,7 @@ try {
 
     Write-Host "`nPharmaco is $(if ($Updating) { 'updated' } else { 'installed' })." -ForegroundColor Green
     Write-Host "  On this computer:       http://localhost:$Port   (there is a Pharmaco shortcut on the desktop)"
+    if ($Browser) { Write-Host "  To print without a preview: open 'Pharmaco Till (prints directly)' on the desktop, and make the slip printer the default printer." }
     Write-Host "  From other computers:   $($addresses -join '   or   ')"
     Write-Host "  Sign in at:             http://localhost:$Port/back-office/login"
     Write-Host "`nThe books are in $Target\data. Backups are written to $Target\app\storage\app\private\mirror\out"

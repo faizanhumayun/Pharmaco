@@ -228,7 +228,7 @@ class ProductController extends Controller
 
         return redirect()
             ->route('businesses.products.show', [$business, $product])
-            ->with('status', 'Product saved. What changed is listed under "Changes made by hand".');
+            ->with('status', 'Product saved. The changes are listed in the product\'s change history.');
     }
 
     /**
@@ -249,12 +249,24 @@ class ProductController extends Controller
             'packs' => ['required', 'integer', 'not_in:0', 'min:-1000000', 'max:1000000'],
             'type' => ['required', Rule::in([StockMovementType::Opening->value, StockMovementType::Adjustment->value])],
             'note' => ['nullable', 'string', 'max:255'],
+            // What goes onto the shelf says when it expires, however it got
+            // there. What comes off has no date to give.
+            'expires_on' => [Rule::requiredIf((int) $request->input('packs') > 0), 'nullable', 'date_format:Y-m'],
+            'batch_no' => ['nullable', 'string', 'max:60'],
         ], [
-            'packs.not_in' => 'An adjustment of nothing is not an adjustment.',
+            'packs.not_in' => 'Enter a quantity other than zero.',
+            'expires_on.required' => 'Enter the expiry printed on the pack when adding stock.',
+            'expires_on.date_format' => 'The expiry must be a month and a year.',
         ]);
 
+        $adding = (int) $validated['packs'] > 0;
+        $expiresOn = $adding && ! empty($validated['expires_on'])
+            ? \Illuminate\Support\Carbon::createFromFormat('!Y-m', $validated['expires_on'])->endOfMonth()->toDateString()
+            : null;
+        $batchNo = $adding ? (trim((string) ($validated['batch_no'] ?? '')) ?: null) : null;
+
         try {
-            \Illuminate\Support\Facades\DB::transaction(function () use ($movements, $business, $product, $validated, $request) {
+            \Illuminate\Support\Facades\DB::transaction(function () use ($movements, $business, $product, $validated, $request, $expiresOn, $batchNo) {
             $movements->adjust(
                 $business,
                 $product,
@@ -262,13 +274,15 @@ class ProductController extends Controller
                 StockMovementType::from($validated['type']),
                 $validated['note'] ?? null,
                 $request->user(),
+                expiresOn: $expiresOn,
+                batchNo: $batchNo,
             );
 
             // Stock cannot go below zero: you cannot take out more than is there.
             app(StockLedger::class)->assertNotNegative($business, [$product->id]);
             });
         } catch (RuntimeException $e) {
-            return back()->withErrors(['packs' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['packs' => $e->getMessage()]);
         }
 
         return back()->with('status', sprintf(

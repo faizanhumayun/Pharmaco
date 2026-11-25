@@ -6,6 +6,7 @@
 
 <x-workspace-layout :business="$business">
     <x-slot name="header">
+        <x-back-link :href="route('businesses.orders.index', $business)" :label="'All orders'" />
         <h1 class="text-xl font-semibold text-gray-900">
             {{ $order ? "Edit {$order->reference}" : 'New order form' }}
         </h1>
@@ -46,7 +47,7 @@
                                     x-model="companyId" x-on:change="companyChanged()"
                                     @disabled($order !== null)
                                     class="mt-1 block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 disabled:bg-gray-100">
-                                <option value="">— choose a company —</option>
+                                <option value="">Select company</option>
                                 @foreach ($companies as $option)
                                     <option value="{{ $option->id }}" @selected(old('company_id', $company?->id) == $option->id)>
                                         {{ $option->name }}
@@ -68,7 +69,7 @@
                         </div>
 
                         <div>
-                            <x-input-label for="discount_percent" value="Discount on everything (%)" />
+                            <x-input-label for="discount_percent" value="Discount on all items (%)" />
                             <x-text-input id="discount_percent" name="discount_percent" type="number"
                                           step="0.001" min="0" max="100" x-model="discount"
                                           class="mt-1 block w-full" placeholder="e.g. 13"
@@ -93,12 +94,12 @@
                                 of <span x-text="catalogueTotal"></span>
                             </span>
                             <span class="ml-auto text-xs text-emerald-700" x-show="companyId && orderDiscount > 0" x-cloak>
-                                rates after <span x-text="trimPercent(discount)"></span>%
+                                Rates after <span x-text="trimPercent(discount)"></span>% discount
                             </span>
                         </div>
 
                         <div x-show="! companyId" class="px-4 py-6 text-sm text-gray-500 sm:px-6">
-                            Choose a company first — the list reads its catalogue.
+                            Select a company to see its products.
                         </div>
 
                         <div x-show="companyId" x-cloak class="flex min-h-0 flex-1 flex-col p-4 sm:p-6">
@@ -111,22 +112,22 @@
                                 <span>Product</span>
                                 <span class="text-right">Pack</span>
                                 <span class="text-right">Rate</span>
-                                <span class="text-right" title="Packs already on the order">On</span>
+                                <span class="text-right" title="Packs already in this order">Qty</span>
                             </div>
 
                             <div class="min-h-0 flex-1 overflow-y-auto"
                                  x-on:scroll.debounce.100ms="maybeLoadMore($event.target)">
                                 <template x-if="query && ! results.length && ! searching">
                                     <p class="py-8 text-center text-sm text-gray-500">
-                                        Nothing matches “<span x-text="query"></span>”.
+                                        No products found for “<span x-text="query"></span>”.
                                         <button type="button" x-on:click="addBlank()"
-                                                class="font-medium text-emerald-700 hover:text-emerald-800">Add it by hand</button>
+                                                class="font-medium text-emerald-700 hover:text-emerald-800">Add manually</button>
                                     </p>
                                 </template>
 
                                 <template x-if="! query && ! catalogue.length && ! loadingCatalogue">
                                     <p class="py-8 text-center text-sm text-gray-500">
-                                        This company has no products yet. Import its price list, or add lines by hand.
+                                        This company has no products yet. Import its price list, or add items manually.
                                     </p>
                                 </template>
 
@@ -150,7 +151,7 @@
 
                             <button type="button" x-on:click="addBlank()"
                                     class="mt-3 shrink-0 text-left text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                                Not in the catalogue? Add a line by hand
+                                Product not in the list? Add an item manually
                             </button>
                         </div>
                     </x-panel>
@@ -161,7 +162,7 @@
                     <x-panel class="flex min-h-0 flex-1 flex-col">
                         <div class="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
                             <h2 class="text-base font-semibold text-gray-900">Order</h2>
-                            <span class="text-sm text-gray-500"><span x-text="lines.length"></span> lines</span>
+                            <span class="text-sm text-gray-500"><span x-text="lines.length"></span> items</span>
                         </div>
 
                         <div class="min-h-0 flex-1 overflow-auto">
@@ -207,7 +208,7 @@
                                             <td class="px-3 py-2 text-gray-600">
                                                 <span x-text="line.pack_size || '—'"></span>
                                                 <template x-if="line.case_size">
-                                                    <div class="text-xs text-gray-400">case of <span x-text="line.case_size"></span></div>
+                                                    <div class="text-xs text-gray-400">Carton of <span x-text="line.case_size"></span></div>
                                                 </template>
                                             </td>
 
@@ -248,7 +249,7 @@
 
                                     <tr x-show="! lines.length">
                                         <td :colspan="anyDiscount ? 9 : 8" class="px-6 py-10 text-center text-gray-500">
-                                            Nothing on the order yet. Pick one from the catalogue on the left.
+                                            No items added yet. Select a product from the list on the left.
                                         </td>
                                     </tr>
                                 </tbody>
@@ -312,7 +313,7 @@
                                 <dd class="text-gray-900" x-text="draft.product.pack_size || '—'"></dd>
                             </div>
                             <div>
-                                <dt class="text-xs text-gray-500">Case</dt>
+                                <dt class="text-xs text-gray-500">Carton</dt>
                                 <dd class="text-gray-900" x-text="draft.product.case_size ? draft.product.case_size + ' packs' : '—'"></dd>
                             </div>
                             @unless ($business->sellsAtMrp())
@@ -334,14 +335,14 @@
                                               x-model="draft.cartons" x-on:input="draftFromCartons()"
                                               ::disabled="! draft.product.case_size" />
                                 <p class="mt-1 text-xs text-gray-500"
-                                   x-text="draft.product.case_size ? draft.product.case_size + ' packs to a carton' : 'No carton size recorded — order in packs'"></p>
+                                   x-text="draft.product.case_size ? draft.product.case_size + ' packs per carton' : 'No carton size saved. Order in packs.'"></p>
                             </div>
 
                             <div>
                                 <x-input-label for="draft-packs" value="Packs" />
                                 <x-text-input id="draft-packs" type="number" min="1" class="mt-1 block w-full"
                                               x-model="draft.packs" x-on:input="draftFromPacks()" />
-                                <p class="mt-1 text-xs text-gray-500">Fill in either — the other follows.</p>
+                                <p class="mt-1 text-xs text-gray-500">Enter cartons or packs. The other is calculated.</p>
                             </div>
 
                             <div>
@@ -355,7 +356,7 @@
                                 <x-text-input id="draft-discount" type="number" step="0.001" min="0" max="100"
                                               class="mt-1 block w-full" x-model="draft.discount_percent"
                                               ::placeholder="discount || '0'" />
-                                <p class="mt-1 text-xs text-gray-500">Leave blank to use the order's discount.</p>
+                                <p class="mt-1 text-xs text-gray-500">Leave blank to use the order discount.</p>
                             </div>
                         </div>
 
@@ -383,7 +384,7 @@
                             </button>
                             <button type="button" x-on:click="commitDraft()" :disabled="int(draft.packs) < 1"
                                     class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300">
-                                <span x-text="draftIndex === null ? 'Add to order' : 'Update line'"></span>
+                                <span x-text="draftIndex === null ? 'Add to order' : 'Update item'"></span>
                             </button>
                         </div>
                     </div>

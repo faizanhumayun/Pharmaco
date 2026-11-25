@@ -13,9 +13,9 @@
         <div class="mb-6 rounded-md border border-gray-200 bg-white px-4 py-4 text-sm text-gray-600 shadow-sm xl:hidden">
             <p class="font-medium text-gray-900">Before you fill this in</p>
             <p class="mt-1">
-                Every figure this business will ever report is <strong>opening + transactions</strong>.
-                If the opening is wrong, every later figure is wrong — and because the error is constant
-                rather than growing, it is very hard to find later.
+                Every figure this business reports is <strong>opening + transactions</strong>.
+                If the opening balance is wrong, every later figure is wrong, and the error is
+                hard to find later.
             </p>
             <ul class="mt-3 list-disc space-y-1 pl-5">
                 <li>Stock counted physically and valued <strong>at cost</strong>, not at sale price</li>
@@ -43,9 +43,9 @@
                         {{-- Trading starts the day after, and the date cannot be changed
                              once finalized — so this is the moment to get it right. --}}
                         <p class="mt-1 text-xs text-amber-700" x-show="date >= today" x-cloak>
-                            Trading days start the <strong>day after</strong> this date, so an opening date of
-                            today leaves nothing enterable until tomorrow. Pick yesterday if you want to record
-                            today's business. This cannot be changed once finalized.
+                            Entries start on the <strong>day after</strong> this date. If the opening date is
+                            today, nothing can be entered until tomorrow. Select yesterday to record
+                            today's transactions. The date cannot be changed after finalizing.
                         </p>
                         <x-input-error :messages="$errors->get('opening_date')" class="mt-2" />
                     </div>
@@ -78,7 +78,7 @@
                         <textarea id="notes" name="notes" rows="3"
                                   class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">{{ old('notes', $opening?->notes) }}</textarea>
                         <p class="mt-1 text-xs text-gray-500">
-                            Anything unusual about this position, and where the figures came from.
+                            Note anything unusual about these figures and where they came from.
                         </p>
                     </div>
                 </div>
@@ -96,10 +96,9 @@
             <div class="sticky top-6 rounded-md border border-gray-200 bg-white px-4 py-4 text-sm text-gray-600 shadow-sm">
                 <p class="font-medium text-gray-900">Before you fill this in</p>
                 <p class="mt-1">
-                    Every figure this business will ever report is
-                    <strong>opening + transactions</strong>. If the opening is wrong, every later
-                    figure is wrong — and because the error is constant rather than growing, it is
-                    very hard to find later.
+                    Every figure this business reports is
+                    <strong>opening + transactions</strong>. If the opening balance is wrong, every
+                    later figure is wrong, and the error is hard to find later.
                 </p>
                 <ul class="mt-3 list-disc space-y-1 pl-5">
                     <li>Stock counted physically and valued <strong>at cost</strong>, not at sale price</li>
@@ -108,8 +107,8 @@
                     <li>Every figure measured as at the <strong>same date</strong></li>
                 </ul>
                 <p class="mt-3 text-xs text-gray-500">
-                    Optional figures default to zero — but leaving out a real asset does not make it
-                    disappear, it pushes it into the balancing figure instead.
+                    Optional figures default to zero. An asset that is left out is included in the
+                    balancing figure instead.
                 </p>
             </div>
         </aside>

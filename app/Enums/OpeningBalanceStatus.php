@@ -46,7 +46,7 @@ enum OpeningBalanceStatus: string
         return match ($this) {
             self::Draft => 'Values can still be corrected. Nothing has been posted.',
             self::Finalized => 'Posted to the ledger. Corrections require an adjustment.',
-            self::Locked => 'The business has traded since. This is history.',
+            self::Locked => 'The business has recorded activity after this. It is kept as a past record.',
         };
     }
 }

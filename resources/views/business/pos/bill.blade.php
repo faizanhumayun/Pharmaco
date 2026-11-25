@@ -9,22 +9,23 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+                <x-back-link :href="auth()->user()->can('viewAny', [\App\Models\DailyEntry::class, $business]) ? route('businesses.collections.index', [$business, 'show' => 'all']) : route('businesses.pos.index', $business)" :label="auth()->user()->can('viewAny', [\App\Models\DailyEntry::class, $business]) ? 'All bills' : 'POS'" />
                 <h1 class="text-xl font-semibold text-gray-900">Bill {{ $bill->reference() }}</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ $bill->business_date->format('l j F Y') }} · {{ $bill->customer_name ?? 'Cash sale' }} ·
-                    rung up by {{ $bill->creator->name }}@if ($bill->device) on {{ $bill->device->label() }}@endif
+                    {{ $bill->business_date->format('l j F Y') }} · {{ $bill->customer_name ?? 'Walk-in customer' }} ·
+                    Created by {{ $bill->creator->name }}@if ($bill->device) on {{ $bill->device->label() }}@endif
                 </p>
             </div>
             <div class="flex items-center gap-2">
                 @if ($canEdit && $blocked === null)
                     <a href="{{ route('businesses.pos.index', [$business, 'edit' => $bill->id]) }}"
-                       class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Edit at the till</a>
+                       class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Edit bill</a>
                 @endif
                 <a href="{{ route('businesses.pos.receipt', [$business, $bill]) }}"
-                   class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">View / print</a>
+                   class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">View / Print</a>
                 @can('returnAtPos', $business)
                     <a href="{{ route('businesses.pos.bills.return', [$business, $bill]) }}"
-                       class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Take goods back</a>
+                       class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">Return items</a>
                 @endcan
             </div>
         </div>
@@ -56,13 +57,13 @@
 
                 {{-- Where the customer stands, across all their bills. --}}
                 <div class="grid gap-4 sm:grid-cols-3">
-                    <x-stat label="Total sales till now" :value="'Rs. '.$rs($bought)" :hint="$customerBills->count().' '.Str::plural('bill', $customerBills->count())" />
-                    <x-stat label="Paid so far" :value="'Rs. '.$rs($bought->minus($stillOwed))" />
+                    <x-stat label="Total sales" :value="'Rs. '.$rs($bought)" :hint="$customerBills->count().' '.Str::plural('bill', $customerBills->count())" />
+                    <x-stat label="Total paid" :value="'Rs. '.$rs($bought->minus($stillOwed))" />
                     {{-- Amber while anything is owing, the way the list below marks it. --}}
                     <div @class(['rounded-lg border px-4 py-4', 'border-amber-300 bg-amber-50' => $stillOwed->isPositive(), 'border-line bg-white' => ! $stillOwed->isPositive()])>
-                        <dt @class(['text-xs font-medium uppercase tracking-wide', 'text-amber-800' => $stillOwed->isPositive(), 'text-gray-500' => ! $stillOwed->isPositive()])>On credit now</dt>
+                        <dt @class(['text-xs font-medium uppercase tracking-wide', 'text-amber-800' => $stillOwed->isPositive(), 'text-gray-500' => ! $stillOwed->isPositive()])>Pending amount</dt>
                         <dd @class(['mt-1 text-xl font-semibold tabular-nums xl:text-2xl', 'text-amber-700' => $stillOwed->isPositive(), 'text-gray-900' => ! $stillOwed->isPositive()])>Rs. {{ $rs($stillOwed) }}</dd>
-                        <p @class(['mt-1 text-xs', 'font-medium text-amber-700' => $stillOwed->isPositive(), 'text-gray-500' => ! $stillOwed->isPositive()])>{{ $stillOwed->isPositive() ? 'Still to collect' : 'Nothing owing' }}</p>
+                        <p @class(['mt-1 text-xs', 'font-medium text-amber-700' => $stillOwed->isPositive(), 'text-gray-500' => ! $stillOwed->isPositive()])>{{ $stillOwed->isPositive() ? 'To be collected' : 'No pending amount' }}</p>
                     </div>
                 </div>
 
@@ -70,11 +71,11 @@
                 <div class="flex flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
                     <div class="min-w-0">
                         <h2 class="truncate text-base font-semibold text-gray-900">{{ $bill->customer_name }}</h2>
-                        <p class="text-sm text-gray-500">Every bill of theirs, newest first.</p>
+                        <p class="text-sm text-gray-500">All bills of this customer, newest first.</p>
                     </div>
                     @if ($bill->pharmacy_id)
                         <a href="{{ route('businesses.pharmacies.show', [$business, $bill->pharmacy_id]) }}"
-                           class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Their account</a>
+                           class="shrink-0 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50">Customer account</a>
                     @endif
                 </div>
 
@@ -84,10 +85,10 @@
                         <thead class="sticky top-0 bg-gray-50">
                             <tr>
                                 <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Bill</th>
-                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Day</th>
-                                <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Lines</th>
+                                <th class="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Date</th>
+                                <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Items</th>
                                 <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">Total</th>
-                                <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Owing</th>
+                                <th class="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">Pending</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 bg-white">
@@ -107,7 +108,7 @@
                                     <td class="px-3 py-2 text-right tabular-nums text-gray-600">{{ $other->lines_count }}</td>
                                     <td class="whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $rs($other->total) }}</td>
                                     <td @class(['whitespace-nowrap px-3 py-2 text-right font-mono tabular-nums sm:px-6', 'font-semibold text-amber-700' => $other->owing->isPositive(), 'text-gray-400' => ! $other->owing->isPositive()])>
-                                        {{ $other->owing->isPositive() ? $rs($other->owing) : 'paid' }}
+                                        {{ $other->owing->isPositive() ? $rs($other->owing) : 'Paid' }}
                                     </td>
                                 </tr>
                             @endforeach
@@ -115,7 +116,7 @@
                     </table>
                 </div>
                 @if ($customerBills->count() >= 100)
-                    <p class="border-t border-gray-200 px-4 py-2 text-xs text-gray-500 sm:px-6">Showing their latest 100 bills.</p>
+                    <p class="border-t border-gray-200 px-4 py-2 text-xs text-gray-500 sm:px-6">Showing the latest 100 bills.</p>
                 @endif
             </x-panel>
             @endif
@@ -128,9 +129,9 @@
                     @foreach ([
                         ['Total', $bill->total, null, false],
                         ['Received', $bill->received, $bill->paymentMethod?->label() ?? 'Cash', false],
-                        ['Collected since', $collected, null, false],
+                        ['Received later', $collected, null, false],
                         ['Returned', $bill->returned(), null, false],
-                        ['Still owing', $owing, null, $owing->isPositive()],
+                        ['Pending amount', $owing, null, $owing->isPositive()],
                     ] as [$what, $figure, $note, $warn])
                         <div class="px-3 py-2">
                             <dt class="truncate text-[11px] font-medium uppercase tracking-wide text-gray-500">{{ $what }}</dt>
@@ -144,10 +145,10 @@
             </div>
 
             <x-panel title="History of this bill"
-                     description="Every correction, oldest first: what was added, taken off or changed, by whom, and why.">
+                     description="All changes to this bill, oldest first: what was added, removed or changed, by whom, and why.">
                 <div class="divide-y divide-gray-100">
                     <div class="flex flex-wrap items-baseline justify-between gap-2 px-4 py-3 text-sm sm:px-6">
-                        <p><span class="font-medium text-gray-900">Rung up</span> by {{ $bill->creator->name }}</p>
+                        <p><span class="font-medium text-gray-900">Created</span> by {{ $bill->creator->name }}</p>
                         <p class="text-xs text-gray-500">{{ $bill->created_at->timezone($business->timezone)->format('D j M Y, h:i A') }}</p>
                     </div>
 
@@ -171,7 +172,7 @@
                                         </span>
                                     </li>
                                 @empty
-                                    <li class="text-gray-500">Saved with nothing changed.</li>
+                                    <li class="text-gray-500">Saved without any change.</li>
                                 @endforelse
                             </ul>
                         </div>
@@ -182,7 +183,7 @@
                             <div class="flex flex-wrap items-baseline justify-between gap-2 text-sm">
                                 <p>
                                     <span class="font-medium text-gray-900">Return {{ $return->reference() }}</span>
-                                    taken by {{ $return->creator->name }} — Rs. {{ $rs($return->total) }}
+                                    recorded by {{ $return->creator->name }} — Rs. {{ $rs($return->total) }}
                                     @if ($return->refunded->isPositive()) · Rs. {{ $rs($return->refunded) }} refunded in cash @endif
                                     @if ($return->onAccount()->isPositive()) · Rs. {{ $rs($return->onAccount()) }} off the account @endif
                                     @if ($return->reason) — “{{ $return->reason }}” @endif
@@ -198,7 +199,7 @@
                     @endforeach
 
                     @if ($bill->revisions->isEmpty() && $bill->returns->isEmpty())
-                        <p class="px-4 py-3 text-sm text-gray-500 sm:px-6">Unchanged since it was rung up.</p>
+                        <p class="px-4 py-3 text-sm text-gray-500 sm:px-6">No changes since this bill was created.</p>
                     @endif
                 </div>
             </x-panel>

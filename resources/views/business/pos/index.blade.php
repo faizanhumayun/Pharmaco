@@ -58,7 +58,7 @@
                 <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-600 text-sm font-bold text-white">Rx</span>
                 <div>
                     <p class="text-lg font-semibold leading-tight">{{ $business->name }}</p>
-                    <p class="text-xs text-slate-400">Counter · {{ auth()->user()->name }}</p>
+                    <p class="text-xs text-slate-400">POS · {{ auth()->user()->name }}</p>
                 </div>
             </div>
 
@@ -89,7 +89,7 @@
                         },
                     }"
                     x-on:click="reveal()"
-                    :title="shown ? 'Hide the day\'s takings' : 'Show the day\'s takings for a moment'">
+                    :title="shown ? 'Hide today\'s sales total' : 'Show today\'s sales total'">
                 <span class="{{ $label }} block text-slate-400">Sold today · {{ $soldToday->count() }} {{ Str::plural('bill', $soldToday->count()) }}</span>
                 {{-- The mask is about the width of the figure, so the header
                      does not jump about as it is shown and hidden. --}}
@@ -113,7 +113,7 @@
                 <button type="button" x-on:click="wantNet = ! wantNet"
                         :class="wantNet ? 'bg-emerald-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-slate-200'"
                         class="flex items-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold"
-                        title="Show the bill quoted before the {{ \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT }}% trade discount — the amount payable is the same">
+                        title="Show the bill before the {{ \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT }}% trade discount. The amount payable is the same.">
                     <span class="inline-block h-2 w-2 rounded-full" :class="wantNet ? 'bg-white' : 'bg-slate-600'"></span>
                     Net {{ \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT }}%
                 </button>
@@ -133,7 +133,7 @@
                 @if ($expiryMonths !== null && auth()->user()->can('viewProducts', $business))
                     <a href="{{ route('businesses.stock.expiring', $business) }}" target="_blank" rel="noopener"
                        x-show="nearExpiry > 0" x-cloak
-                       title="See which stock is near expiry — opens in a new tab"
+                       title="View stock near expiry. Opens in a new tab."
                        class="rounded-lg border border-amber-500/60 px-4 py-1.5 hover:border-amber-400 hover:bg-amber-500/10">
                         <p class="{{ $label }} text-amber-400">Near expiry</p>
                         <p class="font-mono text-base font-semibold leading-tight tabular-nums text-amber-300"
@@ -156,14 +156,14 @@
 
                 <a href="{{ route('businesses.show', $business) }}"
                    class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-                    Leave counter
+                    Exit POS
                 </a>
             </div>
         </header>
 
         @if ($dayClosed)
             <div class="shrink-0 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white sm:px-6">
-                {{ $today->format('D d M Y') }} is closed — nothing can be sold onto it. Reopen the day first.
+                {{ $today->format('D d M Y') }} is closed. No sale can be recorded on this date. Reopen the day first.
             </div>
         @endif
 
@@ -174,16 +174,16 @@
              down behind this notice. --}}
         <div x-show="moved" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 p-4">
             <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
-                <p class="text-lg font-semibold text-slate-900">The till has moved to another tab</p>
+                <p class="text-lg font-semibold text-slate-900">POS is now open in another tab</p>
                 <p class="mt-2 text-sm text-slate-600">
-                    It was opened again elsewhere, and the bill in progress went with it.
-                    This tab is no longer in use and can be closed.
+                    POS was opened in another tab and the current bill was moved there.
+                    This tab is no longer in use. You can close it.
                 </p>
                 <div class="mt-5 flex items-center justify-center gap-3">
                     <button type="button" x-on:click="window.close()"
                             class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close this tab</button>
                     <button type="button" x-on:click="window.location.reload()"
-                            class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Use the till here</button>
+                            class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Use POS here</button>
                 </div>
             </div>
         </div>
@@ -192,16 +192,16 @@
              over — one is correcting a bill and the other is not — so it asks. --}}
         <div x-show="elsewhere" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/80 p-4">
             <div class="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-xl">
-                <p class="text-lg font-semibold text-slate-900">The till is already open in another tab</p>
+                <p class="text-lg font-semibold text-slate-900">POS is already open in another tab</p>
                 <p class="mt-2 text-sm text-slate-600">
-                    <span x-text="elsewhereEditing ? 'That tab is correcting a bill.' : 'That tab has a sale in progress' + (elsewhereLines > 0 ? ', with ' + elsewhereLines + (elsewhereLines === 1 ? ' line' : ' lines') + ' on its bill.' : '.')"></span>
-                    Using the till here closes it there, and anything not yet saved in that tab is lost.
+                    <span x-text="elsewhereEditing ? 'A bill is being corrected in that tab.' : 'A sale is in progress in that tab' + (elsewhereLines > 0 ? ', with ' + elsewhereLines + (elsewhereLines === 1 ? ' item' : ' items') + ' on the bill.' : '.')"></span>
+                    If you use POS here, it will close in that tab and any unsaved work there will be lost.
                 </p>
                 <div class="mt-5 flex items-center justify-center gap-3">
                     <button type="button" x-on:click="window.close()"
                             class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Close this tab</button>
                     <button type="button" x-on:click="takeOver()"
-                            class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Use the till here</button>
+                            class="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Use POS here</button>
                 </div>
             </div>
         </div>
@@ -211,10 +211,10 @@
             <div class="flex shrink-0 flex-wrap items-center justify-center gap-x-4 gap-y-1 bg-amber-500 px-4 py-2 text-sm font-medium text-white sm:px-6">
                 <span>
                     Correcting bill {{ $editing->reference() }} of {{ $editing->business_date->format('D d M Y') }}.
-                    Change what is wrong, say why, and save — the old version stays on the bill's history.
+                    Make the changes, enter the reason and save. The old version is kept in the bill history.
                 </span>
                 <a href="{{ route('businesses.pos.index', $business) }}"
-                   class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50">Cancel — leave the bill as it is</a>
+                   class="rounded-md bg-white px-2.5 py-1 text-xs font-semibold text-amber-800 hover:bg-amber-50">Cancel changes</a>
             </div>
         @endif
 
@@ -241,6 +241,7 @@
             <input type="hidden" name="received" :value="Number(received || 0).toFixed(2)">
             <input type="hidden" name="discount" :value="Number(discount || 0).toFixed(2)">
             <input type="hidden" name="customer_name" :value="customer">
+            <input type="hidden" name="customer_phone" :value="customerPhone">
             <input type="hidden" name="via" :value="via">
             <input type="hidden" name="preview" :value="wantPrint ? 1 : 0">
             <input type="hidden" name="balance" :value="wantBalance ? 1 : 0">
@@ -269,6 +270,7 @@
                         </svg>
                         <input x-ref="search" x-model="query" type="text" autocomplete="off" autofocus
                                x-on:keydown.arrow-down.prevent="move(1)" x-on:keydown.arrow-up.prevent="move(-1)"
+                               x-on:focus="$el.select()"
                                x-on:keydown.enter.prevent="askHighlighted()" x-on:keydown.escape="query = ''"
                                placeholder="Scan a barcode, or type a product name"
                                class="block w-full rounded-lg border-2 border-emerald-700 py-3 pl-12 pr-16 text-base placeholder:text-slate-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30">
@@ -286,8 +288,8 @@
                     </p>
                     {{-- What the two ways of picking a product do. --}}
                     <p class="till-hint mt-2 text-xs text-slate-500">
-                        <span class="font-semibold text-slate-700">+</span> adds one whole pack.
-                        Click a product's name to sell loose pieces, more than one, or at another price.
+                        <span class="font-semibold text-slate-700">+</span> adds one full pack.
+                        Click the product name to sell loose pieces, a different quantity or a different price.
                     </p>
                 </div>
 
@@ -343,16 +345,16 @@
                                         ? 'bg-emerald-700 text-white hover:bg-emerald-800'
                                         : 'border border-amber-600 bg-white text-amber-700 hover:bg-amber-50'"
                                     :title="piecesHeld(p) > 0
-                                        ? 'Add one whole pack of ' + p.name + ' — click the name for loose pieces or another price'
-                                        : 'No stock recorded — the bill will not take it'">+</button>
+                                        ? 'Add one full pack of ' + p.name + '. Click the name for loose pieces or a different price.'
+                                        : 'No stock recorded. This item cannot be added to the bill.'">+</button>
                         </div>
                     </template>
 
                     <p x-show="shown.length === 0" x-cloak class="px-4 py-10 text-center text-sm text-slate-500">
-                        Nothing matches.
+                        No products found.
                     </p>
                     <p x-show="capped" x-cloak class="border-t border-slate-200 px-4 py-3 text-center text-xs text-slate-400">
-                        Showing the first <span x-text="limit"></span>. Type to narrow the list.
+                        Showing the first <span x-text="limit"></span>. Type to search the list.
                     </p>
                 </div>
             </section>
@@ -371,11 +373,11 @@
                         <span class="{{ $label }} text-slate-500">Customer</span>
                         <span class="truncate text-sm font-semibold"
                               :class="customer ? 'text-slate-900' : @js($walkIns ? 'text-slate-900' : 'text-amber-700')"
-                              x-text="customer || @js($walkIns ? 'Walk-in (cash)' : 'Choose a customer')"></span>
+                              x-text="customer || @js($walkIns ? 'Walk-in customer' : 'Select a customer')"></span>
                         <span class="truncate text-sm" :class="owes > 0 || credit > 0 ? 'text-amber-700' : 'text-slate-500'"
                               x-text="customer
-                                  ? (credit > 0 ? 'balance becomes Rs. ' + money(owes + credit) : (owes > 0 ? 'owes Rs. ' + money(owes) : 'nothing outstanding'))
-                                  : 'no account'"></span>
+                                  ? (credit > 0 ? 'New pending Rs. ' + money(owes + credit) : (owes > 0 ? 'Pending Rs. ' + money(owes) : 'No pending amount'))
+                                  : 'No account'"></span>
                         <span class="shrink-0 text-xs text-slate-500">▾</span>
                     </button>
                 </div>
@@ -403,9 +405,9 @@
                                 <span class="block break-words text-base font-medium leading-snug text-slate-900" x-text="line.name"></span>
                                 <span class="block truncate text-xs text-slate-500" x-text="lineNote(line)"></span>
                                 <span x-show="shortOnLine(line) > 0" x-cloak class="block text-xs font-medium text-red-700"
-                                      x-text="'only ' + stockLabel(line) + ' in stock — the bill will not save'"></span>
+                                      x-text="'Only ' + stockLabel(line) + ' in stock. The bill cannot be saved.'"></span>
                                 <span x-show="belowCost(line.price, line.cost)" x-cloak class="block text-xs font-medium text-red-700"
-                                      x-text="'below cost — lowest is Rs. ' + money(line.cost)"></span>
+                                      x-text="'Below cost. Minimum price is Rs. ' + money(line.cost)"></span>
                             </span>
 
                             {{-- A pharmacy counts in pieces: 20 is twenty tablets,
@@ -431,8 +433,8 @@
                                  box once the pointer or the cursor is on it. --}}
                             <input type="text" inputmode="decimal" x-model.number="line.price"
                                    :title="line.mrp > 0 && Number(line.price) !== Number(line.mrp)
-                                       ? 'MRP is ' + money(line.mrp) + ' — type to change the price'
-                                       : 'Price of one pack — type to change it'"
+                                       ? 'MRP is ' + money(line.mrp) + '. Type to change the price.'
+                                       : 'Price of one pack. Type to change it.'"
                                    :class="belowCost(line.price, line.cost)
                                        ? 'border-red-400 bg-red-50 text-red-800 focus:border-red-500 focus:ring-red-500'
                                        : 'border-transparent bg-transparent text-slate-900 hover:border-slate-300 focus:border-emerald-700 focus:ring-emerald-600'"
@@ -449,20 +451,20 @@
 
                     <div x-show="cart.length === 0" class="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
                         <p class="text-lg font-medium text-slate-400">Bill is empty</p>
-                        <p class="text-sm text-slate-400">Pick from the list, or scan a barcode.</p>
+                        <p class="text-sm text-slate-400">Select a product from the list or scan a barcode.</p>
                     </div>
                 </div>
 
                 {{-- The foot of the bill: how much is on it, and the discount. --}}
                 <div class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 px-4 py-3">
                     <p class="flex items-center gap-3 text-sm text-slate-600">
-                        <span x-text="cart.length + (cart.length === 1 ? ' line' : ' lines') + ' · ' + (looseMode
+                        <span x-text="cart.length + (cart.length === 1 ? ' item' : ' items') + ' · ' + (looseMode
                             ? cart.reduce((n, l) => n + pieces(l), 0) + ' qty'
                             : cart.reduce((n, l) => n + Number(l.qty || 0), 0) + ' {{ $many }}')"></span>
                         <button type="button" x-on:click="clear()" x-show="cart.length > 0" x-cloak
                                 class="text-sm font-medium text-slate-500 underline hover:text-red-700">Clear</button>
                         <span class="font-medium text-red-700" x-show="underpriced.length > 0" x-cloak
-                              x-text="underpriced.length + ' ' + (underpriced.length === 1 ? 'line is' : 'lines are') + ' priced below cost'"></span>
+                              x-text="underpriced.length + ' ' + (underpriced.length === 1 ? 'item is' : 'items are') + ' priced below cost'"></span>
                     </p>
 
                     <div class="flex items-center gap-6">
@@ -491,14 +493,30 @@
         {{-- The foot of the screen, read left to right the way a sale ends:
              what to pay, what was handed over, what goes back, and the button
              that finishes it. --}}
-        <footer class="till-foot flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
-            <div>
-                <p class="{{ $label }} text-slate-500">To pay</p>
-                <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
+        @if ($editing)
+            {{-- A correction always carries its reason. On a strip of its
+                 own across the screen: beside the figures it pushed the foot
+                 onto a second row and off the bottom of a small screen. --}}
+            <label class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-amber-200 bg-amber-50 px-4 py-2 sm:px-6">
+                <span class="{{ $label }} shrink-0 text-amber-800">Reason for change</span>
+                <input x-ref="reason" x-model="reason" type="text" maxlength="255" placeholder="Wrong quantity, item added…"
+                       x-on:keydown.enter.prevent="save()"
+                       class="block min-w-[14rem] flex-1 rounded-lg border-amber-300 bg-white py-2 text-sm focus:border-emerald-700 focus:ring-emerald-600">
+            </label>
+        @endif
+
+        <footer class="till-foot flex shrink-0 flex-wrap items-end justify-between gap-x-6 gap-y-3 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
+            {{-- The figure everything else is measured against, so it
+                 stands on a block of its own. --}}
+            <div class="rounded-xl bg-slate-900 px-5 py-3">
+                <p class="{{ $label }} text-slate-300">Total bill</p>
+                <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-white" x-text="'Rs. ' + money(total)"></p>
             </div>
 
-            <div>
-                <p class="{{ $label }} text-slate-500">Received</p>
+            {{-- What the customer hands over. The usual answers come first,
+                 one press each; the box is for anything between. --}}
+            <div class="rounded-xl bg-emerald-700 px-4 py-3">
+                <p class="{{ $label }} text-white">Received</p>
                 <div class="mt-1 flex flex-wrap items-stretch gap-2">
                     {{-- How it was paid. Anything but cash goes to that account
                          in the books, not into the drawer. --}}
@@ -529,44 +547,36 @@
                             </div>
                         </div>
                     @else
-                        <span class="flex items-center rounded-lg border border-slate-300 px-3 font-mono text-sm font-semibold text-slate-900">Cash</span>
+                        <span class="flex items-center rounded-lg bg-white px-3 font-mono text-sm font-semibold text-slate-900">Cash</span>
                     @endif
 
-                    <input x-ref="received" x-model.number="received" type="text" inputmode="decimal" placeholder="0.00"
-                           class="block w-44 rounded-lg border-2 border-emerald-700 py-2 text-right font-mono text-2xl font-semibold tabular-nums focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30">
-
                     <button type="button" x-on:click="received = total"
-                            class="rounded-lg bg-slate-100 px-4 font-mono text-sm font-semibold text-slate-900 hover:bg-slate-200">Exact</button>
+                            class="rounded-lg bg-white px-4 font-mono text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                            title="The customer paid the exact bill amount">Exact</button>
                     {{-- The notes a customer is most likely to hand over. --}}
                     <template x-for="note in likelyNotes" :key="note">
                         <button type="button" x-on:click="received = note"
-                                class="rounded-lg bg-slate-100 px-4 font-mono text-sm font-semibold tabular-nums text-slate-900 hover:bg-slate-200"
+                                class="rounded-lg bg-white px-4 font-mono text-sm font-semibold tabular-nums text-emerald-800 hover:bg-emerald-50"
                                 x-text="note.toLocaleString('en-US')"></button>
                     </template>
                     <button type="button" x-on:click="received = ''"
-                            class="rounded-lg bg-amber-100 px-4 font-mono text-sm font-semibold text-amber-800 hover:bg-amber-200"
-                            title="Nothing paid now — the whole bill goes on the customer's account">On credit</button>
+                            class="rounded-lg bg-emerald-900 px-4 font-mono text-sm font-semibold text-white hover:bg-emerald-950"
+                            title="No payment now. The full bill is added to the customer account.">On credit</button>
+
+                    <input x-ref="received" x-model.number="received" type="text" inputmode="decimal" placeholder="0.00"
+                           class="block w-44 rounded-lg border-2 border-white bg-white py-2 text-right font-mono text-2xl font-semibold tabular-nums text-slate-900 focus:border-white focus:ring-2 focus:ring-white/60">
                 </div>
             </div>
 
             <div>
                 <p class="{{ $label }}" :class="Number(received || 0) > 0 && change < 0 ? 'text-amber-700' : 'text-slate-500'"
-                   x-text="Number(received || 0) > 0 && change < 0 ? 'On credit' : 'Change'"></p>
+                   x-text="Number(received || 0) > 0 && change < 0 ? 'Pending customer bill' : 'Change to give back'"></p>
                 <p class="till-figure mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
                    :class="Number(received || 0) > 0 ? (change >= 0 ? 'text-emerald-700' : 'text-amber-700') : 'text-slate-300'"
                    x-text="'Rs. ' + money(Number(received || 0) > 0 ? Math.abs(change) : 0)"></p>
             </div>
 
             <div class="flex items-end gap-3">
-                @if ($editing)
-                    {{-- A correction always carries its reason. --}}
-                    <label class="block">
-                        <span class="{{ $label }} text-slate-500">Why is it being changed?</span>
-                        <input x-ref="reason" x-model="reason" type="text" maxlength="255" placeholder="Wrong quantity, item added…"
-                               x-on:keydown.enter.prevent="save()"
-                               class="mt-1 block w-64 rounded-lg border-slate-300 py-2.5 text-sm focus:border-emerald-700 focus:ring-emerald-600">
-                    </label>
-                @endif
                 <button type="button" x-on:click="save()"
                         :disabled="cart.length === 0 || saving || underpriced.length > 0 || overStock.length > 0 || {{ $dayClosed ? 'true' : 'false' }}"
                         class="till-save flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
@@ -583,7 +593,7 @@
              x-on:click.self="picking = false" x-on:keydown.escape.window="picking = false">
             <div class="flex max-h-[70vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
                 <div class="shrink-0 border-b border-slate-200 p-4">
-                    <p class="text-sm font-semibold text-slate-900">Who is this bill for?</p>
+                    <p class="text-sm font-semibold text-slate-900">Select the customer for this bill</p>
                     <div class="mt-2 flex gap-2">
                         <input x-ref="customerSearch" x-model="customerQuery" type="text" autocomplete="off"
                                x-on:keydown.arrow-down.prevent="moveCustomer(1)" x-on:keydown.arrow-up.prevent="moveCustomer(-1)"
@@ -605,8 +615,8 @@
                     @if ($walkIns)
                         <button type="button" data-pick x-on:click="pick(null)" :class="customerAt === 0 ? 'bg-emerald-50' : ''"
                                 class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-2.5 text-left hover:bg-emerald-50">
-                            <span class="text-sm font-medium text-slate-900">Walk-in (cash)</span>
-                            <span class="text-xs text-slate-400">no account kept</span>
+                            <span class="text-sm font-medium text-slate-900">Walk-in customer</span>
+                            <span class="text-xs text-slate-400">No account</span>
                         </button>
                     @endif
 
@@ -619,23 +629,100 @@
                             </span>
                             <span class="shrink-0 text-right text-xs tabular-nums"
                                   :class="c.owes > 0 ? 'text-amber-700' : 'text-slate-400'"
-                                  x-text="c.owes > 0 ? 'owes ' + money(c.owes) : 'clear'"></span>
+                                  x-text="c.owes > 0 ? 'Pending ' + money(c.owes) : 'No pending amount'"></span>
                         </button>
                     </template>
 
                     <div x-show="customerQuery.trim() !== '' && customerMatches.length === 0" x-cloak class="p-4">
                         <p class="text-sm text-slate-500">
-                            No customer called “<span x-text="customerQuery"></span>”.
+                            No customer found with the name “<span x-text="customerQuery"></span>”.
                         </p>
                         <button type="button" x-on:click="pick({ id: 0, name: customerQuery.trim().toUpperCase(), owes: 0 })"
                                 class="mt-2 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                            Bill “<span x-text="customerQuery.trim().toUpperCase()"></span>” — opens an account for them
+                            Bill “<span x-text="customerQuery.trim().toUpperCase()"></span>” as a new customer
                         </button>
                     </div>
                 </div>
 
                 <div class="shrink-0 border-t border-slate-200 px-4 py-2 text-xs text-slate-500">
-                    <span x-text="customers.length"></span> customers · anything unpaid goes on their account
+                    <span x-text="customers.length"></span> customers · Any unpaid amount is added to the customer account
+                </div>
+            </div>
+        </div>
+
+        {{-- A bill with no customer on it that is not fully paid. A walk-in
+             is a stranger, so before anything is left owing the bill is
+             given a name: one already on the list, or a new one with just a
+             name and a phone number. --}}
+        <div x-show="creditAsk" x-cloak class="fixed inset-0 z-50 flex items-start justify-center bg-slate-900/60 p-4 pt-[6vh]"
+             x-on:click.self="creditAsk = false" x-on:keydown.escape.window="creditAsk = false">
+            <div class="flex max-h-[84vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl">
+                <div class="shrink-0 border-b border-slate-200 p-4">
+                    <p class="text-base font-semibold text-slate-900">Select the customer for this credit bill</p>
+                    <p class="mt-1 text-sm text-slate-600">
+                        <span class="font-mono font-semibold tabular-nums text-amber-700" x-text="'Rs. ' + money(credit)"></span>
+                        of this bill is not paid. A walk-in bill cannot be left unpaid. Select or add the customer.
+                    </p>
+                </div>
+
+                <div class="min-h-0 flex-1 overflow-y-auto">
+                    {{-- Someone already on the list. --}}
+                    <div class="border-b border-slate-200 p-4">
+                        <p class="{{ $label }} text-slate-500">Existing customer</p>
+                        <input x-ref="creditSearch" x-model="creditQuery" type="text" autocomplete="off"
+                               x-on:keydown.enter.prevent="creditMatches[0] && creditPick(creditMatches[0])"
+                               placeholder="Search by name or phone…"
+                               class="mt-1 block w-full rounded-lg border-slate-300 py-2 focus:border-emerald-600 focus:ring-emerald-600">
+                        <div class="mt-2 max-h-48 overflow-y-auto rounded-lg ring-1 ring-slate-200" x-show="creditMatches.length > 0">
+                            <template x-for="c in creditMatches" :key="c.id">
+                                <button type="button" x-on:click="creditPick(c)"
+                                        class="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2 text-left last:border-0 hover:bg-emerald-50">
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-sm font-medium text-slate-900" x-text="c.name"></span>
+                                        <span class="block truncate text-xs text-slate-500" x-text="[c.area, c.phone].filter(Boolean).join(' · ') || '—'"></span>
+                                    </span>
+                                    <span class="shrink-0 text-right text-xs tabular-nums"
+                                          :class="c.owes > 0 ? 'text-amber-700' : 'text-slate-400'"
+                                          x-text="c.owes > 0 ? 'Pending ' + money(c.owes) : 'No pending amount'"></span>
+                                </button>
+                            </template>
+                        </div>
+                        <p class="mt-2 text-sm text-slate-500" x-show="creditMatches.length === 0" x-cloak
+                           x-text="customers.length === 0 ? 'No customers yet. Add this customer below.' : 'No customer found with this name. Add the customer below.'"></p>
+                    </div>
+
+                    {{-- Someone new: a name and a phone number, nothing else. --}}
+                    <div class="p-4">
+                        <p class="{{ $label }} text-slate-500">Or a new customer</p>
+                        <div class="mt-1 grid gap-3 sm:grid-cols-2">
+                            <label class="block">
+                                <span class="text-sm font-medium text-slate-700">Name</span>
+                                <input x-ref="creditName" x-model="creditName" type="text" maxlength="120" autocomplete="off"
+                                       x-on:keydown.enter.prevent="creditNew()"
+                                       class="mt-1 block w-full rounded-lg border-slate-300 py-2 uppercase focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                            <label class="block">
+                                <span class="text-sm font-medium text-slate-700">Phone number</span>
+                                <input x-model="creditPhone" type="text" inputmode="tel" maxlength="40" autocomplete="off"
+                                       x-on:keydown.enter.prevent="creditNew()" placeholder="0300 1234567"
+                                       class="mt-1 block w-full rounded-lg border-slate-300 py-2 font-mono focus:border-emerald-600 focus:ring-emerald-600">
+                            </label>
+                        </div>
+                        <p class="mt-2 text-sm font-medium text-red-700" x-show="creditError" x-cloak x-text="creditError"></p>
+                        <button type="button" x-on:click="creditNew()"
+                                class="mt-3 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
+                            Add customer and save bill
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex shrink-0 items-center justify-between gap-3 border-t border-slate-200 px-4 py-3">
+                    <button type="button" x-on:click="received = total; creditAsk = false; $refs.received.focus()"
+                            class="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-200">
+                        Paid in full
+                    </button>
+                    <button type="button" x-on:click="creditAsk = false"
+                            class="rounded-lg px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100">Back to bill</button>
                 </div>
             </div>
         </div>
@@ -668,7 +755,7 @@
                     <table class="min-w-full divide-y divide-slate-200 text-sm">
                         <thead class="sticky top-0 bg-slate-50">
                             <tr>
-                                @foreach (['Bill', 'Time', 'Customer', 'Items', 'Total', 'Owing', ''] as $h)
+                                @foreach (['Bill', 'Time', 'Customer', 'Items', 'Total', 'Pending', ''] as $h)
                                     <th class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 {{ in_array($h, ['Bill','Time','Customer']) ? 'text-left' : 'text-right' }} {{ $loop->first || $loop->last ? 'sm:px-5' : '' }}">{{ $h }}</th>
                                 @endforeach
                             </tr>
@@ -693,20 +780,57 @@
                                                 </svg>
                                             </a>
                                         @else
-                                            <span class="block truncate text-slate-900">{{ $bill->customer_name ?? 'Cash sale' }}</span>
+                                            <span class="block truncate text-slate-900">{{ $bill->customer_name ?? 'Walk-in customer' }}</span>
                                         @endif
                                         <span class="block truncate text-xs text-slate-400">{{ $bill->creator->name }}</span>
                                     </td>
                                     <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums text-slate-600">{{ $bill->lines_count }}</td>
                                     <td class="whitespace-nowrap px-3 py-2 text-right font-semibold tabular-nums text-slate-900">{{ $rs($bill->total) }}</td>
-                                    <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums {{ $bill->credit()->isPositive() ? 'font-medium text-amber-700' : 'text-slate-300' }}">
-                                        {{ $bill->credit()->isPositive() ? $rs($bill->credit()) : '—' }}
+                                    {{-- What is still to come in, not what was left unpaid
+                                         at the time: money brought back since is taken off.
+                                         Receive takes the rest in cash, in two presses — the
+                                         bill itself is never changed, the money is entered as
+                                         a collection on today's entry. --}}
+                                    @php($pending = $stillOwed[$bill->id] ?? null)
+                                    <td class="whitespace-nowrap px-3 py-2 text-right tabular-nums">
+                                        @if ($pending)
+                                            <span class="font-medium text-amber-700">{{ $rs($pending['owed']) }}</span>
+                                        @elseif ($bill->credit()->isPositive() && $bill->pharmacy_id !== null)
+                                            <span class="text-xs font-medium text-emerald-700" title="The pending amount has been received">Received ✓</span>
+                                        @elseif ($bill->credit()->isPositive())
+                                            <span class="font-medium text-amber-700">{{ $rs($bill->credit()) }}</span>
+                                        @else
+                                            <span class="text-slate-300">—</span>
+                                        @endif
                                     </td>
                                     {{-- Both open the bill in its own tab, so the counter
                                          keeps the sale in progress. Print asks that tab to
                                          print the moment it has loaded. --}}
                                     <td class="whitespace-nowrap px-3 py-2 text-right sm:px-5">
                                         <div class="inline-flex items-center gap-1">
+                                            {{-- First in the row: taking the pending money is
+                                                 what the counter comes here for most. --}}
+                                            @if ($pending)
+                                            @can('create', [\App\Models\DailyEntry::class, $business])
+                                                <form method="POST" action="{{ route('businesses.collections.store', $business) }}"
+                                                      x-data="{ sure: false }" x-on:click.outside="sure = false" class="mr-1">
+                                                    @csrf
+                                                    <input type="hidden" name="pharmacy_id" value="{{ $pending['pharmacy_id'] }}">
+                                                    <input type="hidden" name="pos_bill_id" value="{{ $bill->id }}">
+                                                    <input type="hidden" name="amount" value="{{ $pending['owed']->toDecimal() }}">
+                                                    <input type="hidden" name="note" value="Received at the POS against bill {{ $bill->reference() }}">
+                                                    <button type="button" x-show="! sure" x-on:click="sure = true" @disabled($dayClosed)
+                                                            title="Receive the whole pending amount in cash"
+                                                            class="rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">
+                                                        Receive amount
+                                                    </button>
+                                                    <button type="submit" x-show="sure" x-cloak
+                                                            class="rounded-md bg-amber-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-amber-700">
+                                                        Yes, received Rs. {{ $rs($pending['owed']) }}
+                                                    </button>
+                                                </form>
+                                            @endcan
+                                            @endif
                                             {{-- The bill's own page: its history, and for those
                                                  allowed, correcting it or taking goods back. --}}
                                             @can('returnAtPos', $business)
@@ -746,7 +870,7 @@
                             @empty
                                 <tr>
                                     <td colspan="7" class="px-5 py-12 text-center text-slate-500">
-                                        Nothing sold yet today.
+                                        No bills today.
                                     </td>
                                 </tr>
                             @endforelse
@@ -757,7 +881,7 @@
                 <div class="flex shrink-0 items-center justify-end border-t border-slate-200 px-5 py-3">
                     <button type="button" x-on:click="bills = false"
                             class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700">
-                        Back to the counter
+                        Back to POS
                     </button>
                 </div>
             </div>
@@ -786,8 +910,8 @@
                     <p class="mt-3 rounded-xl p-3 text-sm font-semibold"
                        :class="asking.expiry_state === 'expired' ? 'bg-red-50 text-red-900 ring-1 ring-red-200' : 'bg-amber-50 text-amber-900 ring-1 ring-amber-200'"
                        x-text="asking.expiry_state === 'expired'
-                           ? 'This stock went out of date in ' + asking.expires_label + '. It should not be sold — take it off the shelf.'
-                           : 'The oldest stock of this expires ' + asking.expires_label + '. Move it to the near-expiry shelf.'"></p>
+                           ? 'This stock expired in ' + asking.expires_label + '. Do not sell it. Remove it from the shelf.'
+                           : 'The oldest stock of this product expires ' + asking.expires_label + '. Move it to the near-expiry shelf.'"></p>
                 </template>
 
                 {{-- A pharmacy sells at the MRP, so it has no trade price to show. --}}
@@ -820,7 +944,7 @@
                         <span x-text="(asking?.stock > 0 || asking?.loose_stock > 0) ? 'More than is in stock' : 'None in stock'"></span>
                     </p>
                     <p class="mt-1 text-sm leading-snug text-red-800">
-                        The books hold <span class="font-semibold" x-text="asking ? stockLabel(asking) : ''"></span>
+                        Recorded stock is <span class="font-semibold" x-text="asking ? stockLabel(asking) : ''"></span>
                         of <span class="font-semibold" x-text="asking?.name"></span>.
                         Record the delivery or correct the stock first, then sell it.
                     </p>
@@ -828,7 +952,7 @@
 
                 <div class="mt-4 grid grid-cols-2 gap-3">
                     <label class="block">
-                        <span class="text-xs uppercase tracking-wide text-slate-400">{{ $loose ? 'Qty' : 'How many' }}</span>
+                        <span class="text-xs uppercase tracking-wide text-slate-400">{{ $loose ? 'Qty' : 'Quantity' }}</span>
                         <input x-ref="askQty" x-model.number="askQty" type="text" inputmode="numeric"
                                x-on:keydown.enter.prevent="confirmAsk()"
                                class="mt-1 block w-full rounded-lg border-slate-300 py-2 text-center text-2xl font-semibold tabular-nums focus:border-emerald-600 focus:ring-emerald-600">
@@ -858,9 +982,9 @@
                 <div x-show="askUnderpriced" x-cloak class="mt-3 rounded-xl bg-red-50 p-3 ring-1 ring-red-200">
                     <p class="text-sm font-semibold text-red-900">Below the purchase price</p>
                     <p class="mt-0.5 text-sm leading-snug text-red-800">
-                        This cost <span class="font-semibold" x-text="'Rs. ' + money(asking?.cost)"></span> to buy.
-                        Selling it for less loses money on every
-                        {{ $one }}, so the bill will not take it.
+                        The purchase price is <span class="font-semibold" x-text="'Rs. ' + money(asking?.cost)"></span>.
+                        A lower price is a loss on every
+                        {{ $one }}, so it cannot be added to the bill.
                     </p>
                     <button type="button" x-on:click="askPrice = asking.cost"
                             class="mt-2 rounded-lg bg-red-700 px-2.5 py-1 text-xs font-semibold text-white hover:bg-red-800">
@@ -897,6 +1021,63 @@
                     customers: @json($customers),
                     cart: [],
                     picking: false,
+
+                    // Asking who an unpaid bill with no customer on it is for.
+                    creditAsk: false,
+                    creditQuery: '',
+                    creditName: '',
+                    creditPhone: '',
+                    creditError: '',
+                    // The phone number of a customer added at the till, sent with the bill.
+                    customerPhone: '',
+                    get creditMatches() {
+                        const q = this.creditQuery.trim().toLowerCase();
+
+                        return (q === '' ? this.customers : this.customers.filter(c => c.name.toLowerCase().includes(q)
+                            || (c.phone || '').includes(q) || (c.area || '').toLowerCase().includes(q))).slice(0, 50);
+                    },
+                    openCredit() {
+                        this.creditAsk = true;
+                        this.creditQuery = this.creditName = this.creditPhone = this.creditError = '';
+                        this.$nextTick(() => this.$refs.creditSearch.focus());
+                    },
+                    /** The bill goes on someone already on the list, and is saved. */
+                    creditPick(customer) {
+                        this.customer = customer.name;
+                        this.owes = customer.owes ?? 0;
+                        this.customerPhone = '';
+                        this.creditAsk = false;
+                        this.save();
+                    },
+                    /** A new customer, by name and phone; their account opens with the bill. */
+                    creditNew() {
+                        const name = this.creditName.trim().toUpperCase();
+                        const phone = this.creditPhone.trim();
+
+                        if (name === '') {
+                            this.creditError = 'Enter the customer\'s name.';
+                            this.$refs.creditName.focus();
+
+                            return;
+                        }
+
+                        if (phone === '') {
+                            this.creditError = 'Enter the customer\'s phone number.';
+
+                            return;
+                        }
+
+                        // Typed again rather than found: it is the same customer.
+                        const known = this.customers.find(c => c.name.toLowerCase() === name.toLowerCase());
+
+                        if (known) return this.creditPick(known);
+
+                        this.customer = name;
+                        this.owes = 0;
+                        this.customerPhone = phone;
+                        this.creditAsk = false;
+                        this.save();
+                    },
                     customerQuery: '',
                     owes: 0,
                     query: '',
@@ -1276,6 +1457,7 @@
                     },
                     pick(customer) {
                         this.customer = customer?.name ?? '';
+                        this.customerPhone = '';
                         this.owes = customer?.owes ?? 0;
                         this.picking = false;
                         this.focusSearch();
@@ -1371,7 +1553,7 @@
 
                     clear() {
                         this.cart = [];
-                        this.discount = this.discountPct = this.received = this.customer = this.via = '';
+                        this.discount = this.discountPct = this.received = this.customer = this.customerPhone = this.via = '';
                         this.owes = 0;
                         this.focusSearch();
                     },
@@ -1384,6 +1566,11 @@
                                 return;
                             }
                         @endunless
+                        // Not fully paid, and nobody named to owe the rest.
+                        if (! this.customer && this.credit > 0.004) {
+                            this.openCredit();
+                            return;
+                        }
                         @if ($editing)
                             if (! this.reason.trim()) {
                                 this.$refs.reason.focus();

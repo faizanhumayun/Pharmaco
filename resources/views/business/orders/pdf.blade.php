@@ -144,7 +144,7 @@
 
     <table class="foot" width="100%">
         <tr>
-            <td>{{ number_format($order->totalPacks()) }} packs across {{ $order->lines->count() }} {{ Str::plural('item', $order->lines->count()) }}</td>
+            <td>{{ number_format($order->totalPacks()) }} packs in {{ $order->lines->count() }} {{ Str::plural('item', $order->lines->count()) }}</td>
             <td class="r">Prepared by {{ $order->creator->name }}</td>
         </tr>
     </table>
@@ -157,7 +157,7 @@
     @endif
 
     <div class="disclaimer">
-        This is an order, not an invoice. Prices are as quoted and subject to the company's confirmation.
+        This is an order, not an invoice. Prices are as quoted and must be confirmed by the company.
     </div>
 </body>
 </html>

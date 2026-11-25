@@ -4,7 +4,7 @@
             <h1 class="text-xl font-semibold text-gray-900">Daily entries</h1>
             <a href="{{ route('businesses.daily.create', $business) }}"
                class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                Enter a day
+                Add daily entry
             </a>
         </div>
     </x-slot>
@@ -33,7 +33,7 @@
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
                         <tr>
-                            @foreach (['Date', 'Status', 'Purchases', 'Sales', 'Cash received', 'Gross profit', 'Recovered (earlier credit)', 'Paid to companies', 'Expenses', 'Net profit', 'Entered by'] as $i => $head)
+                            @foreach (['Date', 'Status', 'Purchases', 'Sales', 'Cash received', 'Gross profit', 'Received (earlier credit)', 'Paid to companies', 'Expenses', 'Net profit', 'Entered by'] as $i => $head)
                                 <th class="px-4 py-2 {{ $i >= 2 && $i <= 9 ? 'text-right' : 'text-left' }} text-xs font-semibold uppercase tracking-wide text-gray-500 {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">
                                     {{ $head }}
                                 </th>
@@ -64,7 +64,7 @@
                                 <td class="px-4 py-2 text-gray-500 sm:px-6">{{ $entry->creator->name }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="11" class="px-6 py-10 text-center text-gray-500">No days entered yet.</td></tr>
+                            <tr><td colspan="11" class="px-6 py-10 text-center text-gray-500">No daily entries yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

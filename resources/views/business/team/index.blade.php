@@ -2,8 +2,8 @@
     <x-slot name="header">
         <h1 class="text-xl font-semibold text-gray-900">Team</h1>
         <p class="mt-1 text-sm text-gray-500">
-            Who can sign in to {{ $business->name }}, and what each of them can do.
-            Switching someone off keeps their name on everything they entered.
+            Users who can sign in to {{ $business->name }}, and their access.
+            When a user is switched off, their name stays on their entries.
         </p>
     </x-slot>
 
@@ -73,7 +73,7 @@
                         @empty
                             <tr>
                                 <td colspan="3" class="px-6 py-10 text-center text-sm text-gray-500">
-                                    Nobody has a login to this business yet.
+                                    No one has a login for this business yet.
                                 </td>
                             </tr>
                         @endforelse
@@ -82,8 +82,8 @@
             </x-panel>
 
             {{-- Give someone a login. --}}
-            <x-panel title="Add someone"
-                     description="They sign in at the normal login page with this email and password. Tell them the password yourself.">
+            <x-panel title="Add a user"
+                     description="The user signs in on the login page with this email and password. Give the password to the user yourself.">
                 <form method="POST" action="{{ route('businesses.team.store', $business) }}" class="space-y-4 p-4 sm:p-6">
                     @csrf
 
@@ -119,14 +119,14 @@
                             <x-input-error :messages="$errors->get('password')" class="mt-2" />
                         </div>
                         <div>
-                            <x-input-label for="password_confirmation" value="Password again" />
+                            <x-input-label for="password_confirmation" value="Confirm password" />
                             <x-text-input id="password_confirmation" name="password_confirmation" type="password" class="mt-1 block w-full" required autocomplete="new-password" />
                         </div>
                     </div>
 
                     <p class="text-xs text-gray-500">
-                        If this email already has a login — say they work for another business too — they are added
-                        here with their existing password, and the one above is not used.
+                        If this email already has a login, the user is added here with the existing password.
+                        The password above is not used.
                     </p>
 
                     <button class="w-full rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">

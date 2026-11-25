@@ -11,7 +11,7 @@
 ])
 @php($money = fn ($m) => ($m->isNegative() ? '−' : '') . $m->absolute()->format())
 @php($move = fn ($m, bool $upIsGood) => $m->isZero()
-    ? ['no change', 'text-gray-400']
+    ? ['No change', 'text-gray-400']
     : [($m->isPositive() ? '▲ +' : '▼ −') . $m->absolute()->format(),
        $m->isPositive() === $upIsGood ? 'text-emerald-700' : 'text-red-700'])
 
@@ -21,9 +21,9 @@
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Daily closings</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    Closed through
-                    <span class="font-medium text-gray-700">{{ $business->locked_through_date?->format('D d M Y') ?? 'nothing yet' }}</span>.
-                    A closed day is locked; reopen it from its own page to change it.
+                    Closed up to
+                    <span class="font-medium text-gray-700">{{ $business->locked_through_date?->format('D d M Y') ?? 'no day yet' }}</span>.
+                    A closed day is locked. Reopen it from its own page to change it.
                 </p>
             </div>
             <a href="{{ route('businesses.closing.show', $business) }}"
@@ -57,14 +57,14 @@
                 <thead class="bg-gray-50">
                     <tr>
                         @foreach ([
-                            ['Day', 'left'],
+                            ['Date', 'left'],
                             ['Sales', 'right'],
                             ['Gross profit', 'right'],
                             ['Expenses', 'right'],
-                            ['After expenses', 'right'],
-                            ['Cash in drawer', 'right'],
-                            ['Market owes us', 'right'],
-                            ['We owe companies', 'right'],
+                            ['Profit after expenses', 'right'],
+                            ['Cash in hand', 'right'],
+                            ['Pending from market', 'right'],
+                            ['Pending to companies', 'right'],
                             ['Net position', 'right'],
                             ['Closed by', 'left'],
                         ] as [$head, $align])
@@ -120,12 +120,12 @@
                                 </div>
                                 <div class="text-xs">
                                     @if ($closing->counted_cash === null)
-                                        <span class="text-gray-400">not counted</span>
+                                        <span class="text-gray-400">Not counted</span>
                                     @elseif (! $closing->hasCashVariance())
-                                        <span class="text-emerald-700">✓ count matched</span>
+                                        <span class="text-emerald-700">✓ Count matched</span>
                                     @else
                                         @php([$varText, $varClass] = $move($closing->cash_variance, true))
-                                        <span class="{{ $varClass }}">count {{ $varText }}</span>
+                                        <span class="{{ $varClass }}">Count {{ $varText }}</span>
                                     @endif
                                 </div>
                             </td>

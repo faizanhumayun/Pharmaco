@@ -9,7 +9,7 @@
         <div>
             <h1 class="text-xl font-semibold text-gray-900">Settings</h1>
             <p class="mt-1 text-sm text-gray-500">
-                Your details as they appear on a bill, and how the counter prints and counts.
+                Business details shown on bills, and POS settings.
             </p>
         </div>
     </x-slot>
@@ -23,7 +23,7 @@
 
             <div class="space-y-6 xl:col-span-2">
                 <x-panel title="Business details"
-                         description="Printed at the top of every bill and order form you send out.">
+                         description="Printed at the top of every bill and order form.">
                     <div class="grid gap-4 p-4 sm:grid-cols-2 sm:p-6">
                         <div class="sm:col-span-2">
                             <x-input-label for="address" value="Address" />
@@ -59,16 +59,16 @@
                          notice only once it has gone out. --}}
                     @unless ($business->address || $business->phone || $business->email || $business->ntn)
                         <p class="border-t border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900 sm:px-6">
-                            Your bills currently carry only your name — no address, phone or NTN.
+                            Your bills show only the business name. Address, phone and NTN are missing.
                         </p>
                     @endunless
                 </x-panel>
 
-                <x-panel title="The counter" description="How bills print.">
+                <x-panel title="POS" description="Bill printing, colour and expiry warning settings.">
                     <div class="space-y-6 p-4 sm:p-6">
                         <div>
                             <x-input-label value="Printer" />
-                            <p class="text-xs text-gray-500">Which bill opens first. Either can be printed from any bill.</p>
+                            <p class="text-xs text-gray-500">The bill format that opens first. Both formats can be printed from any bill.</p>
                             <div class="mt-2 grid gap-3 sm:grid-cols-2">
                                 @foreach ($formats as $format)
                                     <label class="flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5
@@ -94,8 +94,8 @@
                         <div x-data="{ accent: @js(old('accent', $business->accentColour()->value)) }">
                             <x-input-label value="Colour" />
                             <p class="text-xs text-gray-500">
-                                Buttons, links and highlights across your screens, including the counter.
-                                Red and amber are kept for warnings, and blue for receiving stock, so they are not offered.
+                                Colour of buttons, links and highlights on all screens, including POS.
+                                Red and amber are used for warnings and blue for receiving stock, so they are not available.
                             </p>
                             <div class="mt-2 flex flex-wrap gap-2">
                                 @foreach (\App\Enums\AccentColour::cases() as $colour)
@@ -106,7 +106,7 @@
                                             <span class="h-5 w-5 rounded-full bg-emerald-700"></span>
                                             {{ $colour->label() }}
                                             @if ($colour === \App\Enums\AccentColour::defaultFor($business->business_type))
-                                                <span class="text-xs font-normal text-gray-400">usual</span>
+                                                <span class="text-xs font-normal text-gray-400">default</span>
                                             @endif
                                         </span>
                                     </label>
@@ -125,10 +125,10 @@
                                 reset() { this.$refs.editor.innerHTML = ''; this.sync(); this.$refs.editor.focus(); },
                                 get empty() { return this.html.replace(/<[^>]*>|&nbsp;|\s/g, '') === ''; },
                              }">
-                            <x-input-label value="Foot of the bill" />
+                            <x-input-label value="Bill footer" />
                             <p class="text-xs text-gray-500">
-                                Printed at the bottom of every till slip — a thank-you, opening hours, a returns
-                                policy. Leave it empty for the usual line.
+                                Printed at the bottom of every POS slip, for example a thank-you note, opening
+                                hours or return policy. Leave empty to use the default text.
                             </p>
 
                             <input type="hidden" name="receipt_footer" :value="html">
@@ -140,11 +140,11 @@
                                                 class="flex h-7 w-7 items-center justify-center rounded text-sm text-gray-700 hover:bg-gray-200 {{ $style }}">{{ $letter }}</button>
                                     @endforeach
                                     <span class="mx-1 h-4 w-px bg-gray-300"></span>
-                                    <button type="button" x-on:mousedown.prevent x-on:click="mark('insertUnorderedList')" title="Bullet points — click again to turn them off"
+                                    <button type="button" x-on:mousedown.prevent x-on:click="mark('insertUnorderedList')" title="Bullet points. Click again to turn off."
                                             class="flex h-7 items-center gap-1 rounded px-2 text-xs font-medium text-gray-700 hover:bg-gray-200">
                                         <span class="text-base leading-none">•</span> Bullets
                                     </button>
-                                    <button type="button" x-on:mousedown.prevent x-on:click="mark('insertLineBreak')" title="New line — the Enter key does the same"
+                                    <button type="button" x-on:mousedown.prevent x-on:click="mark('insertLineBreak')" title="New line. The Enter key does the same."
                                             class="flex h-7 items-center gap-1 rounded px-2 text-xs font-medium text-gray-700 hover:bg-gray-200">
                                         <span class="text-base leading-none">↵</span> New line
                                     </button>
@@ -156,7 +156,7 @@
                                 <div class="relative bg-gray-50 px-3 py-3">
                                     <div x-ref="editor" contenteditable="true" x-on:input="sync()" x-on:blur="sync()"
                                          x-on:paste.prevent="document.execCommand('insertText', false, $event.clipboardData.getData('text/plain')); sync()"
-                                         role="textbox" aria-multiline="true" aria-label="Foot of the bill"
+                                         role="textbox" aria-multiline="true" aria-label="Bill footer"
                                          class="mx-auto min-h-[4.5rem] w-[80mm] max-w-full bg-white px-3 py-2 text-center text-[11px] font-medium leading-snug text-gray-900 shadow-sm ring-1 ring-slate-200 focus:outline-none [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:text-left [&_ol]:list-decimal [&_ol]:pl-4 [&_ol]:text-left"></div>
                                     <p x-show="empty" class="pointer-events-none absolute inset-x-0 top-5 text-center text-[11px] font-medium text-gray-400">
                                         {{ \App\Models\Business::DEFAULT_RECEIPT_FOOTER }}
@@ -170,15 +170,15 @@
                              switch any of these for one bill; the next bill starts
                              here again. --}}
                         <div>
-                            <x-input-label value="At the counter, for every bill" />
+                            <x-input-label value="Default options for every bill" />
                             <p class="text-xs text-gray-500">
-                                What the till does unless told otherwise. Whoever is at the counter can turn any of
-                                these on or off for a single bill with the switches at the top of the till.
+                                The default POS options. The user can turn any of these on or off for a
+                                single bill with the switches at the top of the POS screen.
                             </p>
                             <div class="mt-2 space-y-2">
                                 @foreach ([
                                     'pos_print' => ['Print', 'After saving, show the bill ready to print.', true],
-                                    'pos_net_bill' => ['Net ' . \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT . '% bill', 'Quote prices before the ' . \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT . '% trade discount; the amount payable is the same.', \App\Enums\ReceiptFormat::NET_BILL_AVAILABLE],
+                                    'pos_net_bill' => ['Net ' . \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT . '% bill', 'Show prices before the ' . \App\Enums\ReceiptFormat::TRADE_DISCOUNT_PERCENT . '% trade discount. The amount payable is the same.', \App\Enums\ReceiptFormat::NET_BILL_AVAILABLE],
                                     'pos_balance' => ['Balance', 'After saving, show the customer\'s account.', true],
                                 ] as $switch => [$title, $does, $offered])
                                     @continue(! $offered)
@@ -200,10 +200,10 @@
                              distributor will not take short-dated goods at all,
                              while a counter may only care weeks ahead. --}}
                         <div>
-                            <x-input-label for="expiry_alert_months" value="Warn about expiry" />
+                            <x-input-label for="expiry_alert_months" value="Expiry warning" />
                             <p class="text-xs text-gray-500">
-                                Stock expiring within this long is coloured at the counter, so it can be
-                                moved to the near-expiry shelf instead of being sold by mistake.
+                                Stock that expires within this period is highlighted at POS, so it is not
+                                sold by mistake.
                             </p>
                             <select id="expiry_alert_months" name="expiry_alert_months"
                                     class="mt-2 block w-full max-w-xs rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
@@ -213,7 +213,7 @@
                                 <option value="" @selected(old('expiry_alert_months', $business->expiryAlertMonths()) === null)>Do not warn</option>
                             </select>
                             <p class="mt-1 text-xs text-gray-500">
-                                Stock already out of date is always shown in red, whatever this says.
+                                Expired stock is always shown in red.
                             </p>
                             <x-input-error :messages="$errors->get('expiry_alert_months')" class="mt-1" />
                         </div>
@@ -231,11 +231,11 @@
             {{-- What this screen deliberately cannot change. --}}
             <div class="xl:col-span-1">
                 <x-panel title="Set in the back office"
-                         description="These decide how the books are kept, so they are not changed from inside the business.">
+                         description="These settings control how the accounts are kept. They cannot be changed here.">
                     <dl class="divide-y divide-gray-100 text-sm">
                         @foreach ([
                             'Name' => $business->name,
-                            'Kind of business' => $business->business_type->label(),
+                            'Business type' => $business->business_type->label(),
                             // Not a choice: a distributor moves whole packs and
                             // cartons, a pharmacy breaks them open. It follows
                             // from the kind of business and nothing else.
@@ -252,8 +252,8 @@
                         @endforeach
                     </dl>
                     <p class="px-4 py-3 text-xs leading-relaxed text-gray-500 sm:px-6">
-                        The timezone decides which day a sale falls on, so it is frozen once a
-                        business has any history at all.
+                        The timezone decides the date of each sale. It cannot be changed after the
+                        business has records.
                     </p>
                 </x-panel>
             </div>
@@ -268,7 +268,7 @@
             @method('PUT')
 
             <x-panel title="Payment methods"
-                     description="How customers can pay besides cash. Money taken this way is kept in its own account in your books, not in the drawer, so the cash count stays right.">
+                     description="Payment methods other than cash. Money received this way is recorded in its own account, not in cash in hand, so the cash count stays correct.">
                 <div class="space-y-5 p-4 sm:p-6">
                     <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                         @foreach ($paymentMethods['wallet'] ?? [] as $method)
@@ -289,7 +289,7 @@
                             <input type="checkbox" x-model="bank" class="mt-1 rounded text-emerald-700 focus:ring-emerald-600">
                             <span>
                                 <span class="block text-sm font-medium text-gray-900">Bank transfer</span>
-                                <span class="block text-xs text-gray-500">Choose the banks you hold accounts with.</span>
+                                <span class="block text-xs text-gray-500">Select the banks where you have accounts.</span>
                             </span>
                         </label>
                     </div>
@@ -316,7 +316,7 @@
                 </div>
 
                 <div class="flex items-center justify-between gap-3 border-t border-gray-200 px-4 py-3 sm:px-6">
-                    <p class="text-xs text-gray-500">Switching one off hides it at the counter. What was taken through it stays in the books.</p>
+                    <p class="text-xs text-gray-500">A method that is switched off is hidden at POS. Amounts already received through it stay in the records.</p>
                     <button class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
                         Save payment methods
                     </button>

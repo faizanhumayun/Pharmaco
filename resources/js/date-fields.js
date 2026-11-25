@@ -14,6 +14,11 @@
  * The calendar itself is Vanilla Calendar Pro (the one FlyonUI ships), in the
  * product's own colours — see the --vc-* settings in tokens.css.
  *
+ * An <input type="month"> — the expiry printed on a carton — gets the same
+ * treatment in its own shape: a box to type "08/27" into, as it is read off
+ * the pack, and a button that opens a year of months to pick from. It goes on
+ * submitting Y-m.
+ *
  * To leave one as the browser draws it, mark it: <input type="date" data-native>.
  */
 import { Calendar, months, motion } from 'vanilla-calendar-pro';
@@ -256,6 +261,233 @@ function build(from, to = null) {
     label();
 }
 
+/* ------------------------------------------------------------------ months */
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** "2027-08" as it is printed on a carton: 08/2027. */
+const monthWords = value => value ? value.slice(5, 7) + '/' + value.slice(0, 4) : '';
+
+/**
+ * What someone typed, as Y-m — or '' when it is not a month yet.
+ *
+ * Read the way cartons print it, month first: 0827, 08/27, 8-2027, 08.2027,
+ * aug 27. A year of two figures is this century.
+ */
+function readMonth(text) {
+    const t = text.trim().toLowerCase();
+    let month, year, found;
+
+    if ((found = t.match(/^(\d{4})-(\d{1,2})$/))) [, year, month] = found;
+    else if ((found = t.match(/^(\d{1,2})\s*[\/\-. ]\s*(\d{2}|\d{4})$/))) [, month, year] = found;
+    else if ((found = t.match(/^(\d{2})(\d{2}|\d{4})$/))) [, month, year] = found;
+    else if ((found = t.match(/^([a-z]{3})[a-z]*[\s\/\-.,]*(\d{2}|\d{4})$/))) {
+        month = MONTHS.findIndex(m => m.toLowerCase() === found[1]) + 1;
+        year = found[2];
+    } else return '';
+
+    month = Number(month);
+    year = Number(year);
+    if (year < 100) year += 2000;
+
+    return month >= 1 && month <= 12 && year >= 2000 && year <= 2099 ? year + '-' + pad(month) : '';
+}
+
+/** One panel for every expiry on the page: only one is ever open. */
+let monthPanel = null;
+
+function monthPicker() {
+    if (monthPanel) return monthPanel;
+
+    const panel = document.createElement('div');
+    panel.dataset.dateWrap = 'on';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-label', 'Choose the expiry month');
+    panel.className = 'fixed z-[90] hidden w-64 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-xl';
+
+    const head = document.createElement('div');
+    head.className = 'flex items-center justify-between border-b border-gray-200 bg-gray-50 px-2 py-1.5';
+
+    const step = (label, title) => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.textContent = label;
+        b.title = title;
+        b.className = 'flex h-8 w-8 items-center justify-center rounded-md text-lg leading-none text-gray-700 hover:bg-white hover:text-emerald-800';
+
+        return b;
+    };
+
+    const back = step('‹', 'The year before');
+    const on = step('›', 'The year after');
+    const yearText = document.createElement('p');
+    yearText.className = 'font-mono text-sm font-semibold tabular-nums text-gray-900';
+    head.append(back, yearText, on);
+
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-4 gap-1 p-2';
+
+    const foot = document.createElement('div');
+    foot.className = 'flex items-center justify-between gap-3 border-t border-gray-200 px-3 py-2';
+    const said = document.createElement('p');
+    said.className = 'text-xs text-gray-500';
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.textContent = 'Clear';
+    clear.className = 'rounded-md px-2.5 py-1 text-sm font-medium text-gray-600 hover:bg-gray-100';
+    foot.append(said, clear);
+
+    panel.append(head, grid, foot);
+    document.body.append(panel);
+
+    monthPanel = { panel, year: new Date().getFullYear(), input: null, button: null };
+
+    const draw = () => {
+        const now = new Date();
+        const thisMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+        const chosen = monthPanel.input?.value ?? '';
+
+        yearText.textContent = monthPanel.year;
+        said.textContent = chosen ? 'Expires ' + MONTHS[Number(chosen.slice(5, 7)) - 1] + ' ' + chosen.slice(0, 4) : 'As printed on the pack';
+        grid.replaceChildren();
+
+        MONTHS.forEach((name, i) => {
+            const value = monthPanel.year + '-' + pad(i + 1);
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.innerHTML = '<span class="block text-sm font-medium">' + name + '</span>'
+                + '<span class="block font-mono text-[0.6875rem] tabular-nums opacity-70">' + pad(i + 1) + '</span>';
+            item.className = 'rounded-md py-1.5 text-center '
+                + (value === chosen
+                    ? 'bg-emerald-700 text-white'
+                    // Already gone by: still there to pick, but it says so.
+                    : (value < thisMonth ? 'text-red-600 hover:bg-red-50' : 'text-gray-800 hover:bg-emerald-50 hover:text-emerald-800'));
+            item.addEventListener('click', () => {
+                const input = monthPanel.input;
+
+                set(input, value);
+                input._dateSync?.();
+                close();
+                input._monthText?.focus();
+            });
+            grid.append(item);
+        });
+    };
+
+    back.addEventListener('click', () => { monthPanel.year--; draw(); });
+    on.addEventListener('click', () => { monthPanel.year++; draw(); });
+    clear.addEventListener('click', () => {
+        set(monthPanel.input, '');
+        monthPanel.input._dateSync?.();
+        draw();
+    });
+
+    monthPanel.draw = draw;
+
+    return monthPanel;
+}
+
+/** One expiry: a box to type the month into, and a calendar of months beside it. */
+function buildMonth(input) {
+    const classes = [...input.classList];
+
+    input.dataset.dateField = 'on';
+    input.type = 'hidden';
+
+    const wrapper = document.createElement('span');
+    wrapper.dataset.dateWrap = 'on';
+    wrapper.className = ['relative block', ...classes.filter(c => /^(?:[a-z-]+:)*(mt-|w-|max-w-|min-w-)/.test(c))].join(' ');
+
+    // The page's own sizes, so the field sits in its row as it did before.
+    const sized = classes.filter(c => /^(?:[a-z-]+:)*(py-|text-(xs|sm|base|lg)$|rounded)/.test(c));
+
+    const text = document.createElement('input');
+    text.type = 'text';
+    text.inputMode = 'numeric';
+    text.autocomplete = 'off';
+    text.maxLength = 14;
+    text.placeholder = input.required || 'must' in input.dataset ? 'Expiry MM/YY *' : 'Expiry MM/YY';
+    text.title = input.title || 'Expiry, as printed on the pack: month and year — 08/27';
+    text.setAttribute('aria-label', 'Expiry month and year');
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.tabIndex = -1;
+    button.title = 'Pick the month';
+    button.setAttribute('aria-haspopup', 'dialog');
+    button.setAttribute('aria-expanded', 'false');
+    button.className = 'absolute inset-y-0 right-0 flex w-7 items-center justify-center rounded-r-md text-gray-500 hover:text-emerald-800';
+    button.innerHTML = ICON;
+
+    const paint = () => {
+        const now = new Date();
+        const thisMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+        const soon = new Date(now.getFullYear(), now.getMonth() + 6, 1);
+        const soonMonth = soon.getFullYear() + '-' + pad(soon.getMonth() + 1);
+        const value = input.value;
+        const unread = text.value.trim() !== '' && ! value;
+
+        text.className = ['block w-full border pl-2 pr-7 font-mono tabular-nums placeholder:font-sans focus:border-emerald-700 focus:ring-emerald-600',
+            ...(sized.length ? sized : ['rounded-md', 'py-1', 'text-sm']),
+            unread || (value && value < thisMonth) ? 'border-red-500 bg-red-50 text-red-900'
+                : (value && value <= soonMonth ? 'border-amber-400 bg-amber-50' : 'border-gray-300 bg-white'),
+        ].join(' ');
+    };
+
+    // Called whenever the page may have changed the value behind the box.
+    const sync = () => {
+        // What is being typed is left alone, unless the value moved under it.
+        if (document.activeElement !== text || readMonth(text.value) !== input.value) {
+            text.value = monthWords(input.value);
+        }
+
+        paint();
+    };
+
+    text.addEventListener('input', () => {
+        set(input, readMonth(text.value));
+        paint();
+        if (monthPanel?.input === input && openPanel) {
+            if (input.value) monthPanel.year = Number(input.value.slice(0, 4));
+            monthPanel.draw();
+        }
+    });
+
+    // Leaving the box writes what was understood the way a carton prints it.
+    text.addEventListener('blur', () => {
+        if (input.value) text.value = monthWords(input.value);
+        paint();
+    });
+
+    text.addEventListener('keydown', event => {
+        if (event.key === 'ArrowDown' && event.altKey) { event.preventDefault(); button.click(); }
+    });
+
+    button.addEventListener('click', () => {
+        const picker = monthPicker();
+
+        if (openPanel?.panel === picker.panel && picker.input === input) return close();
+
+        close();
+        picker.input = input;
+        picker.button = button;
+        picker.year = input.value ? Number(input.value.slice(0, 4)) : new Date().getFullYear() + 1;
+        picker.draw();
+        picker.panel.classList.remove('hidden');
+        place(picker.panel, wrapper);
+        button.setAttribute('aria-expanded', 'true');
+        openPanel = { panel: picker.panel, button };
+    });
+
+    input.insertAdjacentElement('beforebegin', wrapper);
+    wrapper.append(text, button, input);
+
+    input._monthText = text;
+    input._dateSync = sync;
+    text.value = monthWords(input.value);
+    paint();
+}
+
 /** The block a field sits in: a label above an input, and nothing else. */
 function fieldOf(input) {
     const box = input.parentElement;
@@ -282,6 +514,10 @@ function enhanceWithin(root) {
     for (const input of fresh) {
         if (! input.dataset.dateField) build(input);
     }
+
+    for (const input of scope.querySelectorAll('input[type="month"]')) {
+        if (! input.dataset.dateField && ! ('native' in input.dataset)) buildMonth(input);
+    }
 }
 
 function resync() {
@@ -300,7 +536,7 @@ export function startDateFields() {
             for (const node of record.addedNodes) {
                 if (node.nodeType !== 1 || node.closest('[data-date-wrap], [data-kebab-wrap]')) continue;
 
-                if (node.matches('input[type="date"]') || node.querySelector('input[type="date"]')) {
+                if (node.matches('input[type="date"], input[type="month"]') || node.querySelector('input[type="date"], input[type="month"]')) {
                     enhanceWithin(node);
                     fresh = true;
                 }

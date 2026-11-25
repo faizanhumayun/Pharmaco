@@ -222,6 +222,8 @@ Route::middleware(['auth', 'business'])
         Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
         Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
         Route::get('companies/{company}', [CompanyController::class, 'show'])->name('companies.show');
+        // Money paid to a company against its pending balance.
+        Route::post('companies/{company}/pay', [CompanyController::class, 'pay'])->name('companies.pay');
 
         /*
          * Price-list import. A company sends a PDF of its catalogue; it is read

@@ -2,19 +2,19 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <h1 class="text-xl font-semibold text-gray-900">Where the business stands</h1>
+                <h1 class="text-xl font-semibold text-gray-900">Business position</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    As at {{ $date->format('D d M Y') }}. Every figure is summed from the ledger.
+                    As at {{ $date->format('D d M Y') }}. All figures are calculated from the ledger.
                 </p>
             </div>
             <div class="flex flex-wrap gap-2">
                 <a href="{{ route('businesses.daily.create', $business) }}"
                    class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                    Enter a day
+                    Daily entry
                 </a>
                 <a href="{{ route('businesses.closing.show', $business) }}"
                    class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                    Close a day
+                    Day closing
                 </a>
             </div>
         </div>
@@ -26,7 +26,7 @@
         @if (! $integrity['trial']['balanced'] || ! $integrity['positionConsistent'])
             <div class="rounded-md border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">
                 <strong>The ledger does not reconcile.</strong>
-                Until this is resolved, treat every figure on this page as unreliable.
+                Until this is resolved, the figures on this page may be incorrect.
             </div>
         @endif
 
@@ -42,7 +42,7 @@
                         {{ $position->netPosition()->format() }}
                     </p>
                     <dl class="mt-3 space-y-1 border-t border-gray-100 pt-2 text-xs">
-                        @foreach (['Stock' => $stock, 'Cash' => $cash, 'Owed to us' => $receivables, 'We owe' => $payables] as $label => $figure)
+                        @foreach (['Stock' => $stock, 'Cash' => $cash, 'Receivables' => $receivables, 'Payables' => $payables] as $label => $figure)
                             <div class="flex justify-between gap-2">
                                 <dt class="text-gray-400">{{ $label }}@if ($label === 'Stock')<span class="text-amber-700"> · estimated</span>@endif</dt>
                                 <dd class="font-mono tabular-nums text-gray-700">{{ $figure->format() }}</dd>
@@ -57,10 +57,10 @@
 
             <a href="{{ route('businesses.daily.index', $business) }}"
                class="flex flex-col rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:ring-emerald-300">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Sold today</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Sales today</p>
                 <p class="mt-1 font-mono text-2xl font-bold tabular-nums text-gray-900">{{ $today['sales']->format() }}</p>
                 <dl class="mt-3 space-y-1 border-t border-gray-100 pt-2 text-xs">
-                    @foreach (['Gross profit' => $today['grossProfit'], 'Expenses' => $today['expenses'], 'Net profit' => $today['netProfit'], 'Δ credit' => $today['receivableDelta']] as $label => $figure)
+                    @foreach (['Gross profit' => $today['grossProfit'], 'Expenses' => $today['expenses'], 'Net profit' => $today['netProfit'], 'Credit change' => $today['receivableDelta']] as $label => $figure)
                         <div class="flex justify-between gap-2">
                             <dt class="text-gray-400">{{ $label }}</dt>
                             <dd class="font-mono tabular-nums {{ $figure->isNegative() ? 'text-red-700' : 'text-gray-700' }}">{{ $figure->format() }}</dd>
@@ -87,12 +87,12 @@
                         </dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt class="text-gray-400">On bills</dt>
+                        <dt class="text-gray-400">On unpaid bills</dt>
                         <dd class="font-mono tabular-nums text-gray-700">{{ $watch['collection']['value']->format() }}</dd>
                     </div>
                     @unless ($customerAdvances->isZero())
                         <div class="flex justify-between gap-2">
-                            <dt class="text-gray-400">Advances held</dt>
+                            <dt class="text-gray-400">Customer advances</dt>
                             <dd class="font-mono tabular-nums text-gray-700">{{ $customerAdvances->format() }}</dd>
                         </div>
                     @endunless
@@ -138,7 +138,7 @@
                 </dl>
                 @if ($watch['expired']['count'] > 0)
                     <span class="mt-auto pt-2 text-xs font-medium text-red-700">
-                        {{ $watch['expired']['count'] }} to take off the shelf →
+                        {{ $watch['expired']['count'] }} to remove from stock →
                     </span>
                 @endif
             </a>
@@ -186,7 +186,7 @@
                         <span class="flex items-center gap-3">
                         <p class="font-mono text-xs font-semibold tabular-nums text-gray-900">{{ $sum($todayBills, 'total')->format() }}</p>
                         @can('sellAtPos', $business)
-                        <a href="{{ route('businesses.pos.index', $business) }}" target="_blank" title="New bill at the counter" aria-label="New bill at the counter"
+                        <a href="{{ route('businesses.pos.index', $business) }}" target="_blank" title="New bill at POS" aria-label="New bill at POS"
                            class="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-base font-semibold leading-none text-white hover:bg-emerald-800">+</a>
                         @endcan
                     </span>
@@ -199,7 +199,7 @@
                                     <span class="min-w-0">
                                         <span class="block font-mono text-sm font-medium text-gray-900">{{ $bill->reference() }}</span>
                                         <span class="block truncate text-xs text-gray-500">
-                                            {{ $bill->customer_name ?? 'Walk-in' }} · {{ $bill->lines_count }} {{ Str::plural('line', $bill->lines_count) }} ·
+                                            {{ $bill->customer_name ?? 'Walk-in customer' }} · {{ $bill->lines_count }} {{ Str::plural('line', $bill->lines_count) }} ·
                                             {{ $bill->created_at->timezone($business->timezone)->format('h:i A') }}
                                         </span>
                                     </span>
@@ -207,7 +207,7 @@
                                 </a>
                             </li>
                         @empty
-                            <li class="px-4 py-3 text-sm text-gray-500">No bills yet today.</li>
+                            <li class="px-4 py-3 text-sm text-gray-500">No bills today.</li>
                         @endforelse
                     </ul>
                 </section>
@@ -233,7 +233,7 @@
                             <li>
                                 <a @if ($to) href="{{ $to }}" @endif class="flex items-center justify-between gap-3 px-4 py-2 hover:bg-emerald-50">
                                     <span class="min-w-0">
-                                        <span class="block truncate text-sm font-medium text-gray-900">{{ $supply->company?->name ?? $supply->company_name ?? 'Company not named' }}</span>
+                                        <span class="block truncate text-sm font-medium text-gray-900">{{ $supply->company?->name ?? $supply->company_name ?? 'No company name' }}</span>
                                         <span class="block truncate text-xs text-gray-500">
                                             {{ $supply->invoice_no ?: 'No invoice number' }}
                                             @if ($supply->paid?->isPositive()) · {{ $supply->paid->format() }} paid @endif
@@ -243,7 +243,7 @@
                                 </a>
                             </li>
                         @empty
-                            <li class="px-4 py-3 text-sm text-gray-500">Nothing received yet today.</li>
+                            <li class="px-4 py-3 text-sm text-gray-500">No stock received today.</li>
                         @endforelse
                     </ul>
                 </section>
@@ -257,7 +257,7 @@
                         <p class="font-mono text-xs font-semibold tabular-nums text-gray-900">{{ $sum($spent, 'amount')->format() }}</p>
                         @can('create', [\App\Models\DailyEntry::class, $business])
                         <button type="button" x-data x-on:click="$dispatch('open-drawer', 'add-expense')"
-                                title="Add an expense" aria-label="Add an expense"
+                                title="Add expense" aria-label="Add expense"
                                 class="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-700 text-base font-semibold leading-none text-white hover:bg-emerald-800">+</button>
                         @endcan
                     </span>
@@ -277,7 +277,7 @@
                                 </a>
                             </li>
                         @empty
-                            <li class="px-4 py-3 text-sm text-gray-500">No expenses yet today.</li>
+                            <li class="px-4 py-3 text-sm text-gray-500">No expenses today.</li>
                         @endforelse
                     </ul>
                 </section>
@@ -300,9 +300,8 @@
                             <canvas id="trendChart"></canvas>
                         </div>
                         <p class="mt-3 text-xs text-gray-500">
-                            The pairing that matters most is receivables against sales: receivables rising while
-                            sales stay flat is the earliest possible warning of a collections problem, and it is
-                            invisible in any single day's numbers.
+                            Compare receivables with sales. If receivables increase while sales stay the same,
+                            collections are falling behind.
                         </p>
                     </div>
                 </x-panel>

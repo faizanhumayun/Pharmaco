@@ -39,7 +39,15 @@ class CompanyController extends Controller
             ->get();
 
         // One query for the page rather than one per company.
-        $totals = $purchases->totals($business);
+        // The days the purchases are counted over; none means all of them.
+        $dates = $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d'],
+        ]);
+        $from = $dates['from'] ?? null;
+        $to = $dates['to'] ?? null;
+
+        $totals = $purchases->totals($business, $from, $to);
 
         // One query for every company's balance, not one query each.
         $ledgerTotals = LedgerEntry::query()
@@ -57,6 +65,10 @@ class CompanyController extends Controller
         $sum = Money::sum($owed);
 
 
+        // How many each of the two lists holds, before one is chosen.
+        $allCount = $companies->count();
+        $pendingCount = $companies->filter(fn (Company $c) => ! $owed[$c->id]->isZero())->count();
+
         // Only those still owed something, when that is what is being looked for.
         if ($request->boolean('owing')) {
             $companies = $companies->filter(fn (Company $c) => ! $owed[$c->id]->isZero())->values();
@@ -73,6 +85,12 @@ class CompanyController extends Controller
         };
 
         $shownOwed = Money::sum($companies->map(fn (Company $c) => $owed[$c->id]));
+
+        // What the companies listed were billed and paid over those days.
+        $listedTotals = $companies->map(fn (Company $c) => $totals->get($c->id, CompanyPurchases::none()));
+        $listedBilled = Money::sum($listedTotals->pluck('billed'));
+        $listedPaid = Money::sum($listedTotals->pluck('paid'));
+        $listedInvoices = (int) $listedTotals->sum('invoices');
 
         // A page at a time, once the list outgrows a screen.
         $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
@@ -92,14 +110,21 @@ class CompanyController extends Controller
             'owing' => $request->boolean('owing'),
             'sort' => $sort,
             'shownOwed' => $shownOwed,
+            'from' => $from,
+            'to' => $to,
+            'listedBilled' => $listedBilled,
+            'listedPaid' => $listedPaid,
+            'listedInvoices' => $listedInvoices,
+            'allCount' => $allCount,
+            'pendingCount' => $pendingCount,
             'balances' => $companies->mapWithKeys(fn (Company $c) => [
                 $c->id => $owed[$c->id],
             ]),
             'purchases' => $companies->mapWithKeys(fn (Company $c) => [
                 $c->id => $totals->get($c->id, CompanyPurchases::none()),
             ]),
-            'billedTotal' => Money::sum($totals->pluck('billed')),
-            'paidTotal' => Money::sum($totals->pluck('paid')),
+            'billedTotal' => $listedBilled,
+            'paidTotal' => $listedPaid,
             'total' => $total,
             // The reconciliation the specification asked for, shown as a fact
             // rather than as something the system maintains.
@@ -172,15 +197,73 @@ class CompanyController extends Controller
         ];
     }
 
-    public function show(Business $business, Company $company, BalanceService $balances, StockLedger $stock): View
+    /**
+     * A payment to this company against what is owed to it.
+     *
+     * Written onto today's entry, like a payment typed there: the bills
+     * themselves are never changed.
+     */
+    public function pay(
+        Request $request,
+        Business $business,
+        Company $company,
+        \App\Domain\Companies\Actions\RecordCompanyPayment $action,
+    ): \Illuminate\Http\RedirectResponse {
+        $this->authorize('create', [\App\Models\DailyEntry::class, $business]);
+
+        abort_if($company->business_id !== $business->id, 403);
+
+        $data = $request->validate([
+            'amount' => ['required', 'string', 'regex:/^[\d,]*\.?\d{0,2}$/'],
+            'reference' => ['nullable', 'string', 'max:60'],
+        ], [
+            'amount.required' => 'Enter the amount paid.',
+            'amount.regex' => 'Enter a plain amount, for example 5000 or 5000.50.',
+        ]);
+
+        try {
+            $entry = $action->handle(
+                $business,
+                $company,
+                Money::of(str_replace([',', ' '], '', $data['amount']) ?: '0'),
+                $request->user(),
+                $data['reference'] ?? null,
+            );
+        } catch (\App\Exceptions\LedgerException $e) {
+            return back()->withInput()->withErrors(['amount' => $e->getMessage()]);
+        }
+
+        return back()->with('status', sprintf(
+            'Paid Rs. %s to %s. It is on the daily entry for %s.',
+            Money::of(str_replace([',', ' '], '', $data['amount']))->format(),
+            $company->name,
+            $entry->business_date->format('j M Y'),
+        ));
+    }
+
+    public function show(Request $request, Business $business, Company $company, BalanceService $balances, StockLedger $stock): View
     {
         $this->authorize('configure', $business);
 
         abort_if($company->business_id !== $business->id, 403);
 
+        /*
+         * A correction is a reversal and a replacement. On a statement that
+         * reads as the same purchase over and over — a day saved a hundred
+         * times shows one invoice two hundred times. The cancelled entry and
+         * its reversal are hidden, which leaves the running balance exactly
+         * as it was, since the two always cancel. "Show corrections" puts
+         * the whole trail back, and the Activity page has it regardless.
+         */
+        $showReversals = $request->boolean('corrections');
+
         $entries = $company->account
             ? LedgerEntry::forBusiness($business)
                 ->where('account_id', $company->account_id)
+                ->unless($showReversals, fn ($q) => $q->whereHas(
+                    'transaction',
+                    fn ($t) => $t->whereNull('reversal_of_id')->whereNull('reversed_by_id')
+                ))
                 ->with(['transaction.creator'])
                 ->orderBy('business_date')->orderBy('id')->get()
             : collect();
@@ -209,6 +292,8 @@ class CompanyController extends Controller
             'business' => $business,
             'company' => $company,
             'rows' => $rows,
+            'showReversals' => $showReversals,
+            'dayClosed' => $business->isDayClosed($business->today()),
             'stock' => $this->stockOf($business, $company, $stock),
             'balance' => $company->account
                 ? $balances->asAt($business, $company->account->code)

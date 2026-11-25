@@ -40,23 +40,23 @@ class Reports
     {
         return [
             'sales' => ['title' => 'Sales by bill', 'group' => 'Sales', 'dated' => true,
-                'about' => 'Every bill in the period: who bought, what it came to, how it was paid and what is still owed.'],
+                'about' => 'Every bill in the period: the customer, the bill total, how it was paid and the pending amount.'],
             'sales-by-product' => ['title' => 'Sales by product', 'group' => 'Sales', 'dated' => true,
-                'about' => 'What sold and how much of it, best seller first. Values are before any whole-bill discount.'],
+                'about' => 'Products sold and their quantities, highest seller first. Values are before any whole-bill discount.'],
             'sales-by-customer' => ['title' => 'Sales by customer', 'group' => 'Sales', 'dated' => true,
-                'about' => 'Each customer\'s bills, what they paid at the time, what came back and what is outstanding.'],
+                'about' => 'Each customer\'s bills: the amount paid at the time of sale, the amount returned and the pending amount.'],
             'returns' => ['title' => 'Returns', 'group' => 'Sales', 'dated' => true,
-                'about' => 'Goods brought back: against which bill, and whether it was refunded or taken off the account.'],
+                'about' => 'Returned items: against which bill, and whether the amount was refunded or deducted from the account.'],
             'payments' => ['title' => 'Money received by method', 'group' => 'Sales', 'dated' => true,
-                'about' => 'Cash against each wallet and bank, from sales and collections in the period.'],
+                'about' => 'Money received in cash and through each wallet and bank, from sales and collections in the period.'],
             'purchases' => ['title' => 'Purchases by delivery', 'group' => 'Purchases', 'dated' => true,
                 'about' => 'Every delivery received: from which company, on which invoice, and what it cost.'],
             'purchases-by-product' => ['title' => 'Purchases by product', 'group' => 'Purchases', 'dated' => true,
-                'about' => 'What was bought and how much of it, by value.'],
+                'about' => 'Products bought and their quantities, by value.'],
             'stock' => ['title' => 'Stock on hand', 'group' => 'Stock', 'dated' => false,
-                'about' => 'Everything held now, with its value at cost.'],
+                'about' => 'All stock held now, with its value at cost.'],
             'reorder' => ['title' => 'Reorder list', 'group' => 'Stock', 'dated' => false,
-                'about' => 'Products at or below the reorder level set on them. A product with no level set never appears.'],
+                'about' => 'Products at or below their reorder level. A product with no reorder level is not shown.'],
         ];
     }
 
@@ -124,7 +124,7 @@ class Reports
                 return [
                     'date' => $bill->business_date->format('d M Y'),
                     'bill' => $bill->reference(),
-                    'customer' => $bill->customer_name ?? 'Cash sale',
+                    'customer' => $bill->customer_name ?? 'Walk-in customer',
                     'items' => $bill->lines_count,
                     'discount' => $bill->discount,
                     'total' => $bill->total,
@@ -144,7 +144,7 @@ class Reports
                 $this->col('items', 'Items', 'number'), $this->col('discount', 'Discount', 'money'),
                 $this->col('total', 'Total', 'money'), $this->col('received', 'Received', 'money'),
                 $this->col('paid_by', 'Paid by'), $this->col('returned', 'Returned', 'money'),
-                $this->col('owing', 'Still owing', 'money'),
+                $this->col('owing', 'Pending', 'money'),
                 $this->col('cost', 'Cost', 'money', true), $this->col('margin', 'Profit', 'money', true),
                 $this->col('by', 'Sold by'),
             ],
@@ -194,7 +194,7 @@ class Reports
             'columns' => [
                 $this->col('product', 'Product'), $this->col('company', 'Company'),
                 $this->col('bills', 'Bills', 'number'), $this->col('quantity', ucfirst($business->unit()->many()).' sold', 'number'),
-                $this->col('loose', 'Loose pieces', 'number'), $this->col('returned_qty', 'Came back', 'number'),
+                $this->col('loose', 'Loose pieces', 'number'), $this->col('returned_qty', 'Returned', 'number'),
                 $this->col('sales', 'Sales', 'money'), $this->col('returned', 'Returned value', 'money'),
                 $this->col('cost', 'Cost', 'money', true), $this->col('margin', 'Profit', 'money', true),
             ],
@@ -217,7 +217,7 @@ class Reports
                 $cost = Money::sum($bills->pluck('cost'));
 
                 return [
-                    'customer' => $name === '' ? 'Cash sales (no name)' : $name,
+                    'customer' => $name === '' ? 'Walk-in customers (no name)' : $name,
                     'bills' => $bills->count(),
                     'sales' => $sales,
                     'received' => Money::sum($bills->map(fn (PosBill $b) => $b->received->greaterThan($b->total) ? $b->total : $b->received)),
@@ -234,8 +234,8 @@ class Reports
             'columns' => [
                 $this->col('customer', 'Customer'), $this->col('bills', 'Bills', 'number'),
                 $this->col('sales', 'Sales', 'money'), $this->col('received', 'Paid at the time', 'money'),
-                $this->col('collected', 'Collected since', 'money'), $this->col('returned', 'Returned', 'money'),
-                $this->col('owing', 'Still owing', 'money'), $this->col('margin', 'Profit', 'money', true),
+                $this->col('collected', 'Collected later', 'money'), $this->col('returned', 'Returned', 'money'),
+                $this->col('owing', 'Pending', 'money'), $this->col('margin', 'Profit', 'money', true),
             ],
             'rows' => $rows,
             'totals' => $this->totals($rows, ['sales', 'received', 'collected', 'returned', 'owing', 'margin'], ['bills']),
@@ -253,7 +253,7 @@ class Reports
                 'date' => $r->business_date->format('d M Y'),
                 'return' => $r->reference(),
                 'bill' => $r->bill?->reference(),
-                'customer' => $r->bill?->customer_name ?? 'Cash sale',
+                'customer' => $r->bill?->customer_name ?? 'Walk-in customer',
                 'items' => $r->lines->map(fn ($l) => $l->name.' × '.$l->quantityLabel())->implode('; '),
                 'total' => $r->total,
                 'refunded' => $r->refunded,
@@ -265,9 +265,9 @@ class Reports
         return [
             'columns' => [
                 $this->col('date', 'Date'), $this->col('return', 'Return'), $this->col('bill', 'Bill'),
-                $this->col('customer', 'Customer'), $this->col('items', 'What came back'),
+                $this->col('customer', 'Customer'), $this->col('items', 'Items returned'),
                 $this->col('total', 'Value', 'money'), $this->col('refunded', 'Refunded in cash', 'money'),
-                $this->col('on_account', 'Off the account', 'money'), $this->col('reason', 'Reason'), $this->col('by', 'Taken by'),
+                $this->col('on_account', 'Deducted from account', 'money'), $this->col('reason', 'Reason'), $this->col('by', 'Recorded by'),
             ],
             'rows' => $rows,
             'totals' => $this->totals($rows, ['total', 'refunded', 'on_account']),
@@ -345,7 +345,7 @@ class Reports
                 $this->col('date', 'Received'), $this->col('reference', 'Delivery'), $this->col('company', 'Company'),
                 $this->col('invoice', 'Invoice no.'), $this->col('lines', 'Lines', 'number'),
                 $this->col('packs', ucfirst($business->unit()->many()), 'number'), $this->col('value', 'Value', 'money'),
-                $this->col('paid', 'Paid at the time', 'money'), $this->col('on_account', 'Left owing', 'money'),
+                $this->col('paid', 'Paid at the time', 'money'), $this->col('on_account', 'Pending', 'money'),
             ],
             'rows' => $rows,
             'totals' => $this->totals($rows, ['value', 'paid', 'on_account'], ['lines', 'packs']),

@@ -51,7 +51,7 @@
                 </form>
             </div>
 
-            <p class="text-small ph-login__note">The code is given to you by whoever runs {{ $name }}.</p>
+            <p class="text-small ph-login__note">Ask the administrator of {{ $name }} for the code.</p>
         </main>
     </div>
 

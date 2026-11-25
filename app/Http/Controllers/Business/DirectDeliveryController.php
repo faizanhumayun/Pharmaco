@@ -218,7 +218,9 @@ class DirectDeliveryController extends Controller
     {
         $entered = collect($lines)
             ->mapWithKeys(fn ($line) => [(int) $line['company_product_id'] => trim((string) ($line['pack_size'] ?? ''))])
-            ->filter(fn ($pack) => $pack !== '');
+            // 0 is what the screen shows for a product with no real pack
+            // size ("Nos"): left at that, nobody has said what the pack is.
+            ->filter(fn ($pack) => $pack !== '' && $pack !== '0');
 
         if ($entered->isEmpty()) {
             return;
@@ -289,7 +291,8 @@ class DirectDeliveryController extends Controller
             // What a pharmacy sells at, so a pharmacy cannot leave it blank.
             'lines.*.mrp' => [$business->sellsAtMrp() ? 'required' : 'nullable', 'string'],
             // A month is enough: cartons are printed "09/2027", not to the day.
-            'lines.*.expires_on' => ['nullable', 'date_format:Y-m'],
+            // Never blank: stock with no date can never be warned about.
+            'lines.*.expires_on' => ['required', 'date_format:Y-m'],
             // The batch printed on the carton, beside its expiry.
             'lines.*.batch_no' => ['nullable', 'string', 'max:60'],
             // The pack as printed on the carton: confirmed, or corrected.
@@ -298,10 +301,11 @@ class DirectDeliveryController extends Controller
             // may leave it for later. A pharmacy has none.
             'lines.*.trade' => ['nullable', 'string'],
         ], [
-            'lines.*.mrp.required' => 'Line :position needs the MRP printed on the pack — it is the price you sell at.',
-            'lines.*.packs.required' => 'Line :position needs a quantity.',
+            'lines.*.mrp.required' => 'Line :position: enter the MRP printed on the pack. It is the selling price.',
+            'lines.*.packs.required' => 'Line :position: enter a quantity.',
             'lines.*.packs.numeric' => 'Line :position: the quantity must be a number, such as 2 or 0.5.',
             'lines.*.packs.gt' => 'Line :position: the quantity must be more than zero.',
+            'lines.*.expires_on.required' => 'Line :position: enter the expiry printed on the pack.',
             'lines.*.expires_on.date_format' => 'Line :position: the expiry must be a month and a year.',
             'invoice_no.required' => 'Invoice number is required.',
             'company_id.required' => 'Choose the company first.',
@@ -338,7 +342,7 @@ class DirectDeliveryController extends Controller
             throw ValidationException::withMessages(['lines' => $e->getMessage()]);
         }
 
-        $message = "Delivery recorded as {$order->reference} — {$order->receivedTotal()->format()} into stock.";
+        $message = "Delivery recorded as {$order->reference}. {$order->receivedTotal()->format()} added to stock.";
         $to = route('businesses.orders.show', [$business, $order]);
 
         // The delivery screen saves without leaving the page, so what was
@@ -378,7 +382,7 @@ class DirectDeliveryController extends Controller
             $name = $product?->label() ?? 'Line '.($i + 1);
 
             if ($product === null) {
-                $problems["lines.$i.company_product_id"] = 'Line '.($i + 1).': that product is not in your catalogue any more.';
+                $problems["lines.$i.company_product_id"] = 'Line '.($i + 1).': this product is no longer in your catalogue.';
 
                 continue;
             }
@@ -394,7 +398,7 @@ class DirectDeliveryController extends Controller
 
             if (! $business->sellsLoose() || $per < 2) {
                 $problems["lines.$i.packs"] = $business->sellsLoose()
-                    ? "$name: part of a pack ($quantity) needs a pack size that says how many pieces it holds, such as 3x10. Fill in its pack size, or enter whole packs."
+                    ? "$name: to enter part of a pack ($quantity), the product needs a pack size that shows the pieces per pack, such as 3x10. Enter its pack size, or enter whole packs."
                     : "$name: the quantity must be whole packs.";
 
                 continue;

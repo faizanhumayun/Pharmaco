@@ -113,7 +113,7 @@ class RecordStockMovements
         ?string $batchNo = null,
     ): StockMovement {
         if ($packs === 0 && $loose === 0) {
-            throw new RuntimeException('An adjustment of nothing is not an adjustment.');
+            throw new RuntimeException('Enter a quantity other than zero.');
         }
 
         if ($product->business_id !== $business->id) {

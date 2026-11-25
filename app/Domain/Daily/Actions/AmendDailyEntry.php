@@ -30,7 +30,7 @@ class AmendDailyEntry
     public function handle(DailyEntry $entry, array $data, User $by): DailyEntry
     {
         if ($entry->isEditable()) {
-            throw new LedgerException('This day is still a draft — save it normally.');
+            throw new LedgerException('This day is still a draft. Save it in the normal way.');
         }
 
         if ($entry->business->isDayClosed($entry->business_date)) {

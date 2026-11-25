@@ -43,7 +43,7 @@
                       :value="old('currency', $b?->currency ?? 'PKR')" required
                       :disabled="$b?->opening_date !== null" />
         @if ($b?->opening_date !== null)
-            <p class="mt-1 text-xs text-gray-500">Locked once the business has financial history.</p>
+            <p class="mt-1 text-xs text-gray-500">Cannot be changed once the business has financial records.</p>
         @endif
         <x-input-error :messages="$errors->get('currency')" class="mt-2" />
     </div>
@@ -57,8 +57,8 @@
             @endforeach
         </select>
         <p class="mt-1 text-xs text-gray-500">
-            Decides which calendar day a transaction belongs to.
-            @if ($b?->opening_date !== null) Locked once the business has financial history. @endif
+            Sets the date a transaction is recorded on.
+            @if ($b?->opening_date !== null) Cannot be changed once the business has financial records. @endif
         </p>
         <x-input-error :messages="$errors->get('timezone')" class="mt-2" />
     </div>
@@ -74,7 +74,7 @@
     {{-- What a bill prints on. Follows the business type the same way, and for
          the same reason: a distributor's bill is filed, a counter's is pocketed. --}}
     <div class="sm:col-span-2 xl:col-span-3">
-        <x-input-label for="receipt_format" value="What a bill prints on" />
+        <x-input-label for="receipt_format" value="Bill print format" />
         <div class="mt-1 grid gap-3 sm:grid-cols-2">
             @foreach (\App\Enums\ReceiptFormat::cases() as $paper)
                 <label class="flex cursor-pointer items-start gap-3 rounded-md border px-3 py-2.5"
@@ -92,7 +92,7 @@
             @endforeach
         </div>
         <p class="mt-1 text-xs text-gray-500">
-            Either can be printed from any bill — this is only which one opens first.
+            Both formats can be printed from any bill. This sets the one that opens first.
         </p>
         <x-input-error :messages="$errors->get('receipt_format')" class="mt-2" />
     </div>

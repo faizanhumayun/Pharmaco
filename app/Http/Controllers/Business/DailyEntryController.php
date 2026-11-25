@@ -63,7 +63,7 @@ class DailyEntryController extends Controller
         // not it has been posted.
         if ($entry && ! $request->user()->can('update', $entry)) {
             return redirect()->route('businesses.daily.show', [$business, $entry])
-                ->with('status', 'That day is closed, so its figures can no longer be changed.');
+                ->with('status', 'This day is closed, so its figures cannot be changed.');
         }
 
         $entry?->load(['purchaseLines.company', 'saleLines.pharmacy', 'expenseLines.category']);
@@ -186,6 +186,12 @@ class DailyEntryController extends Controller
             // What is still owed on each invoice this day sold, so a row that
             // has been paid stops offering to collect it again.
             'collectable' => $this->collectable($business, $entry),
+            // The till bills behind the day's sales, by the number each sale
+            // line carries, so an invoice number opens its bill.
+            'bills' => \App\Models\PosBill::forBusiness($business)
+                ->whereDate('business_date', $entry->business_date->toDateString())
+                ->get()
+                ->keyBy(fn (\App\Models\PosBill $bill) => $bill->reference()),
             'today' => $business->today(),
             'dayClosed' => $business->isDayClosed($business->today()),
             'rows' => $this->preview->rows($entry),
@@ -209,7 +215,7 @@ class DailyEntryController extends Controller
 
         return redirect()
             ->route('businesses.daily.show', [$business, $entry])
-            ->with('status', 'Day posted. The ledger now reflects this activity.');
+            ->with('status', 'Day posted. The ledger has been updated.');
     }
 
     public function reverse(Request $request, Business $business, DailyEntry $entry, ReverseDailyEntry $action): RedirectResponse
@@ -219,7 +225,7 @@ class DailyEntryController extends Controller
         $validated = $request->validate([
             'reason' => ['required', 'string', 'min:5', 'max:500'],
         ], [
-            'reason.required' => 'Say why this day is being reversed. It goes on the permanent record.',
+            'reason.required' => 'Enter the reason for reversing this day. It is kept on the permanent record.',
         ]);
 
         try {
@@ -243,16 +249,16 @@ class DailyEntryController extends Controller
 
         if ($margin !== null && ($margin > 40 || $margin < 0)) {
             $warnings[] = sprintf(
-                'Gross margin of %.1f%% is outside the usual range. This figure drives the stock '
-                .'valuation, so it is worth a second look.',
+                'Gross margin of %.1f%% is outside the usual range. This figure affects the stock '
+                .'value, so please check it again.',
                 $margin
             );
         }
 
         foreach ($this->preview->rows($entry) as $row) {
             if ($row['after']->isNegative()) {
-                $warnings[] = "{$row['label']} would go negative ({$row['after']->format()}). "
-                    .'That is almost always a data error.';
+                $warnings[] = "{$row['label']} would become negative ({$row['after']->format()}). "
+                    .'This is usually an entry mistake.';
             }
         }
 

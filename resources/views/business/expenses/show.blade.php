@@ -2,9 +2,10 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+                <x-back-link :href="route('businesses.expenses.index', $business)" :label="'All expenses'" />
                 <h1 class="text-xl font-semibold text-gray-900">{{ $category->name }}</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ $hasOwnLedger ? 'Account ' . $category->account->code : 'No ledger of its own yet' }}
+                    {{ $hasOwnLedger ? 'Account ' . $category->account->code : 'No separate ledger yet' }}
                 </p>
             </div>
             <a href="{{ route('businesses.expenses.index', $business) }}"
@@ -17,13 +18,13 @@
     <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
         @unless ($hasOwnLedger)
             <div class="mb-6 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                Spending is still tracked as a single Operating Expenses total, so this head has no
-                statement of its own. Naming a head on a daily entry splits the ledger and this
-                fills in from that day forward.
+                Expenses are still recorded as one Operating Expenses total, so this head has no
+                separate statement. When a head is selected in a daily entry, the ledger is split by head
+                and this statement is filled from that day onward.
             </div>
         @endunless
 
-        <x-panel :title="'Statement — spent to date ' . $balance->format()">
+        <x-panel :title="'Statement — total spent to date ' . $balance->format()">
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                     <thead class="bg-gray-50">
@@ -51,7 +52,7 @@
                                 <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums sm:px-6">{{ $row['running']->format() }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="5" class="px-6 py-10 text-center text-gray-500">Nothing spent under this head yet.</td></tr>
+                            <tr><td colspan="5" class="px-6 py-10 text-center text-gray-500">No expenses under this head yet.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

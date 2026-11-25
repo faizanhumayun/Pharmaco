@@ -6,7 +6,7 @@
 --}}
 @php($rs = fn ($m) => $m->format())
 
-<div class="slip mx-auto w-[80mm] max-w-full bg-white p-5 text-gray-900 shadow-sm ring-1 ring-slate-200 print:m-0 print:w-full print:p-0 print:shadow-none print:ring-0">
+<div class="slip slip-thermal mx-auto w-[80mm] max-w-full bg-white p-5 text-gray-900 shadow-sm ring-1 ring-slate-200 print:m-0 print:w-full print:p-0 print:shadow-none print:ring-0">
     <div class="text-center">
         <p class="text-base font-bold uppercase">{{ $business->name }}</p>
         @if ($business->address)

@@ -41,7 +41,7 @@ class RecordDirectDelivery
         $company = Company::forBusiness($business)->find($data['company_id'] ?? null);
 
         if ($company === null) {
-            throw new LedgerException('A delivery has to come from a company you buy from.');
+            throw new LedgerException('Choose the company this delivery came from.');
         }
 
         $lines = array_values(array_filter(
@@ -50,7 +50,7 @@ class RecordDirectDelivery
         ));
 
         if ($lines === []) {
-            throw new LedgerException('Nothing was entered as arriving.');
+            throw new LedgerException('Enter the quantity received for at least one product.');
         }
 
         if ($business->isDayClosed($date)) {

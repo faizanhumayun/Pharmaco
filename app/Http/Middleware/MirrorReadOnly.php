@@ -36,7 +36,7 @@ class MirrorReadOnly
             return $next($request);
         }
 
-        $message = 'This is the read-only online copy of the shop\'s books. Changes are made on the shop\'s own computer.';
+        $message = 'This is the read-only online copy of the shop\'s records. Changes can only be made on the shop\'s own computer.';
 
         if ($request->expectsJson()) {
             return response()->json(['message' => $message], 403);

@@ -88,7 +88,7 @@ class PriceListImportController extends Controller
 
         return redirect()
             ->route('businesses.companies.imports.show', [$business, $company, $import])
-            ->with('status', "Read {$import->rows_detected} rows from {$import->original_filename}. Nothing has been imported yet — check the columns below.");
+            ->with('status', "Read {$import->rows_detected} rows from {$import->original_filename}. Nothing has been imported yet. Check the columns below.");
     }
 
     public function show(
@@ -144,7 +144,7 @@ class PriceListImportController extends Controller
 
         $action->handle($productImport, $request->columnMap());
 
-        return back()->with('status', 'Columns remapped. Every row was read again, apart from those you had already corrected by hand.');
+        return back()->with('status', 'Columns remapped. Every row was read again, except the rows you had already corrected manually.');
     }
 
     public function updateRow(
@@ -161,7 +161,7 @@ class PriceListImportController extends Controller
 
         return back()->with('status', $row->included
             ? "Row {$row->line_no} corrected and will be imported."
-            : "Row {$row->line_no} will be left out of this import.");
+            : "Row {$row->line_no} will not be included in this import.");
     }
 
     public function commit(

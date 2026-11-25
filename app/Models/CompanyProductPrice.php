@@ -39,11 +39,11 @@ class CompanyProductPrice extends Model
     protected static function booted(): void
     {
         static::updating(fn () => throw new ImmutableRecordException(
-            'Price history is append-only. A change in price is recorded as a new row, never as an edit to an old one.'
+            'Price history cannot be edited. A price change is recorded as a new row.'
         ));
 
         static::deleting(fn () => throw new ImmutableRecordException(
-            'Price history is append-only and is never deleted.'
+            'Price history cannot be deleted.'
         ));
     }
 

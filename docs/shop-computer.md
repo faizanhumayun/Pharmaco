@@ -92,6 +92,14 @@ is on, runs the once-a-minute scheduler that sends the online copy, opens
 port 8080 on the Windows firewall for the shop's own network, and puts a
 **Pharmaco** shortcut on the desktop.
 
+It also puts **Pharmaco Till (prints directly)** on the desktop when Chrome or
+Edge is installed. That opens the browser with `--kiosk-printing`, so pressing
+Print sends the slip straight to Windows' default printer with no preview —
+make the slip printer the default. It keeps a browser profile of its own
+(`C:\Pharmaco\till-browser`), so the first time it is opened it asks for the
+sign-in once. A web page cannot skip the preview by itself; only a browser
+started this way does.
+
 ### Mac
 
 The Mac kit carries the application; PHP and MySQL come from Homebrew.

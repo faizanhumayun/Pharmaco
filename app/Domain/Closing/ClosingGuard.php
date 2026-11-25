@@ -45,11 +45,11 @@ class ClosingGuard
         $checks[] = [
             'blocking' => true,
             'ok' => $arrived,
-            'label' => 'The day has come',
+            'label' => 'Day has started',
             'detail' => $arrived
-                ? 'This day has started, so it can be closed once its business is done.'
-                : $date->format('D d M Y') . ' has not started yet — it is still ' . $today->format('D d M Y')
-                    . ' here. Close it once the day is over.',
+                ? 'This day has started. It can be closed when the day\'s work is complete.'
+                : $date->format('D d M Y') . ' has not started yet. Today is ' . $today->format('D d M Y')
+                    . '. Close it after the day is over.',
         ];
 
         // 1. No gaps: a break in the chain makes every later day unverifiable.
@@ -94,10 +94,10 @@ class ClosingGuard
             'detail' => match (true) {
                 $previousClosed && $firstDay => 'This is the first day after the opening balance.',
                 $previousClosed => $previous->format('d M Y').' is closed.',
-                $outstanding === 1 => $due->format('d M Y').' must be closed first — days close in sequence.',
+                $outstanding === 1 => $due->format('d M Y').' must be closed first. Days are closed in order.',
                 default => $outstanding.' earlier days are still open, from '.$due->format('d M Y')
-                    .' to '.$previous->format('d M Y').'. Days close in sequence, so '
-                    .$due->format('d M Y').' is the one to close next.',
+                    .' to '.$previous->format('d M Y').'. Days are closed in order. Close '
+                    .$due->format('d M Y').' first.',
             },
         ];
 
@@ -113,7 +113,7 @@ class ClosingGuard
             'label' => 'No unposted entries',
             'detail' => $drafts === 0
                 ? 'Everything entered for this day has been posted.'
-                : "{$drafts} entry still in draft. Closing now would lock in a known-wrong day.",
+                : "{$drafts} entry is still a draft. Post it before closing the day.",
         ];
 
         $draftTransactions = Transaction::forBusiness($business)
@@ -154,7 +154,7 @@ class ClosingGuard
             'label' => 'Cash variance explained',
             'detail' => $varianceExplained
                 ? 'No unexplained difference.'
-                : 'An unexplained variance is a signal, not a rounding issue. Say what happened.',
+                : 'The cash difference has no reason. Enter the reason for the difference.',
         ];
 
         /*
@@ -181,7 +181,7 @@ class ClosingGuard
                 ? 'Every delivery received today has its bill recorded.'
                 : $uninvoiced->count().' '.str('delivery')->plural($uninvoiced->count())
                     .' received today with no bill yet ('.$uninvoiced->pluck('reference')->join(', ')
-                    .'). The packs are counted, but nothing reaches the ledger until the invoice is entered.',
+                    .'). The stock has been added, but the purchase is not in the accounts until the invoice is entered.',
         ];
 
         return $checks;

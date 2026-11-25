@@ -1,4 +1,4 @@
-@props(['business', 'title' => 'Counter', 'mode' => null])
+@props(['business', 'title' => 'POS', 'mode' => null])
 
 {{--
     The counter's own screen — and, with a mode, any other screen that is

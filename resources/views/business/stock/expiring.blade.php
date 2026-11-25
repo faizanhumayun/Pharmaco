@@ -10,40 +10,95 @@
 @php($isExpired = $show === 'expired')
 
 <x-workspace-layout :business="$business">
-    <x-slot name="header">
-        <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
-                <h1 class="text-xl font-semibold text-gray-900">Near expiry</h1>
-                <p class="mt-1 text-sm text-gray-500">
-                    Every batch still in stock that carries a date. Sold oldest first, this is what
-                    the shelf is holding.
-                </p>
-            </div>
+    {{-- No heading above the page: the tab that brought you here already
+         says where you are. A heading is kept for screen readers. --}}
+    <h1 class="sr-only">Near expiry</h1>
 
-        </div>
-    </x-slot>
-
-    <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
+    <div class="w-full px-4 py-5 sm:px-6 lg:px-8">
         <x-flash />
 
-        <div class="mb-6 grid gap-4 sm:grid-cols-3">
+        {{-- The two lists, on a grey band of their own. What was searched
+             for is carried from one to the other. --}}
+        @php($carried = array_filter(request()->only(['product', 'company', 'batch']), fn ($v) => $v !== null && $v !== ''))
+        <nav class="mb-4 flex flex-wrap gap-1.5 rounded-lg bg-gray-200 p-1.5 ring-1 ring-gray-300" aria-label="Expiry lists">
+            @foreach ([
+                'near' => ['Near expiry', $near->count(), route('businesses.stock.expiring', [$business] + array_filter(['within' => request('within')]) + $carried)],
+                'expired' => ['Expired, not returned', $expired->count(), route('businesses.stock.expiring', [$business, 'show' => 'expired'] + $carried)],
+            ] as $key => [$label, $count, $href])
+                @php($here = $show === $key)
+                <a href="{{ $href }}"
+                   @class([
+                       'inline-flex items-center gap-2 whitespace-nowrap rounded-md px-4 py-2 text-sm font-semibold transition',
+                       'bg-white text-gray-900 shadow-sm ring-1 ring-gray-300' => $here,
+                       'text-gray-600 hover:bg-gray-300 hover:text-gray-900' => ! $here,
+                   ])
+                   @if ($here) aria-current="page" @endif>
+                    {{ $label }}
+                    <span @class([
+                        'rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
+                        'bg-red-600 text-white' => $key === 'expired' && $count > 0,
+                        'bg-amber-500 text-white' => $key === 'near' && $count > 0,
+                        'bg-gray-100 text-gray-600' => $count === 0,
+                    ])>{{ $count }}</span>
+                </a>
+            @endforeach
+        </nav>
+
+        <x-filter-bar submit="Search" class="mb-4" :active="$searched || request()->filled('within')"
+                      :clear="route('businesses.stock.expiring', array_filter([$business, 'show' => $isExpired ? 'expired' : null]))">
+            @if ($isExpired) <input type="hidden" name="show" value="expired"> @endif
+            <div>
+                <x-input-label for="f_product" value="Product" />
+                <input id="f_product" name="product" type="search" value="{{ request('product') }}" placeholder="Name or code"
+                       class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            </div>
+            <div>
+                <x-input-label for="f_company" value="Company" />
+                <input id="f_company" name="company" type="search" value="{{ request('company') }}" placeholder="Any part of the name"
+                       class="mt-1 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            </div>
+            <div>
+                <x-input-label for="f_batch" value="Batch no." />
+                <input id="f_batch" name="batch" type="search" value="{{ request('batch') }}"
+                       class="mt-1 rounded-md border-gray-300 font-mono text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+            </div>
+            {{-- How far ahead to look. It only applies to near expiry. --}}
+            @unless ($isExpired)
+                <div>
+                    <x-input-label for="within" value="Expiring within" />
+                    <select id="within" name="within"
+                            class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        @foreach ([1 => '1 month', 3 => '3 months', 6 => '6 months', 12 => '12 months', 120 => 'All dated stock'] as $months => $label)
+                            <option value="{{ $months }}" @selected((int) $within === $months)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+            @endunless
+            <x-slot name="count">
+                {{ number_format($rows->count()) }} of {{ number_format($isExpired ? $expired->count() : $near->count()) }}
+                {{ $isExpired ? 'expired' : 'near-expiry' }} {{ Str::plural('batch', $isExpired ? $expired->count() : $near->count()) }}
+            </x-slot>
+        </x-filter-bar>
+
+        {{-- The whole picture in three figures, right above the list. --}}
+        <div class="mb-4 grid gap-3 sm:grid-cols-3">
             <div class="rounded-md border px-4 py-3 shadow-sm {{ $expired->isNotEmpty() ? 'border-red-200 bg-red-50' : 'border-gray-200 bg-white' }}">
-                <p class="text-xs uppercase tracking-wide {{ $expired->isNotEmpty() ? 'text-red-700' : 'text-gray-400' }}">Loss — expired, not returned</p>
+                <p class="text-xs uppercase tracking-wide {{ $expired->isNotEmpty() ? 'text-red-700' : 'text-gray-400' }}">Loss: expired, not returned</p>
                 <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $expired->isNotEmpty() ? 'text-red-800' : 'text-gray-400' }}">
                     {{ $rs($loss) }}
                 </p>
                 <p class="mt-0.5 text-xs {{ $expired->isNotEmpty() ? 'text-red-700' : 'text-gray-400' }}">
-                    {{ number_format($expired->sum('packs')) }} {{ $business->unit()->many() }} at cost — lost unless sent back to the company
+                    {{ number_format($expired->sum('packs')) }} {{ $business->unit()->many() }} at cost. This is a loss unless returned to the company.
                 </p>
             </div>
 
             <div class="rounded-md border px-4 py-3 shadow-sm {{ $near->isNotEmpty() ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white' }}">
-                <p class="text-xs uppercase tracking-wide {{ $near->isNotEmpty() ? 'text-amber-700' : 'text-gray-400' }}">At risk — near expiry</p>
+                <p class="text-xs uppercase tracking-wide {{ $near->isNotEmpty() ? 'text-amber-700' : 'text-gray-400' }}">At risk: near expiry</p>
                 <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $near->isNotEmpty() ? 'text-amber-900' : 'text-gray-400' }}">
                     {{ $rs($nearValue) }}
                 </p>
                 <p class="mt-0.5 text-xs {{ $near->isNotEmpty() ? 'text-amber-700' : 'text-gray-400' }}">
-                    {{ number_format($near->sum('packs')) }} {{ $business->unit()->many() }} at cost — sell or return in time
+                    {{ number_format($near->sum('packs')) }} {{ $business->unit()->many() }} at cost. Sell or return before expiry.
                 </p>
             </div>
 
@@ -54,55 +109,12 @@
             </div>
         </div>
 
-        {{-- How far ahead to look. It only applies to near expiry, and
-             applies as soon as it is chosen. --}}
-        @unless ($isExpired)
-            <x-filter-bar submit="" class="mb-4" :active="request()->filled('within')"
-                          :clear="route('businesses.stock.expiring', $business)">
-                <div>
-                    <x-input-label for="within" value="Show stock expiring" />
-                    <select id="within" name="within" onchange="this.form.submit()"
-                            class="mt-1 block w-56 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        @foreach ([1 => 'within 1 month', 3 => 'within 3 months', 6 => 'within 6 months', 12 => 'within 12 months', 120 => 'everything dated'] as $months => $label)
-                            <option value="{{ $months }}" @selected((int) $within === $months)>{{ $label }}</option>
-                        @endforeach
-                    </select>
-                </div>
-                <x-slot name="count">{{ number_format($near->count()) }} {{ Str::plural('batch', $near->count()) }} near expiry</x-slot>
-            </x-filter-bar>
-        @endunless
-
-        {{-- The two lists. The window only applies to near expiry, so it is
-             carried along when switching back to that tab. --}}
-        <nav class="mb-4 flex gap-1 border-b border-gray-200" aria-label="Expiry lists">
-            @foreach ([
-                'near' => ['Near expiry', $near->count(), route('businesses.stock.expiring', array_filter([$business, 'within' => request('within')]))],
-                'expired' => ['Expired — not returned', $expired->count(), route('businesses.stock.expiring', [$business, 'show' => 'expired'])],
-            ] as $key => [$label, $count, $href])
-                @php($here = $show === $key)
-                <a href="{{ $href }}"
-                   @class([
-                       'inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition',
-                       'border-emerald-700 text-emerald-800' => $here,
-                       'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' => ! $here,
-                   ])
-                   @if ($here) aria-current="page" @endif>
-                    {{ $label }}
-                    <span @class([
-                        'rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums',
-                        'bg-red-600 text-white' => $key === 'expired' && $count > 0,
-                        'bg-amber-500 text-white' => $key === 'near' && $count > 0,
-                        'bg-gray-100 text-gray-500' => $count === 0,
-                    ])>{{ $count }}</span>
-                </a>
-            @endforeach
-        </nav>
 
         @if ($isExpired && $lossByCompany->isNotEmpty())
             <x-panel class="mb-4">
                 <div class="px-4 py-3 sm:px-6">
                     <h2 class="text-sm font-semibold text-gray-900">Loss by company</h2>
-                    <p class="mt-0.5 text-xs text-gray-500">What to send back to whom. Returned stock leaves this list once it is taken out of stock.</p>
+                    <p class="mt-0.5 text-xs text-gray-500">Expired stock to return to each company. Stock is removed from this list after it is deducted from stock.</p>
                 </div>
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
@@ -178,13 +190,13 @@
                             <tr>
                                 <td colspan="6" class="px-6 py-12 text-center text-gray-500">
                                     @if ($isExpired)
-                                        Nothing expired is still in stock.
+                                        No expired stock found.
                                     @else
-                                        Nothing in stock is dated within that window.
+                                        No stock expires within the selected period.
                                     @endif
                                     <span class="mt-1 block text-xs">
-                                        Only batches recorded with an expiry date appear here — deliveries
-                                        taken in before the date was asked for carry none.
+                                        Only batches saved with an expiry date are shown here. Older
+                                        deliveries saved without an expiry date are not included.
                                     </span>
                                 </td>
                             </tr>
@@ -195,10 +207,10 @@
         </x-panel>
 
         <p class="mt-4 text-xs leading-relaxed text-gray-500">
-            Batches are worked out by taking what is on the shelf and filling them oldest first,
-            so where it is unsure it counts stock as older rather than newer. Expired stock stays
-            here — and in the loss — until it is taken out of stock, as a return or a write-off.
-            Nothing here is stored: correct a delivery's date and this answers differently at once.
+            Batches are calculated from the quantity in stock, with the oldest batch counted as sold first.
+            Where the batch is not certain, stock is treated as the older batch. Expired stock stays
+            in this list and in the loss until it is deducted from stock as a return or a write-off.
+            This list is calculated each time: if a delivery's expiry date is corrected, the list updates immediately.
         </p>
     </div>
 </x-workspace-layout>

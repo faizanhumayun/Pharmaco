@@ -27,6 +27,8 @@ class StorePosSaleRequest extends FormRequest
             'received' => ['nullable', 'string', 'regex:/^\d+(\.\d{1,2})?$/'],
             'discount' => ['nullable', 'string', 'regex:/^\d+(\.\d{1,2})?$/'],
             'customer_name' => ['nullable', 'string', 'max:120'],
+            // Taken at the till when a new customer is given credit.
+            'customer_phone' => ['nullable', 'string', 'max:40'],
             'note' => ['nullable', 'string', 'max:255'],
         ];
     }
@@ -43,7 +45,7 @@ class StorePosSaleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'items.required' => 'Add something to the bill first.',
+            'items.required' => 'Add at least one item to the bill.',
             'items.*.unit_price.regex' => 'Enter a plain price, for example 120 or 120.50',
         ];
     }

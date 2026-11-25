@@ -30,7 +30,7 @@ class LedgerPoster
         // A shop's online copy is replaced whole by the shop's next snapshot:
         // a posting made here would vanish, and disagree until it did.
         if ($spec->business->isReadOnlyCopy()) {
-            throw new LedgerException('This is the read-only copy of a shop\'s books. Postings are made on the shop\'s own computer.');
+            throw new LedgerException('This is a read-only copy of the shop\'s records. Entries can only be made on the shop\'s own computer.');
         }
 
         $this->assertBalanced($spec);
@@ -82,7 +82,7 @@ class LedgerPoster
     public function reverse(Transaction $original, string $reason, User $by, ?Carbon $on = null): Transaction
     {
         if ($original->status === TransactionStatus::Draft) {
-            throw new LedgerException('A draft transaction has no ledger effect to reverse.');
+            throw new LedgerException('A draft transaction cannot be reversed because it has not been posted.');
         }
 
         if ($original->isReversed()) {
@@ -90,7 +90,7 @@ class LedgerPoster
         }
 
         if (trim($reason) === '') {
-            throw new LedgerException('A reversal must say why.');
+            throw new LedgerException('Enter the reason for this reversal.');
         }
 
         $business = $original->business;
@@ -170,7 +170,7 @@ class LedgerPoster
         }
 
         if ($debits->isZero()) {
-            throw new LedgerException('A transaction cannot be for zero.');
+            throw new LedgerException('The transaction amount cannot be zero.');
         }
     }
 
@@ -185,7 +185,7 @@ class LedgerPoster
     {
         if ($spec->type->requiresReason() && trim((string) $spec->reason) === '') {
             throw new LedgerException(
-                "A {$spec->type->label()} must record why it was made."
+                "A reason is required for this type of transaction: {$spec->type->label()}."
             );
         }
     }

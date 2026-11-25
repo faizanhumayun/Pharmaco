@@ -45,10 +45,10 @@ class StoreExpenseRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'business_date.before_or_equal' => 'That day has not happened yet.',
-            'business_date.after_or_equal' => 'That day is closed, or falls on or before the opening date. Reopen it first.',
-            'category.required' => 'Say which head this expense belongs under.',
-            'amount.not_in' => 'Enter how much was spent.',
+            'business_date.before_or_equal' => 'The date cannot be in the future.',
+            'business_date.after_or_equal' => 'This day is closed, or is on or before the opening date. Reopen it first.',
+            'category.required' => 'Choose the expense head.',
+            'amount.not_in' => 'Enter the amount spent.',
             'amount.regex' => 'Enter a plain amount, for example 1500 or 1,500.00',
         ];
     }

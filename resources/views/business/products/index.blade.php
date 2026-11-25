@@ -3,7 +3,7 @@
         <h1 class="text-xl font-semibold text-gray-900">Products</h1>
         <div class="flex flex-wrap items-center justify-between gap-3">
             <p class="mt-1 text-sm text-gray-500">
-                What the companies sell and at what prices — as imported from the price lists they sent.
+                Products of each company and their prices, as imported from the company price lists.
             </p>
             @can('importProducts', $business)
                 <a href="{{ route('businesses.imports.create', $business) }}"
@@ -24,13 +24,12 @@
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
                 <p class="text-sm text-amber-900">
                     <span class="font-semibold">{{ $belowZero->count() }} {{ Str::plural('product', $belowZero->count()) }}</span>
-                    {{ $belowZero->count() === 1 ? 'has' : 'have' }} been sold past the count, so the books hold
-                    less than none of {{ $belowZero->count() === 1 ? 'it' : 'them' }}. Enter the missing purchase,
-                    or correct the count.
+                    {{ $belowZero->count() === 1 ? 'has' : 'have' }} negative stock because more was sold than
+                    the stock in the records. Enter the missing purchase, or correct the stock.
                 </p>
                 <a href="{{ route('businesses.products.index', [$business, 'short' => 1]) }}"
                    class="rounded-md bg-amber-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-amber-700">
-                    Show them
+                    Show products
                 </a>
             </div>
         @endif
@@ -38,10 +37,10 @@
         @if ($filters['short'])
             <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-amber-300 bg-amber-50 px-4 py-3">
                 <p class="text-sm text-amber-900">
-                    Showing only what was sold past the count.
+                    Showing only products with negative stock.
                 </p>
                 <a href="{{ route('businesses.products.index', $business) }}"
-                   class="text-sm font-medium text-amber-900 underline hover:text-amber-950">Show everything</a>
+                   class="text-sm font-medium text-amber-900 underline hover:text-amber-950">Show all products</a>
             </div>
         @endif
 
@@ -73,7 +72,7 @@
                     <x-input-label for="form" value="Form" />
                     <select id="form" name="form"
                             class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                        <option value="">Any form</option>
+                        <option value="">All forms</option>
                         @foreach ($forms as $option)
                             <option value="{{ $option }}" @selected($filters['form'] === $option)>{{ ucfirst($option) }}</option>
                         @endforeach
@@ -97,8 +96,8 @@
                         <tr>
                             @foreach ([
                                 ['Product', 'left'], ['Generic', 'left'], ['Pack', 'left'], ['Company', 'left'],
-                                ['MRP', 'right'], ...($business->sellsAtMrp() ? [] : [['Trade price', 'right']]), ['Our rate', 'right'],
-                                ['Price | Margin', 'right'], ['Case', 'right'], ['Stock', 'left'], ['Priced', 'right'],
+                                ['MRP', 'right'], ...($business->sellsAtMrp() ? [] : [['Trade price', 'right']]), ['Purchase rate', 'right'],
+                                ['Price | Margin', 'right'], ['Carton', 'right'], ['Stock', 'left'], ['Price date', 'right'],
                             ] as [$heading, $align])
                                 <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ $align === 'right' ? 'text-right' : 'text-left' }} {{ $loop->first ? 'sm:px-6' : '' }}">
                                     {{-- Two figures in one column: each half has a fixed
@@ -154,7 +153,7 @@
                                 @php($looseHeld = (int) ($looseOnHand[$product->id] ?? 0))
                                 {{-- Whole packs as one chip, an opened pack's pieces as a second. --}}
                                 <td class="whitespace-nowrap px-3 py-2 text-left"
-                                    @if ($held < 0) title="Sold past the count — enter the missing purchase, or correct the count" @endif>
+                                    @if ($held < 0) title="Negative stock. Enter the missing purchase, or correct the stock." @endif>
                                     @if ($held === 0 && $looseHeld === 0)
                                         <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">None</span>
                                     @else
@@ -180,16 +179,16 @@
                             <tr>
                                 <td colspan="11" class="px-6 py-10 text-center text-gray-500">
                                     @if (array_filter($filters))
-                                        Nothing matches that.
+                                        No products found.
                                     @elseif ($companies->isEmpty())
-                                        No companies yet. A price list belongs to a company, so
+                                        No companies yet. Please
                                         <a href="{{ route('businesses.companies.index', $business) }}"
                                            class="font-medium text-emerald-700 hover:text-emerald-800">add a company</a>
-                                        before importing one.
+                                        before importing a price list.
                                     @else
-                                        No products yet. Open a company and import the price list it sent —
+                                        No products yet. Open a company and import its price list.
                                         <a href="{{ route('businesses.companies.index', $business) }}"
-                                           class="font-medium text-emerald-700 hover:text-emerald-800">choose one</a>.
+                                           class="font-medium text-emerald-700 hover:text-emerald-800">Select a company</a>.
                                     @endif
                                 </td>
                             </tr>

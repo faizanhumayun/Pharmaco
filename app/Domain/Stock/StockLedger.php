@@ -128,7 +128,7 @@ class StockLedger
         $missing = abs((int) $short->first());
 
         throw new LedgerException(sprintf(
-            '%s: there is not enough in stock — short by %s. Stock cannot go below zero.',
+            '%s: stock is not enough. Short by %s. Stock cannot go below zero.',
             $product?->label() ?? 'A product',
             $size > 1
                 ? trim((intdiv($missing, $size) > 0 ? intdiv($missing, $size).' '.$business->unit()->many().' ' : '')

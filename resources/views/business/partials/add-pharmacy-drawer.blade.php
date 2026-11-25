@@ -11,7 +11,7 @@
 @props(['afterAdd' => 'reload'])
 
 <x-drawer name="add-pharmacy" title="Add a customer"
-          subtitle="A pharmacy or store you sell to. It gets its own ledger, so what it owes is tracked on its own.">
+          subtitle="A pharmacy or store you sell to. It gets its own ledger, so its pending amount is tracked separately.">
     <form id="add-pharmacy-form" class="space-y-4"
           x-data="addPharmacy({ url: @js(route('businesses.pharmacies.store', $business)), after: @js($afterAdd) })"
           x-on:submit.prevent="submit()">
@@ -50,12 +50,12 @@
         <div>
             <x-input-label for="pharmacy_code" value="Code" />
             <x-text-input id="pharmacy_code" x-model="form.code" type="text" class="mt-1 block w-full"
-                          placeholder="Optional — your own reference" maxlength="40" />
+                          placeholder="Optional. Your own reference" maxlength="40" />
         </div>
 
         <p class="text-xs text-gray-500">
-            The first customer added moves the existing market total into an "Unallocated" ledger by a
-            visible transfer — nothing in the history is rewritten.
+            When the first customer is added, the existing market total is moved to an "Unallocated"
+            ledger by a recorded transfer. Past records are not changed.
         </p>
 
         <p class="text-sm text-red-600" x-show="failed" x-cloak x-text="failed"></p>
@@ -108,7 +108,7 @@
                             }
 
                             if (! response.ok) {
-                                this.failed = 'Could not save that customer. Try again.';
+                                this.failed = 'The customer could not be saved. Try again.';
                                 return;
                             }
 

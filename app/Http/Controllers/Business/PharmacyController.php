@@ -28,19 +28,20 @@ class PharmacyController extends Controller
     {
         $this->authorize('configure', $business);
 
-        // Name, area or phone — whatever the reader has to hand.
+        // Name, phone or code in one box; the area in another.
         $search = trim((string) $request->string('q'));
+        $area = trim((string) $request->string('area'));
+        $show = $request->query('show') === 'pending' ? 'pending' : 'all';
 
-        $pharmacies = Pharmacy::forBusiness($business)
+        $matching = Pharmacy::forBusiness($business)
             ->with('account')
             ->when($search !== '', fn ($q) => $q->where(fn ($w) => $w
                 ->where('name', 'like', '%' . $search . '%')
-                ->orWhere('area', 'like', '%' . $search . '%')
                 ->orWhere('phone', 'like', '%' . $search . '%')
                 ->orWhere('code', 'like', '%' . $search . '%')))
+            ->when($area !== '', fn ($q) => $q->where('area', 'like', '%' . $area . '%'))
             ->orderBy('name')
-            ->paginate(50)
-            ->withQueryString();
+            ->get();
 
         /*
          * Every customer's balance in one query. Asking the balance service per
@@ -49,23 +50,31 @@ class PharmacyController extends Controller
          */
         $owed = LedgerEntry::query()
             ->where('business_id', $business->id)
-            ->whereIn('account_id', $pharmacies->pluck('account_id')->filter())
+            ->whereIn('account_id', Pharmacy::forBusiness($business)->pluck('account_id')->filter())
             ->selectRaw('account_id, COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) as balance')
             ->groupBy('account_id')
             ->pluck('balance', 'account_id');
 
-        $owedBy = $pharmacies->mapWithKeys(fn (Pharmacy $p) => [
+        $owedBy = $matching->mapWithKeys(fn (Pharmacy $p) => [
             $p->id => Money::of($owed[$p->account_id] ?? 0),
         ]);
+
+        // The second list: only those with something still to pay, largest first.
+        $withPending = $matching->filter(fn (Pharmacy $p) => $owedBy[$p->id]->isPositive())
+            ->sortByDesc(fn (Pharmacy $p) => (float) $owedBy[$p->id]->toDecimal())
+            ->values();
+
+        $listed = $show === 'pending' ? $withPending : $matching;
+        $page = max(1, (int) $request->query('page', 1));
+        $pharmacies = new \Illuminate\Pagination\LengthAwarePaginator(
+            $listed->forPage($page, 50)->values(), $listed->count(), 50, $page,
+            ['path' => $request->url(), 'query' => $request->query()],
+        );
 
         $total = $balances->asAt($business, AccountCode::MarketReceivables);
 
         // The figure under every customer's name, not only this page's.
-        $sum = Money::of(LedgerEntry::query()
-            ->where('business_id', $business->id)
-            ->whereIn('account_id', Pharmacy::forBusiness($business)->pluck('account_id')->filter())
-            ->selectRaw('COALESCE(SUM(debit), 0) - COALESCE(SUM(credit), 0) as balance')
-            ->value('balance') ?? 0);
+        $sum = Money::sum($owed->map(fn ($balance) => Money::of($balance)));
 
         return view('business.pharmacies.index', [
             'business' => $business,
@@ -73,6 +82,11 @@ class PharmacyController extends Controller
             'balances' => $owedBy,
             'total' => $total,
             'search' => $search,
+            'area' => $area,
+            'show' => $show,
+            'customerCount' => $matching->count(),
+            'pendingCount' => $withPending->count(),
+            'listedPending' => Money::sum($listed->map(fn (Pharmacy $p) => $owedBy[$p->id])->filter(fn ($m) => $m->isPositive())),
             // Stated as a fact, not maintained as a figure.
             'unallocated' => $total->minus($sum),
             'reconciles' => $balances->controlReconciles($business, AccountCode::MarketReceivables),

@@ -37,7 +37,7 @@ class PosBillController extends Controller
         $canEdit = request()->user()->can('editPosBills', $business);
         $blocked = match (true) {
             $business->isDayClosed($posBill->business_date) => $posBill->business_date->format('D d M Y').' is closed. Reopen it on its closing page to change this bill.',
-            $posBill->returns->isNotEmpty() => 'Goods have been returned against this bill, so it can no longer be edited.',
+            $posBill->returns->isNotEmpty() => 'Items have been returned against this bill, so it cannot be edited.',
             default => null,
         };
 
@@ -111,8 +111,8 @@ class PosBillController extends Controller
             'via' => ['nullable', 'integer'],
             'reason' => ['required', 'string', 'max:255'],
         ], [
-            'items.required' => 'A bill has to have something on it. To undo a whole sale, take the goods back as a return.',
-            'reason.required' => 'Say why the bill is being changed.',
+            'items.required' => 'A bill must have at least one item. To cancel a whole sale, record a return for all its items.',
+            'reason.required' => 'Enter the reason for changing this bill.',
         ]);
 
         $clean = fn (?string $v) => Money::of(str_replace([',', ' '], '', (string) $v) ?: '0');
@@ -138,12 +138,12 @@ class PosBillController extends Controller
         if ($request->input('from') === 'pos') {
             return redirect()
                 ->route('businesses.pos.index', $business)
-                ->with('status', "Bill {$bill->reference()} corrected. The change is on the bill's history.");
+                ->with('status', "Bill {$bill->reference()} corrected. The change is recorded in the bill's history.");
         }
 
         return redirect()
             ->route('businesses.pos.bills.edit', [$business, $bill])
-            ->with('status', "Bill {$bill->reference()} corrected. The change is on its history below.");
+            ->with('status', "Bill {$bill->reference()} corrected. The change is recorded in the history below.");
     }
 
     public function returnForm(Business $business, PosBill $posBill, Outstanding $outstanding): View
@@ -183,12 +183,12 @@ class PosBillController extends Controller
         }
 
         $settled = collect([
-            $return->refunded->isPositive() ? 'Rs. '.$return->refunded->format().' to hand back in cash' : null,
-            $return->onAccount()->isPositive() ? 'Rs. '.$return->onAccount()->format().' taken off the account' : null,
+            $return->refunded->isPositive() ? 'Rs. '.$return->refunded->format().' to refund in cash' : null,
+            $return->onAccount()->isPositive() ? 'Rs. '.$return->onAccount()->format().' deducted from the account' : null,
         ])->filter()->implode(', ');
 
         return redirect()
             ->route('businesses.pos.bills.edit', [$business, $posBill])
-            ->with('status', "Return {$return->reference()} recorded — Rs. {$return->total->format()}: {$settled}. The goods are back in stock.");
+            ->with('status', "Return {$return->reference()} recorded — Rs. {$return->total->format()}: {$settled}. The items have been added back to stock.");
     }
 }

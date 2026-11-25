@@ -13,6 +13,7 @@
 
 <x-workspace-layout :business="$business">
     <x-slot name="header">
+        <x-back-link :href="route('businesses.companies.imports.index', [$business, $company])" :label="'Price lists of ' . $company->name" />
         <div class="flex flex-wrap items-center gap-3">
             <h1 class="text-xl font-semibold text-gray-900">{{ $import->original_filename }}</h1>
             <x-badge :classes="$import->status->badgeClasses()">{{ $import->status->label() }}</x-badge>
@@ -20,7 +21,7 @@
         <p class="mt-1 text-sm text-gray-500">
             {{ $company->name }} · {{ $import->page_count }} {{ Str::plural('page', $import->page_count) }} ·
             {{ number_format($counts['total']) }} rows read ·
-            uploaded by {{ $import->uploader->name }} {{ $import->created_at->diffForHumans() }}
+            Uploaded by {{ $import->uploader->name }} {{ $import->created_at->diffForHumans() }}
         </p>
     </x-slot>
 
@@ -37,13 +38,13 @@
             @if ($counts['excluded'] > 0)
                 <div class="flex items-baseline gap-2">
                     <span class="font-mono text-lg font-semibold tabular-nums text-amber-700">{{ number_format($counts['excluded']) }}</span>
-                    <span class="text-sm text-gray-500">need attention and will be left out</span>
+                    <span class="text-sm text-gray-500">need attention and will not be imported</span>
                 </div>
             @endif
 
             <a href="{{ route('businesses.companies.imports.file', [$business, $company, $import]) }}"
                target="_blank"
-               class="text-sm font-medium text-emerald-700 hover:text-emerald-800">Open the original PDF →</a>
+               class="text-sm font-medium text-emerald-700 hover:text-emerald-800">Open original PDF →</a>
 
             @if ($canImport && $import->isEditable())
                 <div class="ml-auto flex items-center gap-3">
@@ -58,7 +59,7 @@
                         @csrf
                         <button @disabled($counts['included'] === 0 || $missing !== [])
                                 class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300">
-                            Apply {{ number_format($counts['included']) }} rows to the catalogue
+                            Import {{ number_format($counts['included']) }} rows into products
                         </button>
                     </form>
                 </div>
@@ -67,7 +68,7 @@
 
         @if ($missing !== [])
             <div class="mb-6 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-                Nothing can be imported until a column is mapped to
+                Rows cannot be imported until a column is mapped to
                 <span class="font-semibold">{{ collect($missing)->map(fn ($f) => $f->label())->join(', ') }}</span>.
             </div>
         @endif
@@ -83,7 +84,7 @@
         {{-- Step one: what each column of the PDF holds. Everything below is
              read through this mapping, so it is settled first. --}}
         <x-panel title="Columns"
-                 description="Each column of the PDF, with the first values found in it. Change any that is wrong — the rows below are read again when you save."
+                 description="Each column of the PDF with its first values. Correct any column that is wrong. The rows below are read again when you save."
                  class="mb-6">
             <form method="POST" action="{{ route('businesses.companies.imports.remap', [$business, $company, $import]) }}"
                   class="p-4 sm:p-6">
@@ -97,20 +98,20 @@
                             <div class="mb-2 flex items-baseline justify-between">
                                 <span class="text-xs font-semibold uppercase tracking-wide text-gray-500">Column {{ $i + 1 }}</span>
                                 @unless ($field)
-                                    <span class="text-xs text-gray-400">not imported</span>
+                                    <span class="text-xs text-gray-400">Not imported</span>
                                 @endunless
                             </div>
 
                             <select name="columns[{{ $i }}]" @disabled(! $canImport || ! $import->isEditable())
                                     class="block w-full rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600 disabled:bg-gray-100">
-                                <option value="">— leave out —</option>
+                                <option value="">Do not import</option>
                                 @foreach ($fieldOptions as $value => $label)
                                     <option value="{{ $value }}" @selected($field?->value === $value)>{{ $label }}</option>
                                 @endforeach
                             </select>
 
                             <p class="mt-2 truncate text-xs text-gray-500" title="{{ collect($samples[$i] ?? [])->join(' · ') }}">
-                                {{ collect($samples[$i] ?? [])->join(' · ') ?: 'empty in every row read' }}
+                                {{ collect($samples[$i] ?? [])->join(' · ') ?: 'Empty in all rows' }}
                             </p>
                         </div>
                     @endfor
@@ -119,9 +120,9 @@
                 @if ($canImport && $import->isEditable())
                     <div class="mt-4 flex items-center gap-3">
                         <button class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                            Save mapping and re-read the rows
+                            Save mapping and read rows again
                         </button>
-                        <p class="text-xs text-gray-500">Rows you have corrected by hand keep your figures.</p>
+                        <p class="text-xs text-gray-500">Rows corrected manually keep your values.</p>
                     </div>
                 @endif
             </form>
@@ -166,7 +167,7 @@
                                     @if ($canImport && $import->isEditable())
                                         <button type="button" x-on:click="editing = ! editing"
                                                 class="mt-1 text-xs font-medium text-emerald-700 hover:text-emerald-800"
-                                                x-text="editing ? 'Cancel' : 'Fix'"></button>
+                                                x-text="editing ? 'Cancel' : 'Edit'"></button>
                                     @endif
                                 </td>
 
@@ -186,10 +187,10 @@
                                     @if ($row->included)
                                         <x-badge classes="bg-emerald-50 text-emerald-800 ring-emerald-600/20">Will import</x-badge>
                                     @else
-                                        <x-badge classes="bg-amber-50 text-amber-800 ring-amber-600/20">Left out</x-badge>
+                                        <x-badge classes="bg-amber-50 text-amber-800 ring-amber-600/20">Not imported</x-badge>
                                     @endif
                                     @if ($row->edited)
-                                        <div class="mt-1 text-xs text-gray-400">corrected by hand</div>
+                                        <div class="mt-1 text-xs text-gray-400">Corrected manually</div>
                                     @endif
                                 </td>
                             </tr>
@@ -201,7 +202,7 @@
                                 <tr x-show="editing" x-cloak class="bg-gray-50">
                                     <td colspan="{{ count($columns) + 2 }}" class="px-4 py-4 sm:px-6">
                                         <p class="mb-3 font-mono text-xs text-gray-500">
-                                            As read: {{ $row->rawText() ?: '(nothing)' }}
+                                            Text read from file: {{ $row->rawText() ?: '(empty)' }}
                                         </p>
 
                                         <form method="POST"
@@ -245,7 +246,7 @@
                             <tr>
                                 <td colspan="{{ count($columns) + 2 }}" class="px-6 py-10 text-center text-gray-500">
                                     @if ($filter === 'problems')
-                                        Every row read cleanly.
+                                        All rows were read without problems.
                                     @else
                                         No rows.
                                     @endif

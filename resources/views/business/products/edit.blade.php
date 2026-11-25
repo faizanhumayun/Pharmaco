@@ -7,9 +7,10 @@
     <x-slot name="header">
         <div>
             {{-- One slim line, as on the product's own page. --}}
+            <x-back-link :href="route('businesses.products.show', [$business, $product])" :label="$product->brand_name" />
             <div class="-my-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
                 <h1 class="text-xl font-semibold text-gray-900">Edit {{ $product->brand_name }}</h1>
-                <p class="text-sm text-gray-500">{{ $product->company?->name }} · every change is kept on the product's record.</p>
+                <p class="text-sm text-gray-500">{{ $product->company?->name }} · All changes are saved in the product history.</p>
             </div>
         </div>
     </x-slot>
@@ -25,7 +26,7 @@
             @method('PUT')
 
             <div class="space-y-4 xl:col-span-2">
-                <x-panel title="What it is">
+                <x-panel title="Product details">
                     <div class="grid gap-x-4 gap-y-3 p-4 sm:grid-cols-2 sm:px-6 sm:py-4">
                         <div class="sm:col-span-2">
                             <x-input-label for="brand_name" value="Brand name" />
@@ -39,7 +40,7 @@
                         <div>
                             <x-input-label for="code" value="Product code / barcode" />
                             <x-text-input id="code" name="code" type="text" class="mt-1 block w-full" :value="old('code', $product->code)" />
-                            <p class="mt-1 text-xs text-gray-500">What a scanner at the counter looks for.</p>
+                            <p class="mt-1 text-xs text-gray-500">The code read by the barcode scanner at POS.</p>
                         </div>
                         <div>
                             <x-input-label for="strength" value="Strength" />
@@ -81,13 +82,13 @@
                     </div>
                 </x-panel>
 
-                <x-panel title="Prices" description="Per {{ $business->unit()->one() }}. A change here is added to the price history, dated today.">
+                <x-panel title="Prices" description="Per {{ $business->unit()->one() }}. A price change is added to the price history with today's date.">
                     <div class="grid gap-4 p-4 {{ $business->sellsAtMrp() ? 'sm:grid-cols-2' : 'sm:grid-cols-3' }} sm:p-6">
                         {{-- A pharmacy sells at the MRP and has no selling price of its
                              own; a distributor needs its trade price as well. --}}
                         @php($priceFields = $business->sellsAtMrp()
-                            ? ['mrp' => ['MRP', 'Printed on the pack. This is what you sell it for; a discount is given at the counter.'], 'purchase_rate' => ['Purchase rate', 'What it costs you. Nothing sells below this.']]
-                            : ['mrp' => ['MRP', 'Printed on the pack — what the patient pays.'], 'trade_price' => ['Trade price', 'What you sell it for to a pharmacy.'], 'purchase_rate' => ['Purchase rate', 'What it costs you. Nothing sells below this.']])
+                            ? ['mrp' => ['MRP', 'Price printed on the pack. This is your selling price. A discount can be given at POS.'], 'purchase_rate' => ['Purchase rate', 'Your cost price. The product cannot be sold below this price.']]
+                            : ['mrp' => ['MRP', 'Price printed on the pack. This is the price the patient pays.'], 'trade_price' => ['Trade price', 'Your selling price to a pharmacy.'], 'purchase_rate' => ['Purchase rate', 'Your cost price. The product cannot be sold below this price.']])
                         @foreach ($priceFields as $field => [$label, $help])
                             <div>
                                 <x-input-label :for="$field" :value="$label" />
@@ -109,8 +110,8 @@
                             <x-text-input id="reorder_level" name="reorder_level" type="number" min="0" class="mt-1 block w-full"
                                           :value="old('reorder_level', $product->reorder_level)" />
                             <p class="mt-1 text-xs text-gray-500">
-                                When stock falls to this many {{ $business->unit()->many() }} or fewer, the product appears on the
-                                reorder report. Zero means it is never flagged.
+                                When stock is at or below this number of {{ $business->unit()->many() }}, the product is shown in the
+                                reorder report. Enter 0 to never show it.
                             </p>
                             <x-input-error :messages="$errors->get('reorder_level')" class="mt-1" />
                         </div>
@@ -125,19 +126,19 @@
                             <x-text-input id="units_per_pack" name="units_per_pack" type="number" min="1" class="mt-1 block w-full"
                                           x-model.number="pieces" x-on:input="byHand = true" />
                             <p class="mt-1 text-xs text-emerald-700" x-show="suggested > 1 && suggested !== Number(pieces)" x-cloak>
-                                The pack size reads as <span class="font-semibold" x-text="suggested"></span> pieces.
+                                The pack size suggests <span class="font-semibold" x-text="suggested"></span> pieces.
                                 <button type="button" class="font-semibold underline" x-on:click="pieces = suggested; byHand = false">Use <span x-text="suggested"></span></button>
                             </p>
                             <p class="mt-1 text-xs text-gray-500">
-                                Filled in from the pack size: "1/10" is 10. The counter can then sell a whole pack or loose pieces at
-                                that fraction of the price. Leave at 1 for something never opened, such as a bottle. It cannot be
-                                changed once loose pieces have been sold.
+                                Filled automatically from the pack size: "1/10" is 10. POS can then sell a whole pack, or loose pieces
+                                at the price per piece. Keep 1 for a product that is not opened, such as a bottle. This cannot be
+                                changed after loose pieces have been sold.
                             </p>
                             <x-input-error :messages="$errors->get('units_per_pack')" class="mt-1" />
                         </div>
                         @else
                             <p class="rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-600">
-                                Sold in whole {{ $business->unit()->many() }} only. A distributor does not open a pack.
+                                Sold in whole {{ $business->unit()->many() }} only. A distributor does not sell loose pieces.
                             </p>
                         @endif
                         <label class="flex items-start gap-3">
@@ -146,7 +147,7 @@
                                    class="mt-0.5 rounded text-emerald-700 focus:ring-emerald-600">
                             <span>
                                 <span class="block text-sm font-medium text-gray-900">On sale</span>
-                                <span class="block text-xs text-gray-500">Untick to withdraw it: it leaves the counter and order forms but keeps its history.</span>
+                                <span class="block text-xs text-gray-500">Untick to withdraw the product. It is removed from POS and order forms, but its history is kept.</span>
                             </span>
                         </label>
                     </div>

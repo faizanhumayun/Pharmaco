@@ -63,8 +63,8 @@ enum ReceiptFormat: string
     public function description(): string
     {
         return match ($this) {
-            self::A4 => 'A full sheet with a heading, the customer\'s details and room to sign. Usual for a distributor, whose bill is filed and paid against.',
-            self::Thermal => 'An 80mm slip from a till roll, printed and handed over. Usual for a pharmacy or medical store.',
+            self::A4 => 'A full sheet with a heading, the customer\'s details and space for a signature. Normally used by a distributor, where the bill is filed and paid later.',
+            self::Thermal => 'An 80mm slip from a receipt roll, printed and given to the customer. Normally used by a pharmacy or medical store.',
         };
     }
 

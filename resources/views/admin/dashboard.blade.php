@@ -17,7 +17,7 @@
 
         <dl class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
             <x-stat label="Businesses" :value="$counts['total']" />
-            <x-stat label="Awaiting opening" :value="$counts['setup']" hint="Cannot record activity yet" />
+            <x-stat label="Awaiting opening" :value="$counts['setup']" hint="Cannot record transactions yet" />
             <x-stat label="Active" :value="$counts['active']" />
             <x-stat label="Suspended" :value="$counts['suspended']" />
             <x-stat label="Active users" :value="$counts['users']" />
@@ -44,7 +44,7 @@
                     <p class="text-sm text-gray-500">No businesses yet.</p>
                     <a href="{{ route('admin.businesses.create') }}"
                        class="mt-3 inline-block rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                        Create the first one
+                        Create a business
                     </a>
                 </div>
             @endforelse

@@ -27,7 +27,7 @@ class ReverseDailyEntry
         }
 
         if (trim($reason) === '') {
-            throw new LedgerException('A reversal must say why.');
+            throw new LedgerException('Enter the reason for this reversal.');
         }
 
         return DB::transaction(function () use ($entry, $reason, $by) {

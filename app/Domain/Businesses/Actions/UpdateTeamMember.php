@@ -36,7 +36,7 @@ class UpdateTeamMember
 
         if ($wasActiveOwner && ! $staysActiveOwner && $this->activeOwnerCount($business) <= 1) {
             throw new TeamRuleViolation(
-                "{$member->name} is the only active owner. Make someone else an owner first — a business always needs one."
+                "{$member->name} is the only active owner. Make another person an owner first. A business must always have an owner."
             );
         }
 

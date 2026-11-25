@@ -33,8 +33,8 @@
             <span>
                 <span class="block text-sm font-medium text-gray-900">App Owner</span>
                 <span class="block text-xs text-gray-500">
-                    Full back-office access across every business. App Owners belong to no business
-                    and still cannot edit posted transactions.
+                    Full back-office access to all businesses. An App Owner is not a member of any
+                    business and cannot edit posted transactions.
                 </span>
             </span>
         </label>

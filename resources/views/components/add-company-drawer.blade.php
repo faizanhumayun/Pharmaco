@@ -45,8 +45,8 @@
         </button>
 
         <p class="text-xs text-gray-500">
-            Adding the first company moves the existing total into an "Unallocated" ledger by a visible
-            transfer — nothing in the history is rewritten.
+            When the first company is added, the existing total is moved to an "Unallocated" ledger by a
+            recorded transfer. Past records are not changed.
         </p>
     </form>
 </x-drawer>

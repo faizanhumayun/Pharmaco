@@ -34,7 +34,7 @@ class StorePriceListRequest extends FormRequest
     {
         return [
             'file.mimes' => 'The price list must be a PDF.',
-            'file.mimetypes' => 'That file is not a PDF, whatever its name says.',
+            'file.mimetypes' => 'This file is not a valid PDF. Choose a PDF file.',
             'file.max' => 'The price list must be under 25 MB.',
             'company_id.required' => 'Choose the company that sent this price list.',
             'company_id.exists' => 'That company does not belong to this business.',

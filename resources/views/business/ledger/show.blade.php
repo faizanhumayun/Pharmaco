@@ -2,6 +2,7 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+                <x-back-link :href="route('businesses.ledger', $business)" :label="'Ledger'" />
                 <h1 class="text-xl font-semibold text-gray-900">
                     <span class="font-mono text-base text-gray-500">{{ $account->code }}</span>
                     {{ $account->name }}
@@ -41,7 +42,7 @@
                                     {{ $entry->business_date->format('d M Y') }}
                                     @if ($txn->wasPostedLate())
                                         <span class="block text-xs text-amber-700"
-                                              title="Posted after its own day was closed">
+                                              title="Posted after that day was closed">
                                             for {{ $txn->original_business_date->format('d M Y') }}
                                         </span>
                                     @endif

@@ -29,7 +29,7 @@
             <span class="rounded bg-emerald-500 px-2 py-1 text-sm font-bold text-slate-900">Rx</span>
             <div>
                 <p class="text-base font-semibold leading-tight">{{ $business->name }}</p>
-                <p class="text-xs text-slate-400">Bill {{ $bill->reference() }} · sold by {{ $bill->creator->name }}@if ($bill->device) · {{ $bill->device->label() }}@endif</p>
+                <p class="text-xs text-slate-400">Bill {{ $bill->reference() }} · Created by {{ $bill->creator->name }}@if ($bill->device) · {{ $bill->device->label() }}@endif</p>
             </div>
         </div>
 
@@ -59,7 +59,7 @@
                        ])) }}"
                        class="rounded-md px-3 py-1.5 text-sm font-semibold {{ $format === $option ? 'bg-white text-slate-900' : 'text-slate-300 hover:text-white' }}"
                        title="{{ $option->description() }}">
-                        {{ $option->short() }}@if ($business->receiptFormat() === $option)<span class="ms-1 text-xs font-normal {{ $format === $option ? 'text-slate-500' : 'text-slate-500' }}">·&nbsp;usual</span>@endif
+                        {{ $option->short() }}@if ($business->receiptFormat() === $option)<span class="ms-1 text-xs font-normal {{ $format === $option ? 'text-slate-500' : 'text-slate-500' }}">·&nbsp;default</span>@endif
                     </a>
                 @endforeach
             </div>
@@ -67,7 +67,7 @@
             @if ($bill->dailyEntry)
                 <a href="{{ route('businesses.daily.show', [$business, $bill->dailyEntry]) }}"
                    class="rounded-md border border-slate-600 px-3 py-1.5 text-sm font-medium text-slate-200 hover:bg-slate-800">
-                    That day's entry
+                    Daily entry
                 </a>
             @endif
             <button type="button" onclick="window.printSlip()"
@@ -102,9 +102,9 @@
 
         {{-- Not on the paper: what the counter made on it. --}}
         <div class="mx-auto mt-4 max-w-md text-center text-xs text-gray-500 print:hidden">
-            Cost of these goods Rs. {{ $bill->cost->format() }} · margin
+            Cost of these items Rs. {{ $bill->cost->format() }} · Margin
             <span class="{{ $bill->margin()->isNegative() ? 'text-red-700' : 'text-emerald-700' }}">Rs. {{ $bill->margin()->format() }}</span>,
-            added to the day's gross profit.
+            included in the day's gross profit.
         </div>
     </div>
 </x-pos-layout>

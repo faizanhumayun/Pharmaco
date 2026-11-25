@@ -23,7 +23,7 @@ class SendOrder
         }
 
         if ($order->lines()->count() === 0) {
-            throw new RuntimeException('An empty order form cannot be sent.');
+            throw new RuntimeException('This order has no products. Add at least one product before sending it.');
         }
 
         $order->forceFill([

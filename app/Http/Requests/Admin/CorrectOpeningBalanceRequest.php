@@ -35,8 +35,8 @@ class CorrectOpeningBalanceRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'reason.required' => 'Say why this correction is being made. It goes on the permanent record.',
-            'amount.not_in' => 'A correction of zero changes nothing.',
+            'reason.required' => 'Enter the reason for this correction. It is kept on the permanent record.',
+            'amount.not_in' => 'Enter an amount other than zero.',
         ];
     }
 }

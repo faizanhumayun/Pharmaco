@@ -124,3 +124,26 @@ html { font-size: clamp(14px, 0.4vw + 8.9px, 16px); }
 .ph-paused__facts dd.is-good { color: var(--pharmacy); }
 .ph-paused__body > p.ph-paused__help { font-size: 0.8125rem; margin-top: 1.25rem; }
 .ph-paused__help a { color: var(--ink); font-weight: 600; }
+
+/* ==========================================================================
+   THE TILL SLIP ON THERMAL PAPER
+
+   A thermal head burns a dot or leaves it: there is no grey. Grey text comes
+   out as a scatter of dots, and a fine typeface loses its thin strokes — the
+   address and the small lines fade first. So on this paper everything is
+   pure black, in a plain thick face, a little larger and heavier. The screen
+   shows it the same way, so what is seen is what prints.
+   ========================================================================== */
+.slip-thermal,
+.slip-thermal * {
+  color: var(--slip-ink) !important;
+  border-color: var(--slip-ink) !important;
+  font-family: var(--font-slip) !important;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.slip-thermal { font-weight: 600; font-size: 12.5px; line-height: 1.3; }
+.slip-thermal .text-\[11px\] { font-size: 12.5px; }
+.slip-thermal .text-\[10px\] { font-size: 11.5px; }
+.slip-thermal th, .slip-thermal .font-semibold, .slip-thermal .font-bold, .slip-thermal b, .slip-thermal strong { font-weight: 700; }
+.slip-thermal .font-medium { font-weight: 600; }

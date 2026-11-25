@@ -2,10 +2,11 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-start justify-between gap-4">
             <div>
+                <x-back-link :href="route('businesses.orders.show', [$business, $order])" :label="'Order ' . $order->reference" />
                 <h1 class="text-xl font-semibold text-gray-900">Receive {{ $order->reference }}</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ $order->company->name }} · ordered {{ $order->business_date->format('j M Y') }}
-                    @if ($order->sent_at) · sent {{ $order->sent_at->diffForHumans() }} @endif
+                    {{ $order->company->name }} · Ordered {{ $order->business_date->format('j M Y') }}
+                    @if ($order->sent_at) · Sent {{ $order->sent_at->diffForHumans() }} @endif
                 </p>
             </div>
 
@@ -53,9 +54,9 @@
                         x-on:receipt-count.window="recorded = $event.detail.count"
                         x-on:click="$dispatch('open-modal', 'confirm-delivery')"
                         :disabled="recorded === 0"
-                        :title="recorded === 0 ? 'Tick what arrived first' : ''"
+                        :title="recorded === 0 ? 'Tick the items received first' : ''"
                         class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300">
-                    Record the delivery
+                    Save delivery
                 </button>
             </div>
         </div>
@@ -127,6 +128,15 @@
             </div>
         @endif
 
+        {{-- Everything a delivery was refused for, all of it at once. --}}
+        @if ($errors->has('expires_on'))
+            <ul class="mb-4 list-disc space-y-0.5 rounded-md border border-red-200 bg-red-50 py-3 pl-8 pr-4 text-sm text-red-800">
+                @foreach ($errors->get('expires_on') as $message)
+                    <li>{{ $message }}</li>
+                @endforeach
+            </ul>
+        @endif
+
         <form id="receive-form" method="POST" action="{{ route('businesses.orders.receive.store', [$business, $order]) }}">
             @csrf
 
@@ -140,9 +150,9 @@
                     <div class="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
                         <h2 class="text-base font-semibold text-gray-900">Ordered</h2>
                         <span class="text-sm" :class="pending.length ? 'text-amber-700' : 'text-gray-500'">
-                            <span x-text="pending.length"></span> still to check
+                            <span x-text="pending.length"></span> to check
                         </span>
-                        <span class="text-xs text-gray-400">tick = came as ordered</span>
+                        <span class="text-xs text-gray-400">Tick = received as ordered</span>
                         <button type="button" x-on:click="checkAll()" x-show="pending.length" x-cloak
                                 class="ml-auto rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
                             Check all
@@ -154,8 +164,8 @@
                             <p class="py-10 text-center text-sm"
                                :class="lines.length ? 'text-emerald-700' : 'text-gray-500'"
                                x-text="lines.length
-                                   ? 'Everything has been checked off.'
-                                   : 'This delivery had no order form, so there is nothing to check against. What came is on the right.'"></p>
+                                   ? 'All items have been checked.'
+                                   : 'This delivery has no order form, so there are no items to check. The items received are on the right.'"></p>
                         </template>
 
                         <ul class="divide-y divide-gray-100">
@@ -188,7 +198,7 @@
                                         {{-- For when it did not come as ordered. --}}
                                         <button type="button" x-on:click="openChange(line)"
                                                 class="w-full whitespace-nowrap rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                            Record change
+                                            Change quantity
                                         </button>
                                     </div>
                                 </li>
@@ -197,7 +207,7 @@
                     </div>
 
                     <p class="shrink-0 border-t border-gray-200 px-4 py-2 text-xs text-gray-500 sm:px-6">
-                        Anything left here counts as not delivered.
+                        Items left in this list are saved as not received.
                     </p>
                 </x-panel>
 
@@ -206,7 +216,7 @@
                     <div class="flex shrink-0 flex-wrap items-center gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
                         <h2 class="text-base font-semibold text-gray-900">Received</h2>
                         <span class="text-sm text-gray-500">
-                            <span x-text="received.length + extras.length"></span> lines
+                            <span x-text="received.length + extras.length"></span> items
                         </span>
                         <span class="text-sm text-emerald-700" x-show="matching > 0" x-cloak>
                             <span x-text="matching"></span> as ordered
@@ -218,16 +228,16 @@
                             <span x-text="over"></span> over
                         </span>
                         <span class="text-sm text-gray-500" x-show="extras.length" x-cloak>
-                            <span x-text="extras.length"></span> unordered
+                            <span x-text="extras.length"></span> not ordered
                         </span>
                         <div class="ml-auto flex items-center gap-2">
                             <button type="button" x-on:click="uncheckAll()" x-show="received.length" x-cloak
                                     class="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                Send all back
+                                Uncheck all
                             </button>
                             <button type="button" x-on:click="openUnordered()"
                                     class="whitespace-nowrap rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                Sent but not ordered<template x-if="extras.length"><span> (<span x-text="extras.length"></span>)</span></template>
+                                Received but not ordered<template x-if="extras.length"><span> (<span x-text="extras.length"></span>)</span></template>
                             </button>
                         </div>
                     </div>
@@ -235,7 +245,7 @@
                     <div class="min-h-0 flex-1 overflow-auto">
                         <template x-if="! received.length && ! extras.length">
                             <p class="py-10 text-center text-sm text-gray-500">
-                                Nothing checked off yet. Work down the order on the left as you unpack.
+                                No items checked yet. Tick each item in the list on the left as you check the delivery.
                             </p>
                         </template>
 
@@ -250,7 +260,7 @@
                         <div x-show="extras.length" x-cloak class="border-b border-gray-200">
                             <div class="flex items-center justify-between gap-3 bg-gray-50 px-4 py-2 sm:px-6">
                                 <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                    Came without being ordered
+                                    Received but not ordered
                                 </p>
                                 <button type="button" x-on:click="openUnordered()"
                                         class="text-xs font-medium text-emerald-700 hover:text-emerald-800">
@@ -271,21 +281,25 @@
                                             <td class="whitespace-nowrap px-3 py-2 text-right">
                                                 <span class="font-mono tabular-nums text-gray-600" x-text="extra.rate ?? '—'"></span>
                                                 {{-- What it cost last time, when that has changed. --}}
-                                                <input type="month" :name="`extras[${i}][expires_on]`" x-model="extra.expires_on"
-                                           class="w-32 rounded-md border-gray-300 py-1 text-sm">
-                                    <input type="text" :name="`extras[${i}][batch_no]`" x-model="extra.batch_no"
-                                           placeholder="Batch no." maxlength="60"
-                                           class="mt-1 block w-32 rounded-md border-gray-300 py-1 text-sm uppercase placeholder:normal-case">
-                                </td>
-                                <td class="px-2 py-2 text-right">
-                                    <template x-if="priceMove(extra)">
+                                                <template x-if="priceMove(extra)">
                                                     <span class="ml-1.5 inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-xs font-medium"
                                                           :class="priceMove(extra).up ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'"
-                                                          :title="'Was ' + priceMove(extra).was.toFixed(2) + ' — ' + (priceMove(extra).up ? 'dearer' : 'cheaper') + ' by ' + priceMove(extra).percent.toFixed(1) + '%'">
+                                                          :title="'Last cost ' + priceMove(extra).was.toFixed(2) + '. ' + (priceMove(extra).up ? 'Higher' : 'Lower') + ' by ' + priceMove(extra).percent.toFixed(1) + '%'">
                                                         <span x-text="priceMove(extra).up ? '▲' : '▼'"></span>
                                                         <span x-text="priceMove(extra).delta.toFixed(2)"></span>
                                                     </span>
                                                 </template>
+                                            </td>
+                                            {{-- The same expiry and batch as in the drawer, which is
+                                                 where they are posted from: no names here. --}}
+                                            <td class="px-3 py-2">
+                                                <span class="flex items-center gap-1">
+                                                    <input type="month" data-must x-model="extra.expires_on"
+                                                           title="Expiry" class="w-32 rounded-md border-gray-300 py-1 text-xs">
+                                                    <input type="text" x-model="extra.batch_no"
+                                                           placeholder="Batch no." maxlength="60"
+                                                           class="w-28 rounded-md border-gray-300 py-1 text-xs uppercase placeholder:normal-case">
+                                                </span>
                                             </td>
                                             <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6"
                                                 x-text="(((Number(extra.packs) || 0) * (Number(extra.rate) || 0)).toFixed(2))"></td>
@@ -309,7 +323,7 @@
                                         <td class="px-3 py-2 sm:px-6">
                                             <div class="flex items-start gap-2">
                                                 <input type="checkbox" checked x-on:change="uncheck(line)"
-                                                       :aria-label="`Send back to ordered: ${line.label}`"
+                                                       :aria-label="`Uncheck: ${line.label}`"
                                                        class="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
                                                 <div class="min-w-0">
                                                     <span class="block max-w-[14rem] break-words font-medium leading-snug text-gray-900" x-text="line.label"></span>
@@ -342,7 +356,7 @@
                                             {{-- Off the carton while it is in hand: when this
                                                  batch expires, and its batch number. --}}
                                             <span class="mt-1 flex items-center gap-1">
-                                                <input type="month" :name="`lines[${line.id}][expires_on]`" x-model="line.expires_on"
+                                                <input type="month" data-must :name="`lines[${line.id}][expires_on]`" x-model="line.expires_on"
                                                        title="Expiry" class="w-32 rounded-md border-gray-300 py-1 text-xs">
                                                 <input type="text" :name="`lines[${line.id}][batch_no]`" x-model="line.batch_no"
                                                        placeholder="Batch no." maxlength="60"
@@ -365,17 +379,17 @@
             </div>
 
         <x-drawer name="unordered-items" maxWidth="2xl"
-                  title="Sent but not ordered"
-                  subtitle="Anything the company delivered that was never on the order.">
+                  title="Received but not ordered"
+                  subtitle="Items the company delivered that were not in the order.">
             <div class="space-y-4">
                 <div>
                     <x-text-input type="search" class="block w-full"
-                                  placeholder="Search, or pick from the list below…"
+                                  placeholder="Search, or select from the list below…"
                                   x-model="query" x-on:input.debounce.250ms="search()"
                                   x-on:keydown.escape="query = ''; results = []" />
 
                     <div class="mt-1 flex items-baseline justify-between text-xs text-gray-400">
-                        <span x-text="query ? 'Matches' : 'Everything this company sells'"></span>
+                        <span x-text="query ? 'Search results' : 'All products of this company'"></span>
                         <span>
                             <span x-text="query ? results.length : catalogue.length"></span>
                             of <span x-text="catalogueTotal"></span>
@@ -389,13 +403,13 @@
                          x-on:scroll.debounce.100ms="maybeLoadMore($event.target)">
                         <template x-if="query && ! results.length">
                             <p class="px-3 py-6 text-center text-sm text-gray-500">
-                                Nothing matches “<span x-text="query"></span>”.
+                                No products found for “<span x-text="query"></span>”.
                             </p>
                         </template>
 
                         <template x-if="! query && ! catalogue.length && ! loadingCatalogue">
                             <p class="px-3 py-6 text-center text-sm text-gray-500">
-                                This company has no products in the catalogue yet.
+                                This company has no products yet.
                             </p>
                         </template>
 
@@ -447,7 +461,7 @@
                                            class="w-24 rounded-md border-gray-300 text-right text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 </td>
                                 <td class="py-2 pr-3 text-right">
-                                    <input type="month" :name="`extras[${i}][expires_on]`" x-model="extra.expires_on"
+                                    <input type="month" data-must :name="`extras[${i}][expires_on]`" x-model="extra.expires_on"
                                            class="w-32 rounded-md border-gray-300 py-1 text-sm">
                                     <input type="text" :name="`extras[${i}][batch_no]`" x-model="extra.batch_no"
                                            placeholder="Batch no." maxlength="60"
@@ -457,7 +471,7 @@
                                     <template x-if="priceMove(extra)">
                                         <span class="mr-1 inline-flex items-center gap-0.5 text-xs font-medium"
                                               :class="priceMove(extra).up ? 'text-red-700' : 'text-emerald-700'"
-                                              :title="'Was ' + priceMove(extra).was.toFixed(2)">
+                                              :title="'Last cost ' + priceMove(extra).was.toFixed(2)">
                                             <span x-text="priceMove(extra).up ? '▲' : '▼'"></span>
                                             <span x-text="priceMove(extra).percent.toFixed(0) + '%'"></span>
                                         </span>
@@ -474,7 +488,7 @@
                                 @endunless
                                 <td class="px-2 py-2 text-right">
                                     <input type="text" inputmode="decimal" :name="`extras[${i}][mrp]`" x-model="extra.mrp"
-                                           placeholder="{{ $sellRequired ? 'required' : '—' }}"
+                                           placeholder="{{ $sellRequired ? 'Required' : '—' }}"
                                            :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(extra.mrp) > 0) ? 'border-amber-400 bg-amber-50' : 'border-gray-300'"
                                            class="w-20 rounded-md py-1 text-right text-sm tabular-nums">
                                 </td>
@@ -488,7 +502,7 @@
                 </table>
 
                 <p class="text-sm text-gray-500" x-show="! extras.length">
-                    Nothing so far. Most deliveries have none.
+                    No items added.
                 </p>
             </div>
 
@@ -520,34 +534,34 @@
         --}}
         <x-modal name="confirm-delivery" maxWidth="lg" focusable>
             <div class="p-6">
-                <h2 class="text-lg font-semibold text-gray-900">Record this delivery?</h2>
+                <h2 class="text-lg font-semibold text-gray-900">Save this delivery?</h2>
                 <p class="mt-0.5 text-sm text-gray-500">
                     {{ $order->reference }} · {{ $order->company->name }}
                 </p>
 
                 <dl class="mt-4 space-y-1 border-y border-gray-100 py-3 text-sm">
                     <div class="flex items-baseline justify-between">
-                        <dt class="text-gray-500">Checked off</dt>
+                        <dt class="text-gray-500">Checked</dt>
                         <dd class="text-gray-900">
                             <span class="font-mono font-semibold tabular-nums" x-text="received.length"></span>
-                            of <span x-text="lines.length"></span> lines
+                            of <span x-text="lines.length"></span> items
                         </dd>
                     </div>
                     <div class="flex items-baseline justify-between" x-show="short > 0" x-cloak>
                         <dt class="text-amber-700">Short</dt>
-                        <dd class="font-mono font-semibold tabular-nums text-amber-700" x-text="short + ' lines'"></dd>
+                        <dd class="font-mono font-semibold tabular-nums text-amber-700" x-text="short + ' items'"></dd>
                     </div>
                     <div class="flex items-baseline justify-between" x-show="over > 0" x-cloak>
                         <dt class="text-sky-700">Over</dt>
-                        <dd class="font-mono font-semibold tabular-nums text-sky-700" x-text="over + ' lines'"></dd>
+                        <dd class="font-mono font-semibold tabular-nums text-sky-700" x-text="over + ' items'"></dd>
                     </div>
                     <div class="flex items-baseline justify-between" x-show="extras.length" x-cloak>
-                        <dt class="text-gray-500">Sent but not ordered</dt>
-                        <dd class="font-mono font-semibold tabular-nums text-gray-900" x-text="extras.length + ' lines'"></dd>
+                        <dt class="text-gray-500">Received but not ordered</dt>
+                        <dd class="font-mono font-semibold tabular-nums text-gray-900" x-text="extras.length + ' items'"></dd>
                     </div>
                     <div class="flex items-baseline justify-between" x-show="pending.length" x-cloak>
-                        <dt class="text-amber-700">Not arrived</dt>
-                        <dd class="font-mono font-semibold tabular-nums text-amber-700" x-text="pending.length + ' lines'"></dd>
+                        <dt class="text-amber-700">Not received</dt>
+                        <dd class="font-mono font-semibold tabular-nums text-amber-700" x-text="pending.length + ' items'"></dd>
                     </div>
                 </dl>
 
@@ -571,14 +585,14 @@
 
                         <div class="grid gap-3 sm:grid-cols-2">
                             <div>
-                                <x-input-label for="invoice_no" value="Invoice no" />
+                                <x-input-label for="invoice_no" value="Invoice no." />
                                 <x-text-input id="invoice_no" name="invoice_no" form="receive-form" type="text"
                                               class="mt-1 block w-full" placeholder="INV-4471"
                                               x-model="invoice.invoice_no" />
                             </div>
 
                             <div>
-                                <x-input-label for="paid" value="Paying now" />
+                                <x-input-label for="paid" value="Paid now" />
                                 {{-- Grouped when you leave it, unpicked back to a
                                      plain number while you are typing. --}}
                                 <x-text-input id="paid" name="paid" form="receive-form" type="text" inputmode="decimal"
@@ -590,7 +604,7 @@
                         </div>
 
                         <div class="flex items-baseline justify-between gap-4 border-t border-gray-200 pt-2">
-                            <span class="font-semibold text-gray-900">Pending on this bill</span>
+                            <span class="font-semibold text-gray-900">Pending supplier bill</span>
                             <span class="font-mono font-semibold tabular-nums"
                                   :class="pendingAmount > 0 ? 'text-amber-700' : 'text-gray-900'"
                                   x-text="fmt(pendingAmount)"></span>
@@ -603,15 +617,15 @@
                         <template x-if="overpaid > 0">
                             <div class="space-y-1 rounded-md bg-white px-3 py-2 ring-1 ring-sky-200">
                                 <div class="flex items-baseline justify-between gap-4">
-                                    <span class="text-gray-500">Beyond this bill</span>
+                                    <span class="text-gray-500">Paid in excess of this bill</span>
                                     <span class="font-mono font-semibold tabular-nums text-sky-700" x-text="fmt(overpaid)"></span>
                                 </div>
 
                                 <template x-if="settlesEarlier > 0">
                                     <div class="flex items-baseline justify-between gap-4 text-xs">
                                         <span class="text-gray-500">
-                                            against earlier bills
-                                            <span class="text-gray-400">(owed <span x-text="fmt(num(outstanding))"></span>)</span>
+                                            Adjusted against earlier bills
+                                            <span class="text-gray-400">(pending <span x-text="fmt(num(outstanding))"></span>)</span>
                                         </span>
                                         <span class="font-mono tabular-nums text-gray-700" x-text="fmt(settlesEarlier)"></span>
                                     </div>
@@ -619,7 +633,7 @@
 
                                 <template x-if="advance > 0">
                                     <div class="flex items-baseline justify-between gap-4 text-xs">
-                                        <span class="text-gray-500">as an advance to this supplier</span>
+                                        <span class="text-gray-500">Advance to this supplier</span>
                                         <span class="font-mono tabular-nums text-gray-700" x-text="fmt(advance)"></span>
                                     </div>
                                 </template>
@@ -632,25 +646,37 @@
 
                 <p class="mt-3 text-xs text-gray-500" x-show="num(invoice.paid) > 0 || invoice.invoice_no" x-cloak>
                     @if ($order->purchaseLine)
-                        This updates the invoice already on the daily entry for
+                        This updates the invoice already in the daily entry of
                         {{ $order->purchaseLine->dailyEntry->business_date->format('j M Y') }}.
                     @else
-                        This puts the invoice on today's daily entry. It posts to the ledger when that day is
-                        posted — not now.
+                        This adds the invoice to today's daily entry. It is recorded in the accounts when
+                        that day is posted, not now.
                     @endif
                 </p>
                 <p class="mt-3 text-xs text-gray-500" x-show="! (num(invoice.paid) > 0 || invoice.invoice_no)" x-cloak>
-                    No invoice number and no payment, so nothing goes to the daily entry — this records the goods only.
+                    No invoice number and no payment entered. Only the goods are saved. No invoice is added to the daily entry.
                 </p>
+
+                {{-- Stock with no date can never be warned about, so it is
+                     not taken in without one. --}}
+                <div class="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                     x-show="missingExpiry.length" x-cloak>
+                    <p class="font-medium">Enter the expiry date printed on the pack for:</p>
+                    <ul class="mt-1 list-disc pl-5">
+                        <template x-for="name in missingExpiry" :key="name">
+                            <li x-text="name"></li>
+                        </template>
+                    </ul>
+                </div>
 
                 <div class="mt-5 flex items-center justify-end gap-3">
                     <button type="button" x-on:click="$dispatch('close-modal', 'confirm-delivery')"
                             class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                        Go back
+                        Back
                     </button>
-                    <button type="submit" form="receive-form"
-                            class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                        Record the delivery
+                    <button type="submit" form="receive-form" :disabled="missingExpiry.length > 0"
+                            class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:bg-gray-300">
+                        Save delivery
                     </button>
                 </div>
             </div>
@@ -678,7 +704,7 @@
                                 <dd class="text-gray-900">
                                     <span x-text="change.line.pack_size || '—'"></span>
                                     <template x-if="change.line.case_size">
-                                        <span class="text-gray-400"> · case of <span x-text="change.line.case_size"></span></span>
+                                        <span class="text-gray-400"> · carton of <span x-text="change.line.case_size"></span></span>
                                     </template>
                                 </dd>
                             </div>
@@ -705,7 +731,7 @@
                             </button>
                             <button type="button" x-on:click="changeNone()"
                                     class="rounded-md border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50">
-                                None arrived
+                                Not received
                             </button>
                         </div>
 
@@ -713,12 +739,12 @@
                             <x-input-label for="change-note" value="Reason (optional)" />
                             <x-text-input id="change-note" type="text" class="mt-1 block w-full" maxlength="255"
                                           x-model="change.note"
-                                          placeholder="Out of stock until next month, two cartons damaged…" />
+                                          placeholder="e.g. Out of stock, two cartons damaged" />
                         </div>
 
                         <div class="mt-4 rounded-md bg-gray-50 px-4 py-3 text-sm">
                             <div class="flex items-baseline justify-between">
-                                <span class="text-gray-500">Against the order</span>
+                                <span class="text-gray-500">Difference from order</span>
                                 <span class="font-mono font-semibold tabular-nums" :class="changeDiffClass"
                                       x-text="changeDiffLabel"></span>
                             </div>
@@ -731,7 +757,7 @@
                             </button>
                             <button type="button" x-on:click="commitChange()"
                                     class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                                Record change
+                                Save change
                             </button>
                         </div>
                     </div>
@@ -801,6 +827,14 @@
                     get pending() { return this.lines.filter(l => ! l.checked); },
                     get received() { return this.lines.filter(l => l.checked); },
 
+                    /** What arrived with nobody having said when it goes out of date. */
+                    get missingExpiry() {
+                        return [
+                            ...this.received.filter(l => Number(l.packs) > 0 && ! l.expires_on).map(l => l.label),
+                            ...this.extras.filter(e => ! e.expires_on).map(e => e.label || e.brand_name),
+                        ];
+                    },
+
                     // The item being recorded in the modal.
                     change: { line: null, cartons: '', packs: '', note: '' },
 
@@ -854,7 +888,7 @@
                     },
                     get changeDiffLabel() {
                         const d = this.changeDifference;
-                        if (d === 0) return 'as ordered';
+                        if (d === 0) return 'As ordered';
 
                         return (d > 0 ? '+' : '') + d.toLocaleString('en-US') + ' packs';
                     },
@@ -901,9 +935,9 @@
 
                     get receivedVariance() {
                         const d = this.receivedValue - this.num(this.orderTotal);
-                        if (Math.abs(d) < 0.005) return 'matches the order';
+                        if (Math.abs(d) < 0.005) return 'Same as the order';
 
-                        return (d > 0 ? '+' : '') + this.fmt(d) + ' against the order';
+                        return (d > 0 ? '+' : '') + this.fmt(d) + ' from the order';
                     },
 
                     /** What is left on the supplier's bill. Named apart from
@@ -947,7 +981,7 @@
                     diffLabel(line) {
                         const d = this.difference(line);
 
-                        return d === 0 ? 'as ordered' : (d > 0 ? '+' : '') + d.toLocaleString('en-US');
+                        return d === 0 ? 'As ordered' : (d > 0 ? '+' : '') + d.toLocaleString('en-US');
                     },
                     diffClass(line) {
                         const d = this.difference(line);

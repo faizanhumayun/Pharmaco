@@ -15,7 +15,7 @@
 @if ($mirror && ($mirror['entry'] ?? null) === 'office')
     {{-- The shop's computer is locked and its books are entered here, for a fix. --}}
     <div class="bg-red-100 px-4 py-1.5 text-center text-sm font-medium text-red-900 print:hidden" role="status">
-        {{ $mirror['name'] }} is paused for a fix · its own computer is locked · what you change here goes back to it when you switch the shop on again in Businesses
+        {{ $mirror['name'] }} is paused for correction · the shop computer is locked · changes made here are sent back to the shop when you switch it on again in Businesses
     </div>
 @elseif ($mirror)
     @php($madeAt = $mirror['made_at'] ?? null)
@@ -24,11 +24,11 @@
     <div class="bg-amber-100 px-4 py-1.5 text-center text-sm font-medium text-amber-900 print:hidden" role="status">
         Read-only copy of {{ $mirror['name'] }}
         @if ($madeAt)
-            · as it stood {{ $madeAt->diffForHumans() }} ({{ $madeAt->timezone($zone)->format('j M Y, g:i A') }})
+            · last updated {{ $madeAt->diffForHumans() }} ({{ $madeAt->timezone($zone)->format('j M Y, g:i A') }})
         @else
-            · nothing has arrived from the shop yet
+            · no data received from the shop yet
         @endif
-        · changes are made on the shop's own computer
+        · changes can be made only on the shop computer
         @if ($mirror['can_leave'] ?? false)
             · <a href="{{ route('copy.leave') }}" class="underline hover:no-underline">Leave this copy</a>
         @endif

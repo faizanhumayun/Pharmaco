@@ -18,15 +18,15 @@
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Stock audit</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    {{ number_format($progress['products']) }} products, counted a few at a time. The
-                    lines worth most and moving fastest come round every
-                    {{ $progress['classes']['A']['interval'] }} days; the slowest every
-                    {{ $progress['classes']['C']['interval'] }}.
+                    {{ number_format($progress['products']) }} products, counted a few each day.
+                    High-value and fast-selling products are counted every
+                    {{ $progress['classes']['A']['interval'] }} days. The slowest products are counted every
+                    {{ $progress['classes']['C']['interval'] }} days.
                 </p>
             </div>
 
             <dl class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-                @foreach (['A' => 'Fast &amp; valuable', 'B' => 'Middling', 'C' => 'Long tail'] as $class => $label)
+                @foreach (['A' => 'Fast &amp; high value', 'B' => 'Medium', 'C' => 'Slow moving'] as $class => $label)
                     @php($c = $progress['classes'][$class])
                     <div>
                         <dt class="text-xs uppercase tracking-wide text-gray-400">{!! $label !!}</dt>
@@ -51,11 +51,11 @@
             <x-panel class="mb-4 flex max-h-[32vh] shrink-0 flex-col ring-1 ring-amber-200">
                 <div class="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-3 sm:px-6">
                     <h2 class="text-sm font-semibold text-amber-900">
-                        {{ $open->count() }} {{ Str::plural('difference', $open->count()) }} waiting
+                        {{ $open->count() }} {{ Str::plural('difference', $open->count()) }} waiting for a decision
                     </h2>
                     <p class="mt-0.5 text-xs text-amber-800">
-                        The books still say the old figure. Approving moves stock to what was counted;
-                        dismissing leaves it alone and keeps the count on the record.
+                        The records still show the old quantity. "Correct stock" changes stock to the counted quantity.
+                        "Miscount" leaves stock unchanged and keeps the count in the records.
                     </p>
                 </div>
 
@@ -68,15 +68,15 @@
                                     <a href="{{ route('businesses.products.show', [$business, $count->product]) }}"
                                        class="font-medium text-gray-900 hover:text-emerald-700">{{ $count->product->label() }}</a>
                                     <span class="block text-xs text-gray-500">
-                                        counted by {{ $count->counter->name }} on {{ $count->business_date->format('j M Y') }}
+                                        Counted by {{ $count->counter->name }} on {{ $count->business_date->format('j M Y') }}
                                         @if ($count->note) · {{ $count->note }} @endif
                                     </span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right text-gray-600">
-                                    books <span class="font-mono tabular-nums text-gray-900">{{ $count->expectedLabel() }}</span>
+                                    Records <span class="font-mono tabular-nums text-gray-900">{{ $count->expectedLabel() }}</span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right text-gray-600">
-                                    shelf <span class="font-mono tabular-nums text-gray-900">{{ $count->countedLabel() }}</span>
+                                    Counted <span class="font-mono tabular-nums text-gray-900">{{ $count->countedLabel() }}</span>
                                 </td>
                                 <td class="whitespace-nowrap px-4 py-3 text-right">
                                     <x-badge :classes="$count->difference() < 0
@@ -102,7 +102,7 @@
                                             </button>
                                         </form>
                                     @else
-                                        <span class="text-xs text-gray-400">waiting for the owner</span>
+                                        <span class="text-xs text-gray-400">Waiting for the owner</span>
                                     @endif
                                 </td>
                             </tr>
@@ -120,11 +120,11 @@
                     <div class="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 sm:px-6">
                         <div>
                             <h2 class="text-base font-semibold text-gray-900">
-                                {{ $all ? 'Every product' : 'Count these' }}
+                                {{ $all ? 'All products' : 'Products to count' }}
                             </h2>
                             <p class="text-xs text-gray-500">
-                                {{ $all ? 'Count anything, whether it is due or not' : $today->format('l j F Y') . ' · most overdue first' }}
-                                · {{ number_format($progress['due']) }} due in all
+                                {{ $all ? 'Count any product, due or not' : $today->format('l j F Y') . ' · most overdue first' }}
+                                · {{ number_format($progress['due']) }} due in total
                                 @if ($progress['never'] > 0)
                                     · <span class="text-amber-700">{{ number_format($progress['never']) }} never counted</span>
                                 @endif
@@ -133,14 +133,14 @@
 
                         <x-filter-bar submit="Search">
                             <input type="hidden" name="show" value="all">
-                            <input name="q" type="search" value="{{ $search }}" placeholder="Find a product"
+                            <input name="q" type="search" value="{{ $search }}" placeholder="Search products"
                                    class="w-44 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             @if ($all)
                                 <a href="{{ route('businesses.stock.audit', $business) }}"
-                                   class="text-sm text-gray-500 hover:text-gray-800">Back to today's sheet</a>
+                                   class="text-sm text-gray-500 hover:text-gray-800">Back to today's list</a>
                             @else
                                 <a href="{{ route('businesses.stock.audit', [$business, 'show' => 'all']) }}"
-                                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">Show everything</a>
+                                   class="text-sm font-medium text-emerald-700 hover:text-emerald-800">Show all products</a>
                             @endif
                         </x-filter-bar>
                     </div>
@@ -165,13 +165,13 @@
                                                 <span class="font-medium text-emerald-700">counted today</span> ·
                                             @endif
                                             {{ $row['product']->company?->name ?? '—' }}
-                                            · worth {{ $rs($row['held']) }}
+                                            · value {{ $rs($row['held']) }}
                                             · {{ $row['last_counted'] ? 'last counted ' . $row['last_counted']->diffForHumans() : 'never counted' }}
                                         </span>
                                     </td>
 
                                     <td class="whitespace-nowrap px-4 py-3 text-right">
-                                        <span class="block text-xs uppercase tracking-wide text-gray-400">Books say</span>
+                                        <span class="block text-xs uppercase tracking-wide text-gray-400">In records</span>
                                         @php($looseHeld = (int) ($looseOnHand[$row['product']->id] ?? 0))
                                         <span class="font-mono text-lg font-semibold tabular-nums text-gray-900">{{ number_format($row['packs']) }}</span>
                                         <span class="text-sm text-gray-500">{{ Str::plural($one, $row['packs']) }}</span>
@@ -203,7 +203,7 @@
                                                 <span class="flex items-center gap-2">
                                                     <button name="agrees" value="1"
                                                             class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
-                                                        Agrees
+                                                        Matches
                                                     </button>
                                                     <button type="button" x-on:click="differs = true"
                                                             class="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
@@ -230,12 +230,12 @@
                                                             <span class="block text-[11px] uppercase tracking-wide text-gray-400">Loose</span>
                                                             <input name="counted_loose" type="number" min="0" max="{{ (int) $row['product']->units_per_pack - 1 }}"
                                                                    value="{{ $looseHeld }}"
-                                                                   title="Pieces in the open pack — {{ (int) $row['product']->units_per_pack }} make a pack"
+                                                                   title="Pieces in the open pack. {{ (int) $row['product']->units_per_pack }} pieces make one pack."
                                                                    class="w-20 rounded-md border-gray-300 py-2 text-right text-lg tabular-nums shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                                         </label>
                                                     @endif
                                                     <button class="rounded-md bg-amber-600 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-700">
-                                                        Record
+                                                        Save
                                                     </button>
                                                     <button type="button" x-on:click="differs = false"
                                                             class="py-2 text-sm text-gray-400 hover:text-gray-700">Cancel</button>
@@ -247,8 +247,8 @@
                             @empty
                                 <tr>
                                     <td class="px-6 py-12 text-center text-gray-500">
-                                        {{ $search !== '' ? 'Nothing matches that.' : 'Nothing is due today — the shelves are up to date.' }}
-                                        <span class="mt-1 block text-xs">Products come back round as their interval passes.</span>
+                                        {{ $search !== '' ? 'No products found.' : 'No products are due for counting today.' }}
+                                        <span class="mt-1 block text-xs">Products are listed again when their next count is due.</span>
                                     </td>
                                 </tr>
                             @endforelse
@@ -261,7 +261,7 @@
             {{-- What has already been walked today. --}}
             <div class="xl:col-span-1 xl:flex xl:min-h-0 xl:flex-col">
                 <x-panel class="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col" title="Counted today"
-                         :description="$countedToday->count() . ' ' . Str::plural('product', $countedToday->count()) . ' walked'">
+                         :description="$countedToday->count() . ' ' . Str::plural('product', $countedToday->count()) . ' counted'">
                     <ul class="divide-y divide-gray-100 text-sm xl:min-h-0 xl:flex-1 xl:overflow-y-auto">
                         @forelse ($countedToday as $count)
                             <li class="flex items-start justify-between gap-3 px-4 py-2.5 sm:px-6">
@@ -271,7 +271,7 @@
                                 </span>
                                 <span class="shrink-0 text-right">
                                     @if ($count->difference() === 0)
-                                        <span class="text-xs font-medium text-emerald-700">agrees</span>
+                                        <span class="text-xs font-medium text-emerald-700">matches</span>
                                     @else
                                         <span class="font-mono text-sm font-semibold tabular-nums {{ $count->difference() < 0 ? 'text-red-700' : 'text-sky-700' }}">
                                             {{ $count->differenceLabel() }}
@@ -283,15 +283,15 @@
                                 </span>
                             </li>
                         @empty
-                            <li class="px-6 py-8 text-center text-sm text-gray-500">Nothing counted yet today.</li>
+                            <li class="px-6 py-8 text-center text-sm text-gray-500">No products counted today.</li>
                         @endforelse
                     </ul>
                 </x-panel>
 
                 <p class="mt-3 shrink-0 text-xs leading-relaxed text-gray-500">
-                    Counting records what was seen and moves nothing. Stock changes only when a
-                    difference is approved, and then through the same adjustment the product page
-                    uses — so every change to a quantity still has one way in.
+                    A count only records the quantity counted. It does not change stock. Stock changes only
+                    when a difference is approved, and it is saved as a stock adjustment, the same as on
+                    the product page.
                 </p>
             </div>
         </div>

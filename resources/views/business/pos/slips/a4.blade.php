@@ -43,7 +43,7 @@
     <div class="mt-5 flex items-start justify-between gap-8">
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Billed to</p>
-            <p class="mt-0.5 text-base font-semibold">{{ $bill->customer_name ?? 'Cash sale' }}</p>
+            <p class="mt-0.5 text-base font-semibold">{{ $bill->customer_name ?? 'Walk-in customer' }}</p>
             @if ($customer?->area)
                 <p class="text-sm text-gray-600">{{ $customer->area }}</p>
             @endif
@@ -133,7 +133,7 @@
             @endunless
             @unless ($bill->credit()->isZero())
                 <div class="flex justify-between border-t border-gray-300 py-1 font-semibold">
-                    <dt>Balance on this bill</dt>
+                    <dt>Pending on this bill</dt>
                     <dd class="tabular-nums">{{ $rs($bill->credit()) }}</dd>
                 </div>
             @endunless

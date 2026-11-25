@@ -11,7 +11,7 @@
     <div x-data="deviceChip({ url: @js(route('device.update')), name: @js($device->name ?? ''), label: @js($device->label()) })"
          class="relative whitespace-nowrap text-xs" x-on:click.outside="open = false" x-on:keydown.escape="open = false">
         <button type="button" x-on:click="edit()" :aria-expanded="open"
-                title="This device. Everything entered here is recorded against it. Click to rename."
+                title="This device. All entries made here are recorded under its name. Click to rename."
                 class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-medium ring-1 ring-inset"
                 :class="name
                     ? '{{ $dark ? 'bg-slate-800 text-slate-200 ring-slate-600 hover:bg-slate-700' : 'bg-gray-100 text-gray-700 ring-gray-500/20 hover:bg-gray-200' }}'
@@ -24,10 +24,10 @@
 
         <form x-show="open" x-cloak x-on:submit.prevent="save()"
               class="absolute right-0 z-50 mt-1 w-72 rounded-lg border border-gray-200 bg-white p-3 text-left shadow-lg">
-            <label class="block text-xs font-medium text-gray-700" for="device_name">What is this computer called?</label>
+            <label class="block text-xs font-medium text-gray-700" for="device_name">Device name</label>
             <input id="device_name" x-ref="box" x-model="draft" type="text" maxlength="60" placeholder="Laptop POS 1"
                    class="mt-1 block w-full rounded-md border-gray-300 text-sm text-gray-900 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-            <p class="mt-1 whitespace-normal text-xs text-gray-500">Everything entered on it is recorded under this name.</p>
+            <p class="mt-1 whitespace-normal text-xs text-gray-500">All entries made on this device are recorded under this name.</p>
             <p class="mt-1 whitespace-normal text-xs text-red-600" x-show="error" x-cloak x-text="error"></p>
             <div class="mt-2 flex justify-end gap-2">
                 <button type="button" x-on:click="open = false" class="rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100">Cancel</button>
@@ -54,7 +54,7 @@
                             if (this.saving) return;
 
                             if (this.draft.trim() === '') {
-                                this.error = 'Give it a name.';
+                                this.error = 'Enter a name.';
                                 return;
                             }
 
@@ -70,7 +70,7 @@
                                 const body = await response.json().catch(() => ({}));
 
                                 if (! response.ok) {
-                                    this.error = body.message || 'Could not save the name.';
+                                    this.error = body.message || 'The name could not be saved.';
                                     return;
                                 }
 

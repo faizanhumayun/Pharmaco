@@ -29,9 +29,9 @@ enum BusinessRole: string
     {
         return match ($this) {
             self::Owner => 'Full view of the business position; can close days, write off bad debt and record owner drawings.',
-            self::Admin => 'Runs the business for the owner: enters and closes days, manages companies, products and orders, and sees the position. Cannot manage staff, reopen a closed day, or touch owner money.',
+            self::Admin => 'Runs the business for the owner: enters and closes days, manages companies, products and orders, and sees the position. Cannot manage staff, reopen a closed day, or record owner capital or drawings.',
             self::Operator => 'Enters day-to-day activity. Cannot close days or see the overall business position.',
-            self::OrderBooker => 'Books orders from pharmacies. Sees price lists only — no daily entries, no balances, no reports.',
+            self::OrderBooker => 'Books orders from pharmacies. Sees price lists only. No daily entries, balances or reports.',
         };
     }
 }

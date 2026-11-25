@@ -3,7 +3,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Users</h1>
-                <p class="mt-1 text-sm text-gray-500">Every account is created here. There is no public sign-up.</p>
+                <p class="mt-1 text-sm text-gray-500">All accounts are created here. There is no public sign-up.</p>
             </div>
             <a href="{{ route('admin.users.create') }}"
                class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-800">
@@ -27,7 +27,7 @@
                         <tr>
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">User</th>
                             <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Access</th>
-                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">State</th>
+                            <th class="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">Status</th>
                             <th class="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">&nbsp;</th>
                         </tr>
                     </thead>
@@ -77,7 +77,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">No users match.</td></tr>
+                            <tr><td colspan="4" class="px-6 py-10 text-center text-gray-500">No users found.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

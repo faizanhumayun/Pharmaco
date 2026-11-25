@@ -31,8 +31,8 @@
 
         <h1 class="ph-paused__title">We are fixing an issue</h1>
 
-        <p>Our support team is working on your books right now, so nothing can be entered on this computer for a short while.</p>
-        <p><strong>Nothing is lost.</strong> Everything you entered has been sent, and the shop will open again here by itself as soon as the fix is done.</p>
+        <p>Our support team is correcting your records. No entries can be made on this computer for a short time.</p>
+        <p><strong>No data is lost.</strong> All your entries have been sent. The shop will open again on this computer automatically when the correction is complete.</p>
 
         <dl class="ph-paused__facts">
             <div>
@@ -61,7 +61,7 @@
 
         {{-- Why it has not opened yet, when taking the books back failed. --}}
         @if ($details['error'])
-            <p class="ph-paused__help">Support has been told: the books could not be taken back yet ({{ $details['error'] }}).</p>
+            <p class="ph-paused__help">Support has been informed. The records could not be returned to this computer yet ({{ $details['error'] }}).</p>
         @endif
     </main>
 </body>

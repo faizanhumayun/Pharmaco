@@ -98,6 +98,9 @@
   --font-display: Newsreader, Georgia, serif;                         /* Headlines. */
   --font-sans: "IBM Plex Sans", system-ui, sans-serif;                /* Everything a person reads. */
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;              /* Every figure from the books. */
+  /* A thermal printer has one colour and coarse dots: thick plain letters, pure black. */
+  --font-slip: Arial, Helvetica, "Liberation Sans", sans-serif;
+  --slip-ink: #000;
 
   /* ---- 8. Spacing -------------------------------------------------------- */
   --space-1: 8px;  /* Gap between an icon or label and its text. */

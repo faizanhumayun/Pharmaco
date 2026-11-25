@@ -37,13 +37,13 @@ class FinalizeOpeningBalance
         $position = $this->calculator->fromRecord($opening);
 
         if ($position->isEmpty()) {
-            throw new LedgerException('An opening balance of nothing cannot be finalized.');
+            throw new LedgerException('The opening balance is empty. Enter the figures before finalizing.');
         }
 
         if ($position->needsExplanation() && trim((string) $opening->notes) === '') {
             throw new LedgerException(
-                'The balancing figure is large relative to the assets declared. '
-                . 'Explain it before finalizing, or revise the figures.'
+                'The balancing figure is large compared to the assets entered. '
+                . 'Explain it in the notes before finalizing, or correct the figures.'
             );
         }
 

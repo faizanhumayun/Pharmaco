@@ -11,6 +11,7 @@
         {{-- One line: the name, who makes it, any flags, and Edit. The
              negative margin takes back half the header's padding, so the
              figures below start higher up the page. --}}
+        <x-back-link :href="route('businesses.products.index', $business)" :label="'All products'" />
         <div class="-my-2 flex flex-wrap items-center gap-x-3 gap-y-1">
             <h1 class="text-xl font-semibold text-gray-900">{{ $product->brand_name }}</h1>
             <p class="text-sm text-gray-500">
@@ -46,12 +47,12 @@
                      has gone out. Only batches that arrived with a date. --}}
                 @if ($batches->isNotEmpty())
                     <x-panel title="Batches in stock" class="xl:shrink-0"
-                             description="What is on the shelf, by batch. The oldest expiry is sold first.">
+                             description="Stock in hand, by batch. The oldest expiry is sold first.">
                         <div class="max-h-48 overflow-auto">
                             <table class="min-w-full divide-y divide-gray-200 text-sm">
                                 <thead class="sticky top-0 bg-gray-50">
                                     <tr>
-                                        @foreach ([['Batch','left'],['Expires','left'],['Held','right'],['At cost','right'],['','right']] as [$h,$align])
+                                        @foreach ([['Batch','left'],['Expires','left'],['In stock','right'],['At cost','right'],['','right']] as [$h,$align])
                                             <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }} {{ $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                         @endforeach
                                     </tr>
@@ -69,7 +70,7 @@
                                                 @elseif ($batch['state'] === 'expiring')
                                                     <x-badge classes="bg-amber-500 text-white ring-amber-600/20">Near expiry</x-badge>
                                                 @else
-                                                    <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">Fine</x-badge>
+                                                    <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">OK</x-badge>
                                                 @endif
                                             </td>
                                         </tr>
@@ -82,13 +83,13 @@
 
                 {{-- As tall as its rows, up to a third of the column; the
                      movements below take whatever is left. --}}
-                <x-panel title="Price history" description="Every time a price moved. Newest first."
+                <x-panel title="Price history" description="All price changes, newest first."
                          class="xl:flex xl:max-h-[36%] xl:shrink-0 xl:flex-col">
                     <div class="max-h-56 overflow-auto xl:max-h-none xl:min-h-0 xl:flex-1">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="sticky top-0 z-10 bg-gray-50">
                                 <tr>
-                                    @foreach ([['Date','left'],['MRP','right'],...($business->sellsAtMrp() ? [] : [['Trade price','right']]),['Our rate','right'],['Case','right'],['From','left']] as [$heading,$align])
+                                    @foreach ([['Date','left'],['MRP','right'],...($business->sellsAtMrp() ? [] : [['Trade price','right']]),['Purchase rate','right'],['Carton','right'],['Source','left']] as [$heading,$align])
                                         <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $heading }}</th>
                                     @endforeach
                                 </tr>
@@ -99,7 +100,7 @@
                                         <td class="whitespace-nowrap px-3 py-2 text-gray-900 sm:px-6">
                                             {{ $price->business_date->format('j M Y') }}
                                             @if ($loop->first)
-                                                <span class="ml-1 text-xs text-emerald-700">current</span>
+                                                <span class="ml-1 text-xs text-emerald-700">Current</span>
                                             @endif
                                         </td>
                                         <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-700">{{ $price->mrp?->format() ?? '—' }}</td>
@@ -119,7 +120,7 @@
                                             @else
                                                 {{-- Priced without a list behind it: carried over from an
                                                      older system, or set when the product was added. --}}
-                                                <span class="text-gray-400">{{ $loop->last ? 'opening price' : 'entered directly' }}</span>
+                                                <span class="text-gray-400">{{ $loop->last ? 'Opening price' : 'Entered manually' }}</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -131,13 +132,13 @@
                     </div>
                 </x-panel>
 
-            <x-panel title="Stock movements" description="Everything in or out. What is held is their sum."
+            <x-panel title="Stock movements" description="All stock received and removed. Stock in hand is the total of these."
                      class="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
                 <div class="max-h-96 overflow-auto xl:max-h-none xl:min-h-0 xl:flex-1">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="sticky top-0 z-10 bg-gray-50">
                             <tr>
-                                @foreach ([['Date','left'],['What','left'],['In','right'],['Out','right'],['Running','right'],['Note','left'],['By','left']] as [$h,$align])
+                                @foreach ([['Date','left'],['Type','left'],['In','right'],['Out','right'],['Balance','right'],['Note','left'],['Entered by','left']] as [$h,$align])
                                     <th class="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                 @endforeach
                             </tr>
@@ -164,14 +165,14 @@
                                     <td class="px-3 py-2 text-xs text-gray-600">
                                         {{ $movement->note ?? '—' }}
                                         @if ($movement->batch_no) <span class="ml-1 font-mono text-gray-500">Batch {{ $movement->batch_no }}</span> @endif
-                                        @if ($movement->expires_on) <span class="ml-1 text-gray-500">exp {{ $movement->expires_on->format('M Y') }}</span> @endif
+                                        @if ($movement->expires_on) <span class="ml-1 text-gray-500">Exp. {{ $movement->expires_on->format('M Y') }}</span> @endif
                                     </td>
                                     <td class="whitespace-nowrap px-3 py-2 text-xs text-gray-500">{{ $movement->creator->name }}</td>
                                 </tr>
                             @empty
                                 <tr>
                                     <td colspan="7" class="px-6 py-10 text-center text-gray-500">
-                                        Nothing has moved yet. A recorded delivery adds {{ $business->unit()->many() }} here.
+                                        No stock movements yet. A saved delivery adds {{ $business->unit()->many() }} here.
                                     </td>
                                 </tr>
                             @endforelse
@@ -182,11 +183,15 @@
                 @can('verifyStock', $business)
                     {{-- Corrections are movements too, so the running total and
                          the history stay one thing. --}}
+                    {{-- What is added says when it expires, like a delivery. What
+                         is removed has no date to give, so the two fields only
+                         show while the quantity is a plus. --}}
                     <form method="POST" action="{{ route('businesses.products.adjust-stock', [$business, $product]) }}"
+                          x-data="{ packs: @js(old('packs', '')) }"
                           class="flex shrink-0 flex-wrap items-end gap-3 border-t border-gray-200 px-4 py-3 sm:px-6">
                         @csrf
                         <div>
-                            <x-input-label for="type" value="Correction" />
+                            <x-input-label for="type" value="Manual stock adjustment" />
                             <select id="type" name="type"
                                     class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                                 <option value="adjustment">Adjustment</option>
@@ -196,21 +201,36 @@
 
                         <div>
                             <x-input-label for="packs" :value="ucfirst($business->unit()->many()) . ' (− to remove)'" />
-                            <x-text-input id="packs" name="packs" type="number" step="1" required
+                            <x-text-input id="packs" name="packs" type="number" step="1" required x-model="packs"
                                           class="mt-1 block w-32 text-right font-mono" placeholder="e.g. -12" />
+                        </div>
+
+                        <div x-show="Number(packs) > 0" x-cloak>
+                            <x-input-label value="Expiry (required)" />
+                            <input type="month" data-must name="expires_on" value="{{ old('expires_on') }}"
+                                   :disabled="! (Number(packs) > 0)"
+                                   class="mt-1 block w-36 rounded-md border-gray-300 py-2 text-sm">
+                        </div>
+
+                        <div x-show="Number(packs) > 0" x-cloak>
+                            <x-input-label for="batch_no" value="Batch no." />
+                            <x-text-input id="batch_no" name="batch_no" type="text" maxlength="60" :value="old('batch_no')"
+                                          x-bind:disabled="! (Number(packs) > 0)"
+                                          class="mt-1 block w-32 font-mono uppercase" />
                         </div>
 
                         <div class="min-w-[14rem] flex-1">
                             <x-input-label for="note" value="Reason" />
                             <x-text-input id="note" name="note" type="text" class="mt-1 block w-full"
-                                          placeholder="Breakage in Godown 2, expiry write-off, opening count" />
+                                          placeholder="e.g. Breakage, expiry write-off, opening count" :value="old('note')" />
                         </div>
 
                         <button class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                            Record
+                            Save
                         </button>
 
                         <x-input-error :messages="$errors->get('packs')" class="w-full" />
+                        <x-input-error :messages="$errors->get('expires_on')" class="w-full" />
                     </form>
                 @endcan
             </x-panel>
@@ -228,11 +248,11 @@
                     'Dosage form' => $product->dosageForm()?->label() ?? $product->dosage_form,
                     'Pack size' => $product->pack_size,
                     'Pack type' => $product->packType()?->label() ?? $product->pack_type,
-                    'Case size' => $product->case_size ? $product->case_size . ' packs per carton' : null,
-                    'Cost of a full case' => $product->caseCost()?->format(true),
+                    'Carton size' => $product->case_size ? $product->case_size . ' packs per carton' : null,
+                    'Cost of a full carton' => $product->caseCost()?->format(true),
                     'Reorder level' => $product->reorder_level > 0 ? number_format($product->reorder_level) . ' ' . $business->unit()->many() : 'Not set',
-                    'Sold loose' => $product->sellsLoose() ? $product->units_per_pack . ' pieces in one ' . $business->unit()->one() : 'No — whole only',
-                    'Priced on' => $product->priced_on?->format('j M Y'),
+                    'Sold loose' => $product->sellsLoose() ? $product->units_per_pack . ' pieces in one ' . $business->unit()->one() : 'No. Sold whole only',
+                    'Price date' => $product->priced_on?->format('j M Y'),
                     'Last import' => $product->lastImport?->original_filename,
                 ]))
             <x-panel class="xl:flex xl:min-h-0 xl:flex-col"
@@ -276,12 +296,12 @@
                                     </p>
                                     <p class="mt-0.5 text-xs text-gray-500">
                                         @if ($supplier['last_on'])
-                                            Last {{ $supplier['last_on']->format('j M Y') }} · {{ number_format($supplier['received']) }} received
+                                            Last delivery {{ $supplier['last_on']->format('j M Y') }} · {{ number_format($supplier['received']) }} received
                                         @else
-                                            Nothing delivered yet
+                                            No deliveries yet
                                         @endif
                                         @if ($supplier['owed'] !== null && ! $supplier['owed']->isZero())
-                                            · owed {{ $supplier['owed']->format() }}
+                                            · Pending {{ $supplier['owed']->format() }}
                                         @endif
                                     </p>
                                 </div>
@@ -290,7 +310,7 @@
                                 </p>
                             </div>
                         @empty
-                            <p class="px-4 py-3 text-sm text-gray-500 sm:px-6">No supplier is recorded for this product.</p>
+                            <p class="px-4 py-3 text-sm text-gray-500 sm:px-6">No supplier found for this product.</p>
                         @endforelse
                 </div>
 
@@ -305,7 +325,7 @@
                         'MRP' => [$product->mrp?->format() ?? '—', null],
                         // A pharmacy sells at the MRP; only a distributor has a trade price.
                         'Trade price' => $business->sellsAtMrp() ? null : [$product->trade_price?->format() ?? '—', null],
-                        'Our rate' => [$product->purchase_rate?->format() ?? '—', null],
+                        'Purchase rate' => [$product->purchase_rate?->format() ?? '—', null],
                         'Margin per pack' => [$margin?->format() ?? '—', $product->marginPercent($business) ? $product->marginPercent($business) . ($business->sellsAtMrp() ? '% of MRP' : '% of trade price') : null],
                         'In stock' => [$product->stockLabel($onHand, $looseOnHand), implode(' · ', array_filter([$product->pack_size ? 'Pack ' . $product->pack_size : null, $product->case_size ? number_format($onHand / $product->case_size, 1) . ' cartons' : null])) ?: null],
                         'Value at cost' => [$product->purchase_rate ? $product->purchase_rate->times($onHand)->format() : '—', 'At the current rate'],
@@ -355,7 +375,7 @@
                                 </ul>
                             </div>
                         @empty
-                            <p class="px-4 py-4 text-gray-500 sm:px-6">Nothing has been changed by hand.</p>
+                            <p class="px-4 py-4 text-gray-500 sm:px-6">No manual changes.</p>
                         @endforelse
                 </div>
             </x-panel>

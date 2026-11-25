@@ -41,10 +41,10 @@ class AlertEngine
             if ($sales->isPositive() && $this->ratio($receivableGrowth, $sales) > 0.25) {
                 $alerts[] = [
                     'level' => 'critical',
-                    'title' => 'Market credit rising fast',
+                    'title' => 'Market credit is increasing fast',
                     'detail' => sprintf(
-                        'Receivables grew %s over 7 days against sales of %s. More than a quarter of what '
-                        . 'you sold has stayed in the market.',
+                        'Receivables increased by %s in 7 days against sales of %s. More than a quarter of '
+                        . 'your sales is still unpaid in the market.',
                         $receivableGrowth->format(), $sales->format()
                     ),
                 ];
@@ -53,7 +53,7 @@ class AlertEngine
             if ($creditSales->isPositive() && $this->ratio($collections, $creditSales) < 0.70) {
                 $alerts[] = [
                     'level' => 'warning',
-                    'title' => 'Collections lagging sales',
+                    'title' => 'Collections are behind sales',
                     'detail' => sprintf(
                         'Collected %s against %s of credit sales this week — %.0f%%.',
                         $collections->format(), $creditSales->format(),
@@ -71,9 +71,9 @@ class AlertEngine
                 && $this->ratio($latest->closing_cash, $avgExpense) < 3) {
                 $alerts[] = [
                     'level' => 'warning',
-                    'title' => 'Cash cover is thin',
+                    'title' => 'Cash is low',
                     'detail' => sprintf(
-                        'Cash of %s is under three days of average daily expense (%s).',
+                        'Cash of %s is less than three days of average daily expense (%s).',
                         $latest->closing_cash->format(), $avgExpense->format()
                     ),
                 ];
@@ -85,9 +85,9 @@ class AlertEngine
                 && $this->ratio($latest->closing_receivable, $avgSales) > 45) {
                 $alerts[] = [
                     'level' => 'warning',
-                    'title' => 'Large outstanding market balance',
+                    'title' => 'Large pending market balance',
                     'detail' => sprintf(
-                        'Receivables of %s are over 45 days of average sales.',
+                        'Receivables of %s are more than 45 days of average sales.',
                         $latest->closing_receivable->format()
                     ),
                 ];
@@ -98,9 +98,9 @@ class AlertEngine
             if ($variances >= 3) {
                 $alerts[] = [
                     'level' => 'critical',
-                    'title' => 'Cash variances recurring',
+                    'title' => 'Cash differences are repeating',
                     'detail' => "{$variances} of the last 7 closings had a cash difference. "
-                        . 'That is a process problem, and often the first sign of a bigger one.',
+                        . 'This is a process problem and may be a sign of a bigger one.',
                 ];
             }
         }
@@ -112,7 +112,7 @@ class AlertEngine
             $alerts[] = [
                 'level' => 'warning',
                 'title' => 'Stock value unverified',
-                'detail' => $stock['detail'] . ' Stock is the one balance with no independent check.',
+                'detail' => $stock['detail'] . ' Stock is the only balance that nothing else checks.',
             ];
         }
 
@@ -122,7 +122,7 @@ class AlertEngine
             $alerts[] = [
                 'level' => $openDays > 3 ? 'critical' : 'warning',
                 'title' => $openDays === 1 ? 'A day is still open' : "{$openDays} days are still open",
-                'detail' => 'Historical figures get their credibility from somebody agreeing they were right.',
+                'detail' => 'Past figures are reliable only after someone has confirmed they are correct.',
             ];
         }
 

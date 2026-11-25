@@ -25,18 +25,18 @@
 @endphp
 @php($expenseErrors = $errors->hasAny(['business_date', 'category', 'amount', 'description']))
 <x-drawer name="add-expense" title="Add expense"
-          subtitle="What it was spent on, which head it belongs under, and the day it was paid."
+          subtitle="Enter the date paid, the expense head, a description and the amount."
           :show="$expenseErrors">
     <form id="add-expense-form" method="POST" action="{{ route('businesses.expenses.add', $business) }}" class="space-y-5">
         @csrf
         <div class="sm:max-w-xs">
-            <x-input-label for="expense_date" value="Day" />
+            <x-input-label for="expense_date" value="Date" />
             <x-date-picker id="expense_date" name="business_date" class="mt-1" required
                            :value="old('business_date', $business->today()->toDateString())"
                            :min="$earliestDay?->toDateString()" :max="$business->today()->toDateString()" />
             <x-input-error :messages="$errors->get('business_date')" class="mt-2" />
             <p class="mt-1 text-xs text-gray-500">
-                It is added to this day's entry. A closed day has to be reopened first.
+                The expense is added to the daily entry of this date. A closed day must be reopened first.
             </p>
         </div>
 
@@ -52,7 +52,7 @@
             </datalist>
             <x-input-error :messages="$errors->get('category')" class="mt-2" />
             <p class="mt-1 text-xs text-gray-500">
-                A head that does not exist yet is created with its own ledger when the expense is saved.
+                A new head is created with its own ledger when the expense is saved.
             </p>
         </div>
 

@@ -39,19 +39,19 @@ class PriceListParser
         $guessed = $this->guesser->fill($map, $rows, $table->columnCount());
 
         if ($header['headerLines'] === []) {
-            $warnings[] = 'No column headings were found, so every column was worked out from its contents. Check the mapping before importing.';
+            $warnings[] = 'No column headings were found, so every column was identified from its contents. Check the mapping before importing.';
         } elseif ($guessed !== []) {
             $warnings[] = count($guessed) === 1
-                ? 'One column had no heading this system recognised and was worked out from its contents.'
-                : count($guessed).' columns had no heading this system recognised and were worked out from their contents.';
+                ? 'One column had no heading this system recognised and was identified from its contents.'
+                : count($guessed).' columns had no heading this system recognised and were identified from their contents.';
         }
 
         if (! $map->has(ProductField::BrandName)) {
-            $warnings[] = 'No column could be identified as the product name. Assign one below — nothing can be imported without it.';
+            $warnings[] = 'No column could be identified as the product name. Assign one below. Nothing can be imported without it.';
         }
 
         if ($rows === []) {
-            $warnings[] = 'No rows were found beneath the headings.';
+            $warnings[] = 'No rows were found below the headings.';
         }
 
         return new ParseResult(

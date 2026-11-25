@@ -75,6 +75,18 @@ class AuditController extends Controller
                     ->whereColumn('edit.subject_id', 'activity_log.subject_id')
                     ->whereColumn('edit.causer_id', 'activity_log.causer_id')
                     ->whereColumn('edit.created_at', 'activity_log.created_at')))
+            /*
+             * A sale, a delivery or a return also updates the day's entry by
+             * itself, in the same moment. That update is not something a
+             * person did, so only the sale or delivery is listed.
+             */
+            ->whereNot(fn ($q) => $q->whereIn('event', ['daily_entry.posted', 'daily_entry.amended'])
+                ->whereExists(fn ($e) => $e->selectRaw('1')
+                    ->from('activity_log as cause')
+                    ->where(fn ($w) => $w->where('cause.event', 'like', 'pos.%')->orWhere('cause.event', 'like', 'delivery.%'))
+                    ->whereColumn('cause.causer_id', 'activity_log.causer_id')
+                    ->whereColumn('cause.business_id', 'activity_log.business_id')
+                    ->whereColumn('cause.created_at', 'activity_log.created_at')))
             ->when($event, fn ($q) => $q->where('event', $event))
             ->when($who, fn ($q) => $q->where('causer_id', $who->id))
             // Periods are the business's own days; the log is stored in UTC.
@@ -83,7 +95,7 @@ class AuditController extends Controller
             ->with(['causer', 'subject'])
             ->latest()
             ->latest('id')
-            ->paginate(50)
+            ->paginate(100)
             ->withQueryString()
             ->through(fn (Activity $a) => $history->feedItem($business, $a));
 

@@ -15,7 +15,7 @@
             </div>
             <a href="{{ route('admin.businesses.show', $business) }}"
                class="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
-                Back to the business
+                Back to business
             </a>
         </div>
     </x-slot>
@@ -25,7 +25,7 @@
 
         <div class="grid gap-6 lg:grid-cols-3">
             <x-panel class="lg:col-span-2" title="Upload the old database"
-                     description="The .mdb file the old POS kept its data in. You will see everything it would bring across before anything is imported.">
+                     description="The .mdb file that holds the old POS data. You will see a full preview before anything is imported.">
 <form method="POST" action="{{ route('admin.businesses.import.store', $business) }}" enctype="multipart/form-data"
                       class="space-y-4 p-4 sm:p-6" x-data="oldPosUpload()" x-on:submit.prevent="send($event)">
                     @csrf
@@ -36,9 +36,9 @@
                         <x-input-error :messages="$errors->get('database')" class="mt-2" />
                         <p x-show="error" x-cloak class="mt-2 text-sm text-red-700" x-text="error"></p>
                         <p class="mt-2 text-xs text-gray-500">
-                            Any size up to 500 MB. The file is sent in small pieces, so it does not depend on how the server is set up.
-                            A Windows computer cannot read .mdb files itself: convert the file first where it can be read
-                            (<span class="font-mono">php artisan oldpos:convert file.mdb</span>) and upload the .json file that makes.
+                            Maximum size 500 MB. The file is uploaded in small parts.
+                            A Windows computer cannot read .mdb files directly. Convert the file first on a computer that can read it
+                            (<span class="font-mono">php artisan oldpos:convert file.mdb</span>) and upload the .json file it creates.
                         </p>
                     </div>
 
@@ -57,7 +57,7 @@
                 </form>
             </x-panel>
 
-            <x-panel title="What comes across">
+            <x-panel title="What is imported">
                 <ul class="space-y-3 p-4 text-sm text-gray-700 sm:p-6">
                     <li><span class="font-medium text-gray-900">Companies</span> — the suppliers, each with its own account.</li>
                     <li><span class="font-medium text-gray-900">Customers</span> — each with its own account.</li>
@@ -65,24 +65,24 @@
                         <span class="font-medium text-gray-900">Products</span> — name, barcode, pack, purchase price and
                         {{ $business->sellsAtMrp() ? 'MRP. A pharmacy sells at the MRP, so no trade price is taken.' : 'both the trade price and the MRP. Where the old system had no trade price it is left empty.' }}
                     </li>
-                    <li><span class="font-medium text-gray-900">Stock</span> — what each product held, with its expiry and batch.</li>
-                    <li><span class="font-medium text-gray-900">Balances</span> — what each customer owed and what was owed to each company.</li>
+                    <li><span class="font-medium text-gray-900">Stock</span> — the quantity of each product, with its expiry and batch.</li>
+                    <li><span class="font-medium text-gray-900">Balances</span> — the amount pending from each customer and to each company.</li>
                 </ul>
                 <p class="border-t border-gray-200 px-4 py-3 text-xs leading-relaxed text-gray-500 sm:px-6">
                     Only the product, supplier and customer lists are read. The old system's logins and
-                    connection settings are in the same file and are never opened. The file is removed
+                    connection settings are in the same file and are never read. The file is removed
                     from the server as soon as you import or discard it.
                 </p>
             </x-panel>
         </div>
 
         @if ($imports->isNotEmpty())
-            <x-panel title="Earlier uploads">
+            <x-panel title="Previous uploads">
                 <div class="overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                @foreach (['File', 'Uploaded', 'By', 'Outcome', ''] as $h)
+                                @foreach (['File', 'Uploaded', 'By', 'Status', ''] as $h)
                                     <th class="px-4 py-2 text-left text-xs font-semibold uppercase tracking-wide text-gray-500 sm:px-6">{{ $h }}</th>
                                 @endforeach
                             </tr>
@@ -99,14 +99,14 @@
                                             'imported' => 'bg-emerald-50 text-emerald-800 ring-emerald-600/20',
                                             'discarded' => 'bg-gray-100 text-gray-600 ring-gray-500/20',
                                         ][$import->status] ?? 'bg-gray-100 text-gray-600 ring-gray-500/20'">
-                                            {{ ['pending' => 'Waiting for a decision', 'imported' => 'Imported', 'discarded' => 'Discarded'][$import->status] ?? $import->status }}
+                                            {{ ['pending' => 'Not imported yet', 'imported' => 'Imported', 'discarded' => 'Discarded'][$import->status] ?? $import->status }}
                                         </x-badge>
                                     </td>
                                     <td class="px-4 py-2 text-right sm:px-6">
                                         @unless ($import->status === 'discarded')
                                             <a href="{{ route('admin.businesses.import.show', [$business, $import]) }}"
                                                class="text-sm font-medium text-emerald-700 hover:text-emerald-800">
-                                                {{ $import->isPending() ? 'Open the preview' : 'What it did' }}
+                                                {{ $import->isPending() ? 'Open preview' : 'View result' }}
                                             </a>
                                         @endunless
                                     </td>
@@ -134,7 +134,7 @@
                         if (! file || this.sending) return;
 
                         if (file.size > 500 * 1024 * 1024) {
-                            this.error = 'That file is larger than 500 MB.';
+                            this.error = 'The file is larger than 500 MB.';
                             return;
                         }
 
@@ -167,7 +167,7 @@
                                 const answer = await response.json().catch(() => ({}));
 
                                 if (! response.ok) {
-                                    throw new Error(answer.message || 'The upload was refused. Try again.');
+                                    throw new Error(answer.message || 'The upload failed. Try again.');
                                 }
 
                                 this.percent = Math.round(((index + 1) / total) * 100);

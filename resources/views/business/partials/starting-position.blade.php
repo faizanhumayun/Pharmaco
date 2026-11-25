@@ -8,7 +8,7 @@
                 {{ $startingPoint->opening_date?->format('d M Y') ?? 'Date not set' }}
                 @if ($startingPoint->status === \App\Enums\OpeningBalanceStatus::Draft)
                     <x-badge classes="bg-amber-100 text-amber-800 ring-amber-600/20" class="ml-1">
-                        Draft — not posted yet
+                        Draft, not posted
                     </x-badge>
                 @endif
             </p>

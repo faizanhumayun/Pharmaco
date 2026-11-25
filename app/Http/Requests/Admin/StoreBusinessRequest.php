@@ -37,7 +37,7 @@ class StoreBusinessRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'business_type.in' => 'Choose one of the kinds of business listed.',
+            'business_type.in' => 'Choose a business type from the list.',
         ];
     }
 }

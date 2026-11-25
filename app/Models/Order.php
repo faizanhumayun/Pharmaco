@@ -76,13 +76,13 @@ class Order extends Model
                 throw new ImmutableRecordException(
                     $original === OrderStatus::Received->value
                         ? 'This order has been received. The delivery can be corrected, but the order itself cannot.'
-                        : 'This order has been sent and cannot be changed. Write a new one.'
+                        : 'This order has been sent and cannot be changed. Create a new order.'
                 );
             }
         });
 
         static::deleting(fn () => throw new ImmutableRecordException(
-            'Order forms are not deleted. A draft you no longer want can simply be left.'
+            'Order forms cannot be deleted. A draft that is not needed can be left as it is.'
         ));
     }
 

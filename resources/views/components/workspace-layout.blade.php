@@ -24,7 +24,7 @@
     // Beside the counter button: goods arriving is the other thing done all day.
     $addStock = $tab('Add stock', 'businesses.stock.receive', 'businesses.stock.receive*', $user->can('manageOrders', $business));
 
-    $counter = $tab('Sell at the counter', 'businesses.pos.index', 'businesses.pos.*', $user->can('sellAtPos', $business));
+    $counter = $tab('Open POS','businesses.pos.index', 'businesses.pos.*', $user->can('sellAtPos', $business));
 
     $groups = array_filter([
         'The day' => array_filter([
@@ -44,7 +44,7 @@
             $tab('Companies',   'businesses.companies.index', 'businesses.companies.*',  $user->can('configure', $business)),
             $tab('Team',        'businesses.team.index',      'businesses.team.*',       $user->can('manageMembers', $business)),
         ]),
-        'Books' => array_filter([
+        'Records' => array_filter([
             $tab('Reports',     'businesses.reports.index', 'businesses.reports.*',   $user->can('viewOperationalReports', $business)),
             $tab('History',     'businesses.history',       'businesses.history',     $user->can('viewReports', $business)),
             $tab('Ledger',      'businesses.ledger',        'businesses.ledger*',     $user->can('viewLedger', $business)),
@@ -110,7 +110,7 @@
                                 {{ $business->business_type->label() }} ·
                                 {{ $business->currency }} ·
                                 {{ $business->timezone }} ·
-                                counted in {{ $business->unit()->many() }} ·
+                                stock counted in {{ $business->unit()->many() }} ·
                                 today {{ $business->today()->format('D d M Y') }}
                             </p>
                         </div>
@@ -295,7 +295,7 @@
 
                                 <a href="{{ route('businesses.attention', $business) }}" class="block px-4 py-3 hover:bg-gray-50">
                                     <p class="flex items-center justify-between text-xs font-semibold uppercase tracking-wide text-gray-500">
-                                        What to do
+                                        Tasks
                                         <span class="normal-case tracking-normal text-emerald-800">Open &rarr;</span>
                                     </p>
                                     <p class="mt-2 text-sm font-semibold {{ $notice['day']['complete'] ? 'text-emerald-800' : 'text-gray-900' }}">
@@ -346,7 +346,7 @@
                         {{-- The counter opens in its own tab: the till is a place you
                              stand at all day, and the back office stays where it was. --}}
                         <a href="{{ route($counter['route'], $business) }}" target="_blank"
-                           title="Opens the till in its own tab; a till already open hands its bill over and closes"
+                           title="Opens POS in a new tab. A POS tab that is already open moves its bill to the new tab and closes."
                            class="my-1 {{ $addStock || $notice ? 'ms-2' : 'ms-auto' }} inline-flex items-center gap-1.5 whitespace-nowrap rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700">
                             <svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                                 <path d="M3 4.5A1.5 1.5 0 014.5 3h11A1.5 1.5 0 0117 4.5v3A1.5 1.5 0 0115.5 9h-11A1.5 1.5 0 013 7.5v-3zM3 12a1 1 0 011-1h12a1 1 0 011 1v3.5A1.5 1.5 0 0115.5 17h-11A1.5 1.5 0 013 15.5V12zm3 1.5a.75.75 0 000 1.5h3a.75.75 0 000-1.5H6z" />

@@ -8,6 +8,7 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
+                <x-back-link :href="route('businesses.daily.index', $business)" :label="'All daily entries'" />
                 <div class="flex items-center gap-3">
                     <h1 class="text-xl font-semibold text-gray-900">
                         {{ $entry->business_date->format('D d M Y') }}
@@ -29,7 +30,7 @@
                     @if ($business->isDayClosed($entry->business_date))
                         <span class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-500"
                               title="Reopen the day, or post an adjustment in the open period">
-                            Closed — not editable
+                            Closed, cannot be edited
                         </span>
                     @endif
                 @endcan
@@ -61,7 +62,7 @@
 
         <div class="grid gap-6 xl:grid-cols-3">
             <div class="space-y-6 xl:col-span-2">
-                <x-panel :title="$entry->isEditable() ? 'Resulting position (preview — nothing posted yet)' : 'Position after this day'">
+                <x-panel :title="$entry->isEditable() ? 'Resulting position (preview, not posted yet)' : 'Position after this day'">
                     <div class="overflow-x-auto">
                         <table class="min-w-full divide-y divide-gray-200 text-sm">
                             <thead class="bg-gray-50">
@@ -115,7 +116,7 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            @foreach (['Bought from', 'Invoice', 'Amount', 'Paid', 'Still owed'] as $h)
+                                            @foreach (['Bought from', 'Invoice', 'Amount', 'Paid', 'Pending'] as $h)
                                                 <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ in_array($h, ['Bought from','Invoice']) ? 'text-left' : 'text-right' }} {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                             @endforeach
                                         </tr>
@@ -131,12 +132,21 @@
                                                         <span class="text-gray-900">{{ $line->company_name ?? 'Unnamed company' }}</span>
                                                     @endif
                                                 </td>
-                                                <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $line->invoice_no ?? '—' }}</td>
+                                                {{-- The delivery this invoice came from, where there is one. --}}
+                                                <td class="px-4 py-2 font-mono text-xs text-gray-500">
+                                                    @if ($line->order_id && auth()->user()->can('viewOrders', $business))
+                                                        <a href="{{ route('businesses.orders.show', [$business, $line->order_id]) }}"
+                                                           title="Open this delivery"
+                                                           class="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900">{{ $line->invoice_no ?? 'Open' }}</a>
+                                                    @else
+                                                        {{ $line->invoice_no ?? '—' }}
+                                                    @endif
+                                                </td>
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900">{{ $line->amount->format() }}</td>
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-600">{{ $line->paid->format() }}</td>
                                                 @php($owed = $line->pending())
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums sm:px-6 {{ $owed->isNegative() ? 'text-emerald-800' : 'text-gray-900' }}">
-                                                    {{ $owed->isNegative() ? $owed->absolute()->format() . ' off earlier bills' : $owed->format() }}
+                                                    {{ $owed->isNegative() ? $owed->absolute()->format() . ' against earlier bills' : $owed->format() }}
                                                 </td>
                                             </tr>
                                         @endforeach
@@ -166,14 +176,24 @@
                                                         <span class="text-gray-900">{{ $line->pharmacy_name ?? 'Unnamed pharmacy' }}</span>
                                                     @endif
                                                 </td>
-                                                <td class="px-4 py-2 font-mono text-xs text-gray-500">{{ $line->invoice_no ?? '—' }}</td>
+                                                {{-- The till bill behind this sale. --}}
+                                                @php($bill = $bills[$line->invoice_no ?? ''] ?? null)
+                                                <td class="px-4 py-2 font-mono text-xs text-gray-500">
+                                                    @if ($bill && auth()->user()->can('sellAtPos', $business))
+                                                        <a href="{{ route('businesses.pos.bills.edit', [$business, $bill]) }}"
+                                                           title="Open this bill"
+                                                           class="font-semibold text-emerald-700 underline decoration-emerald-300 underline-offset-2 hover:text-emerald-900">{{ $line->invoice_no }}</a>
+                                                    @else
+                                                        {{ $line->invoice_no ?? '—' }}
+                                                    @endif
+                                                </td>
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900">{{ $line->amount->format() }}</td>
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-600">{{ $line->received->format() }}</td>
                                                 {{-- Negative means they handed over more than the invoice: a
                                                      recovery against earlier credit, not a bigger sale. --}}
                                                 @php($credit = $line->outstanding())
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums {{ $credit->isNegative() ? 'text-emerald-800' : 'text-gray-900' }}">
-                                                    {{ $credit->isNegative() ? $credit->absolute()->format() . ' off earlier credit' : $credit->format() }}
+                                                    {{ $credit->isNegative() ? $credit->absolute()->format() . ' against earlier credit' : $credit->format() }}
                                                 </td>
                                                 {{-- Money that comes back later is a new event on the day it
                                                      arrives, never an edit of this one — so collecting here
@@ -188,7 +208,7 @@
                                                         </button>
                                                     @elseif ($credit->isPositive() && $open !== null)
                                                         {{-- Paid off since, by a collection on this or a later day. --}}
-                                                        <span class="text-xs font-medium text-emerald-700" title="Settled by a later collection">Collected ✓</span>
+                                                        <span class="text-xs font-medium text-emerald-700" title="Paid by a later collection">Received ✓</span>
                                                     @endif
                                                 </td>
                                             </tr>
@@ -230,10 +250,10 @@
                                                         <span class="font-mono">{{ $allocation->bill?->reference() ?? '—' }}</span>
                                                         <span class="tabular-nums text-gray-500">{{ $allocation->amount->format() }}</span>@unless ($loop->last), @endunless
                                                     @empty
-                                                        <span class="text-gray-400">on account</span>
+                                                        <span class="text-gray-400">On account</span>
                                                     @endforelse
                                                     @unless ($line->onAccount()->isZero())
-                                                        <span class="block text-gray-500">{{ $line->onAccount()->format() }} left on account</span>
+                                                        <span class="block text-gray-500">{{ $line->onAccount()->format() }} kept on account</span>
                                                     @endunless
                                                 </td>
                                                 <td class="px-4 py-2 text-right font-mono tabular-nums text-gray-900 sm:px-6">{{ $line->amount->format() }}</td>
@@ -249,7 +269,7 @@
                                 <table class="min-w-full divide-y divide-gray-200 text-sm">
                                     <thead class="bg-gray-50">
                                         <tr>
-                                            @foreach (['Spent on', 'Description', 'Amount'] as $h)
+                                            @foreach (['Expense head', 'Description', 'Amount'] as $h)
                                                 <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 {{ $h === 'Amount' ? 'text-right' : 'text-left' }} {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                             @endforeach
                                         </tr>
@@ -278,7 +298,7 @@
             </div>
 
             <div class="space-y-6">
-                <x-panel title="The day as entered">
+                <x-panel title="Figures as entered">
                     <dl class="divide-y divide-gray-100 text-sm">
                         @foreach ([
                             'Total purchases' => $entry->totalPurchases(),
@@ -327,8 +347,8 @@
                         <form method="POST" action="{{ route('businesses.daily.post', [$business, $entry]) }}" class="space-y-3 p-4 sm:p-6">
                             @csrf
                             <p class="text-sm text-gray-600">
-                                Posting writes {{ count($rows) }} balances into the ledger. Afterwards the day
-                                cannot be edited — only reversed and re-entered.
+                                Posting writes {{ count($rows) }} balances to the ledger. After posting, the day
+                                cannot be edited. It can only be reversed and entered again.
                             </p>
                             <x-input-error :messages="$errors->get('status')" />
                             <button class="w-full rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
@@ -344,13 +364,13 @@
                             @csrf
                             <x-input-label for="reason" value="Reason" />
                             <x-text-input id="reason" name="reason" type="text" class="block w-full"
-                                          placeholder="Entered twice — same figures posted yesterday" required />
+                                          placeholder="Entered twice. Same figures posted yesterday" required />
                             <x-input-error :messages="$errors->get('reason')" />
                             <button class="w-full rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">
                                 Reverse day
                             </button>
                             <p class="text-xs text-gray-500">
-                                Both the original and the reversal stay visible. Nothing is deleted.
+                                The original and the reversal both remain visible. Nothing is deleted.
                             </p>
                         </form>
                     </x-panel>

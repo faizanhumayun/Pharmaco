@@ -46,24 +46,40 @@ class ChangeHistory
     ];
 
     public const EVENT_LABELS = [
-        'daily_entry.posted' => 'Posted the day',
-        'daily_entry.amended' => 'Edited the day',
-        'daily_entry.reversed' => 'Reversed the day',
-        'closing.cash_counted' => 'Counted the cash',
-        'closing.finalized' => 'Closed the day',
-        'closing.reopened' => 'Reopened the day',
-        'opening_balance.finalized' => 'Finalized the opening balance',
-        'team.member_added' => 'Added to the team',
-        'team.member_updated' => 'Changed a team member',
-        'order.sent' => 'Sent an order',
-        'price_list.applied' => 'Applied a price list',
-        'stock.adjusted' => 'Adjusted stock',
-        'stock.imported' => 'Imported opening stock',
-        'business.deleted' => 'Deleted a business',
+        'pos.sold' => 'Sale',
+        'pos.edited' => 'Bill changed',
+        'pos.returned' => 'Items returned',
+        'delivery.received' => 'Stock received',
+        'delivery.corrected' => 'Delivery corrected',
+        'daily_entry.posted' => 'Daily entry posted',
+        'daily_entry.amended' => 'Daily entry changed',
+        'daily_entry.reversed' => 'Daily entry cancelled',
+        'closing.cash_counted' => 'Cash counted',
+        'closing.finalized' => 'Day closed',
+        'closing.reopened' => 'Day reopened',
+        'opening_balance.finalized' => 'Opening balance finalized',
+        'team.member_added' => 'User added',
+        'team.member_updated' => 'User changed',
+        'order.sent' => 'Order sent',
+        'price_list.applied' => 'Price list imported',
+        'product.updated' => 'Product changed',
+        'products.pieces_set' => 'Pack sizes updated',
+        'stock.adjusted' => 'Stock adjusted',
+        'stock.imported' => 'Opening stock imported',
+        'business.payment_methods' => 'Payment methods changed',
+        'business.imported' => 'Data imported',
+        'report.exported' => 'Report downloaded',
+        'business.deleted' => 'Business deleted',
     ];
 
     /** What sort of step each event is — drives its colour on the page. */
     private const EVENT_KINDS = [
+        'pos.sold' => 'good',
+        'pos.edited' => 'change',
+        'pos.returned' => 'bad',
+        'delivery.received' => 'info',
+        'delivery.corrected' => 'change',
+        'product.updated' => 'change',
         'daily_entry.posted' => 'good',
         'daily_entry.amended' => 'change',
         'daily_entry.reversed' => 'bad',
@@ -100,7 +116,7 @@ class ChangeHistory
             $business,
             $entry->created_at,
             $entry->creator,
-            'Entered the day',
+            'Daily entry created',
             kind: 'info',
         )];
 
@@ -124,9 +140,9 @@ class ChangeHistory
                 && $edits->contains(fn ($e) => $e['who'] === $i['who'] && $e['at']->equalTo($i['at'])))
             ->map(fn ($i) => match (true) {
                 $i['action'] !== self::EVENT_LABELS['daily_entry.amended'] => $i,
-                $i['changes'] === [] => [...$i, 'action' => 'Saved again', 'kind' => 'neutral',
+                $i['changes'] === [] => [...$i, 'action' => 'Saved without change', 'kind' => 'neutral',
                     'detail' => 'No figures changed.'],
-                default => [...$i, 'action' => 'Edited the day'],
+                default => [...$i, 'action' => self::EVENT_LABELS['daily_entry.amended']],
             })
             ->values();
     }
@@ -188,7 +204,7 @@ class ChangeHistory
                 $t->narration,
                 $t->correction_reason,
                 // What it did to the drawer, in the same table as an edit.
-                [['Cash in the drawer', null, null, $this->cashEffect($t)]],
+                [['Cash in hand', null, null, $this->cashEffect($t)]],
                 $t->type === TransactionType::Reversal ? 'bad' : 'correction',
             ));
 
@@ -221,14 +237,32 @@ class ChangeHistory
         }
 
         if ($activity->event === 'daily_entry.amended' && $item['changes'] === []) {
-            $item = [...$item, 'action' => 'Saved again', 'kind' => 'neutral', 'detail' => 'No figures changed.'];
+            $item = [...$item, 'action' => 'Saved without change', 'kind' => 'neutral', 'detail' => 'No figures changed.'];
         } elseif ($activity->event === 'daily_entry.amended') {
-            $item['action'] = 'Edited the day';
+            $item['action'] = self::EVENT_LABELS['daily_entry.amended'];
+        }
+
+        // A payment taken from a customer is entered through the day, and
+        // that is the only trace of it: said as what it was.
+        if ($activity->event === 'daily_entry.amended') {
+            $moved = collect((array) $activity->properties->get('before', []))
+                ->filter(fn ($before, $field) => (string) $before !== (string) data_get($activity->properties, "after.{$field}"))
+                ->keys()->all();
+
+            if ($moved === ['collection_cash']) {
+                $item = [...$item, 'action' => 'Payment received from customer', 'kind' => 'good'];
+            } elseif ($moved === ['expenses_cash']) {
+                $item = [...$item, 'action' => 'Expense recorded', 'kind' => 'change'];
+            }
         }
 
         [$about, $link] = $this->about($business, $activity);
 
-        return [...$item, 'about' => $about, 'link' => $link];
+        return [...$item, 'about' => $about, 'link' => $link,
+            // For the feed to fold a run of sales into one line.
+            'event' => $activity->event,
+            'value' => $activity->event === 'pos.sold' ? Money::of($activity->properties->get('total', 0)) : null,
+        ];
     }
 
     /** @return array{0: ?string, 1: ?string} what the entry was about, and a link to it */
@@ -245,6 +279,14 @@ class ChangeHistory
                 'Closing · ' . $subject->business_date->format('D d M Y'),
                 route('businesses.closing.show', [$business, $subject->business_date->toDateString()]),
             ],
+            $subject instanceof \App\Models\PosBill => [
+                'Bill ' . $subject->reference(),
+                auth()->user()?->can('sellAtPos', $business) ? route('businesses.pos.bills.edit', [$business, $subject]) : null,
+            ],
+            $subject instanceof \App\Models\Order && str_starts_with((string) $activity->event, 'delivery.') => [
+                'Delivery ' . ($subject->reference ?? '#' . $subject->id),
+                auth()->user()?->can('viewOrders', $business) ? route('businesses.orders.show', [$business, $subject]) : null,
+            ],
             $subject instanceof \App\Models\OpeningBalance => ['Opening balance', null],
             $subject instanceof \App\Models\Order => [
                 'Order form ' . ($subject->reference ?? '#' . $subject->id),
@@ -253,6 +295,10 @@ class ChangeHistory
             str_starts_with((string) $activity->event, 'team.') => [
                 'Team',
                 auth()->user()?->can('manageMembers', $business) ? route('businesses.team.index', $business) : null,
+            ],
+            $subject instanceof \App\Models\CompanyProduct => [
+                $subject->label(),
+                auth()->user()?->can('viewProducts', $business) ? route('businesses.products.show', [$business, $subject]) : null,
             ],
             str_starts_with((string) $activity->event, 'stock.') => ['Stock', null],
             str_starts_with((string) $activity->event, 'price_list.') => ['Price list', null],
@@ -293,6 +339,24 @@ class ChangeHistory
                 . ' · opening stock on ' . number_format((int) $props->get('stocked')) . ' ('
                 . number_format((int) $props->get('units')) . ' units, Rs. ' . Money::of($props->get('value_at_cost', 0))->format() . ' at cost)'
                 . (count((array) $props->get('negative_set_to_zero', [])) ? ' · ' . count((array) $props->get('negative_set_to_zero')) . ' negative quantities set to 0' : ''),
+            'pos.sold' => (int) $props->get('items') . ' ' . \Illuminate\Support\Str::plural('item', (int) $props->get('items'))
+                . ' · Rs. ' . Money::of($props->get('total', 0))->format()
+                . (Money::of($props->get('received', 0))->lessThan(Money::of($props->get('total', 0)))
+                    ? ' · Rs. ' . Money::of($props->get('total', 0))->minus(Money::of($props->get('received', 0)))->format() . ' pending'
+                    : ' · paid in full'),
+            'pos.returned' => 'Return ' . $props->get('return') . ' on bill ' . $props->get('bill')
+                . ' · Rs. ' . Money::of($props->get('total', 0))->format()
+                . ' · refunded Rs. ' . Money::of($props->get('refunded', 0))->format(),
+            'pos.edited' => 'Bill ' . $props->get('bill') . ' · correction ' . $props->get('revision'),
+            'delivery.received', 'delivery.corrected' => 'From ' . $props->get('company')
+                . ($props->get('invoice_no') ? ' · invoice ' . $props->get('invoice_no') : '')
+                . ' · ' . (int) $props->get('lines_received') . ' ' . \Illuminate\Support\Str::plural('product', (int) $props->get('lines_received'))
+                . ' · Rs. ' . Money::of($props->get('received', 0))->format()
+                . (Money::of($props->get('paid', 0))->isZero() ? ' · not paid yet' : ' · paid Rs. ' . Money::of($props->get('paid', 0))->format()),
+            'stock.adjusted' => $props->get('product') . ' · ' . $props->get('kind') . ' · '
+                . ((int) $props->get('packs') > 0 ? '+' : '') . (int) $props->get('packs')
+                . ((int) $props->get('loose') !== 0 ? ' and ' . (int) $props->get('loose') . ' loose' : ''),
+            'product.updated' => (string) $props->get('product'),
             'closing.cash_counted' => 'Counted Rs. ' . Money::of($props->get('counted', 0))->format()
                 . ' · expected Rs. ' . Money::of($props->get('expected', 0))->format()
                 . ($props->get('difference') && ! Money::of($props->get('difference'))->isZero()
@@ -344,12 +408,12 @@ class ChangeHistory
 
     /** The figures a close is judged by, in the words the closing page uses. */
     private const CLOSE_FIGURES = [
-        'closing_cash' => 'Cash in the drawer',
-        'closing_receivable' => 'Market owes us',
-        'closing_payable' => 'We owe companies',
+        'closing_cash' => 'Cash in hand',
+        'closing_receivable' => 'Pending from market',
+        'closing_payable' => 'Pending to companies',
         'gross_profit' => 'Gross profit',
         'expenses' => 'Expenses',
-        'net_profit' => 'After expenses',
+        'net_profit' => 'Profit after expenses',
         'net_position' => 'Net position',
     ];
 

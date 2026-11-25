@@ -122,12 +122,12 @@ class PdfTextExtractor
 
         if ($fragments === []) {
             throw new RuntimeException(
-                'No text could be read from this PDF. It is most likely a scan — a PDF of images rather than text.'
+                'No text could be read from this PDF. It is most likely a scanned PDF, which contains images and not text.'
             );
         }
 
         if (! $positioned) {
-            $warnings[] = 'Some pages carried no layout information, so their columns were guessed from spacing. Check the rows carefully.';
+            $warnings[] = 'Some pages had no layout information, so their columns were estimated from spacing. Check the rows carefully.';
         }
 
         return [

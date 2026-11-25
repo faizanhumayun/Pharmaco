@@ -9,7 +9,7 @@
         <button type="button" x-on:click="open = ! open" :aria-expanded="open"
                 class="block w-full px-4 py-3 text-left text-sm text-gray-500 hover:text-gray-900 sm:px-6">
             <span aria-hidden="true" x-text="open ? '−' : '+'"></span>
-            {{ $lines->count() }} with nothing in {{ $lines->count() === 1 ? 'it' : 'them' }} · {{ $lines->pluck('name')->join(', ') }}
+            {{ $lines->count() }} with zero balance ·{{ $lines->pluck('name')->join(', ') }}
         </button>
 
         <div x-show="open" x-cloak class="border-t border-gray-100">

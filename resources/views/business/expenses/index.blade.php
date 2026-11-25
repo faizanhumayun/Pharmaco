@@ -10,7 +10,7 @@
             <div>
                 <h1 class="text-xl font-semibold text-gray-900">Expenses</h1>
                 <p class="mt-1 text-sm text-gray-500">
-                    Everything spent, as entered on each day. Expenses are added on the daily entry; heads group them.
+                    All expenses, as entered on each day. Expenses are added in the daily entry and grouped by head.
                 </p>
             </div>
             <div class="flex gap-2" x-data>
@@ -86,7 +86,7 @@
                             <span class="text-gray-500">{{ $rows->total() }} {{ Str::plural('expense', $rows->total()) }} ·</span>
                             <span class="font-semibold tabular-nums text-gray-900">Rs. {{ $money($shownTotal->plus($unfiledTotal)) }}</span>
                             @unless ($unfiledTotal->isZero())
-                                <span class="text-amber-700">· {{ $money($unfiledTotal) }} not under a head</span>
+                                <span class="text-amber-700">· {{ $money($unfiledTotal) }} without a head</span>
                             @endunless
                         </p>
 
@@ -95,7 +95,7 @@
                     <table class="w-full divide-y divide-gray-200 text-sm">
                         <thead class="bg-gray-50">
                             <tr>
-                                @foreach ([['Day', 'left'], ['Head', 'left'], ['What for', 'left'], ['Amount', 'right'], ['Day entered by', 'left']] as [$h, $align])
+                                @foreach ([['Date', 'left'], ['Head', 'left'], ['Description', 'left'], ['Amount', 'right'], ['Entered by', 'left']] as [$h, $align])
                                     <th class="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first || $loop->last ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                 @endforeach
                             </tr>
@@ -110,7 +110,7 @@
                                             {{ $entry->business_date->format('D d M Y') }}
                                         </a>
                                         @if ($entry->isEditable())
-                                            <x-badge classes="ml-1 bg-gray-100 text-gray-600 ring-gray-500/20">draft</x-badge>
+                                            <x-badge classes="ml-1 bg-gray-100 text-gray-600 ring-gray-500/20">Draft</x-badge>
                                         @endif
                                     </td>
                                     <td class="px-4 py-2">
@@ -122,7 +122,7 @@
                                         @endif
                                     </td>
                                     <td class="px-4 py-2 text-gray-600">
-                                        {{ $row['what'] ?: ($row['head'] ? '—' : 'Entered as the day\'s total') }}
+                                        {{ $row['what'] ?: ($row['head'] ? '—' : 'Entered as the daily total') }}
                                     </td>
                                     <td class="whitespace-nowrap px-4 py-2 text-right font-medium tabular-nums text-gray-900">{{ $money($row['amount']) }}</td>
                                     <td class="whitespace-nowrap px-4 py-2 text-gray-500 sm:px-6">{{ $entry->creator?->name ?? '—' }}</td>
@@ -130,7 +130,7 @@
                             @empty
                                 <tr>
                                     <td colspan="5" class="px-6 py-10 text-center text-gray-500">
-                                        {{ $head || $range !== 'all' ? 'No expenses match these filters.' : 'No expenses entered yet. Add one above, or on a day\'s entry.' }}
+                                        {{ $head || $range !== 'all' ? 'No expenses found.' : 'No expenses entered yet. Add one above, or in a daily entry.' }}
                                     </td>
                                 </tr>
                             @endforelse
@@ -143,7 +143,7 @@
             </div>
 
             {{-- The total per head. Picking one filters the list. --}}
-            <x-panel title="By head" :description="'Spent under each head · ' . ($range === 'custom' ? 'chosen dates' : strtolower($ranges[$range])) . '. Posted days only. Pick one to filter the list.'">
+            <x-panel title="By head" :description="'Total expenses for each head · ' . ($range === 'custom' ? 'selected dates' : strtolower($ranges[$range])) . '. Posted days only. Select a head to filter the list.'">
                 <ul class="divide-y divide-gray-100 text-sm">
                     @unless ($unfiledTotal->isZero())
                         <li class="flex items-center justify-between gap-3 bg-amber-50/60 px-4 py-2 sm:px-6">
@@ -161,7 +161,7 @@
                                     {{ $money($balances[$category->id]) }}
                                 </span>
                                 <a href="{{ route('businesses.expenses.show', [$business, $category]) }}"
-                                   class="text-xs text-gray-400 hover:text-emerald-700" title="This head's ledger">ledger</a>
+                                   class="text-xs text-gray-400 hover:text-emerald-700" title="Ledger of this head">Ledger</a>
                             </span>
                         </li>
                     @empty
@@ -177,7 +177,7 @@
 
     {{-- Adding a head: a drawer, reopened on its own if the name was refused. --}}
     <x-drawer name="add-expense-head" title="Add expense head"
-              subtitle="A head groups expenses — Rent, Salaries, Freight — so you can see where money goes."
+              subtitle="A head groups expenses, for example Rent, Salaries or Freight, so you can see where money is spent."
               :show="$errors->has('name')">
         <form id="add-expense-head-form" method="POST" action="{{ route('businesses.expenses.store', $business) }}" class="space-y-4">
             @csrf
@@ -188,8 +188,8 @@
                 <x-input-error :messages="$errors->get('name')" class="mt-2" />
             </div>
             <p class="text-sm text-gray-500">
-                The new head appears on the daily entry's expense list straight away, and gets its own
-                ledger so its total is kept separately.
+                The new head is added to the expense list in the daily entry immediately. It has its own
+                ledger, so its total is kept separately.
             </p>
         </form>
 

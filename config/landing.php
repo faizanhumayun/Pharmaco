@@ -176,6 +176,7 @@ return [
                 'title' => 'Company accounts',
                 'points' => [
                     'A running account per supplier',
+                    'Pay a supplier from its own page, in full or in part',
                     'What you owe is never one lump figure',
                 ],
             ],

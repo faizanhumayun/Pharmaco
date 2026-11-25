@@ -4,9 +4,7 @@
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
             <div>
-                <p class="text-sm text-gray-500">
-                    <a href="{{ route('businesses.reports.index', $business) }}" class="hover:text-emerald-700 hover:underline">Reports</a> · {{ $meta['group'] }}
-                </p>
+                <x-back-link :href="route('businesses.reports.index', $business)" label="All reports" />
                 <h1 class="text-xl font-semibold text-gray-900">{{ $meta['title'] }}</h1>
                 <p class="mt-1 text-sm text-gray-500">{{ $meta['about'] }}</p>
             </div>
@@ -45,7 +43,7 @@
                     <x-slot name="count">{{ number_format(count($table['rows'])) }} {{ Str::plural('row', count($table['rows'])) }}</x-slot>
                 </x-filter-bar>
             @else
-                <p class="text-sm text-gray-500">As it stands now, {{ $business->today()->format('j F Y') }}.</p>
+                <p class="text-sm text-gray-500">Current position as at {{ $business->today()->format('j F Y') }}.</p>
             @endif
 
         </div>
@@ -74,7 +72,7 @@
                         @empty
                             <tr>
                                 <td colspan="{{ count($table['columns']) }}" class="px-6 py-10 text-center text-gray-500">
-                                    Nothing to show{{ $meta['dated'] ? ' for these dates' : '' }}.
+                                    No records found{{ $meta['dated'] ? ' for these dates' : '' }}.
                                 </td>
                             </tr>
                         @endforelse

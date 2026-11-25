@@ -37,13 +37,13 @@
             </div>
 
             <div class="text-center">
-                <p class="{{ $label }} text-slate-400">On this delivery</p>
+                <p class="{{ $label }} text-slate-400">This delivery</p>
                 <p class="font-mono text-xl font-semibold leading-tight tabular-nums"
-                   x-text="lines.length + (lines.length === 1 ? ' line' : ' lines') + ' · ' + totalPacks + ' {{ $many }}'"></p>
+                   x-text="lines.length + (lines.length === 1 ? ' item' : ' items') + ' · ' + totalPacks + ' {{ $many }}'"></p>
             </div>
 
             <p class="hidden max-w-sm text-xs leading-snug text-slate-400 xl:block">
-                Goods that arrived without an order form. They go into stock, and onto today's entry as an invoice.
+                Use this for goods received without an order. They are added to stock and to today's entry as an invoice.
             </p>
 
             <div class="flex items-center gap-3">
@@ -53,14 +53,14 @@
                 </a>
                 <a href="{{ route('businesses.show', $business) }}"
                    class="rounded-lg border border-slate-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800">
-                    Leave
+                    Exit
                 </a>
             </div>
         </header>
 
         @if ($dayClosed)
             <div class="shrink-0 bg-red-600 px-4 py-2 text-center text-sm font-medium text-white sm:px-6">
-                {{ $today->format('l j F Y') }} is closed, so an invoice cannot be put on it. Reopen the day on its closing page first.
+                {{ $today->format('l j F Y') }} is closed. An invoice cannot be added to it. Reopen the day from its closing page first.
             </div>
         @endif
 
@@ -82,7 +82,7 @@
                             <span class="{{ $label }} shrink-0 text-slate-500">Company</span>
                             <select id="company_id" name="company_id" x-model="companyId" required data-search
                                     class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
-                                <option value="">Choose the company…</option>
+                                <option value="">Select company…</option>
                                 @foreach ($companies as $company)
                                     <option value="{{ $company->id }}">{{ $company->name }}</option>
                                 @endforeach
@@ -96,8 +96,9 @@
                             </svg>
                             <input x-ref="search" x-model="query" type="text" autocomplete="off" :disabled="! companyId"
                                    x-on:keydown.arrow-down.prevent="move(1)" x-on:keydown.arrow-up.prevent="move(-1)"
+                                   x-on:focus="$el.select()"
                                    x-on:keydown.enter.prevent="addHighlighted()" x-on:keydown.escape="query = ''"
-                                   placeholder="Search by brand or code — theirs first, then every product"
+                                   placeholder="Search by brand or code"
                                    class="block w-full rounded-lg border-2 border-emerald-700 py-3 pl-12 pr-16 text-base placeholder:text-slate-400 focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30 disabled:border-slate-300 disabled:bg-slate-50">
                             <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 rounded border border-slate-300 px-1.5 py-0.5 font-mono text-xs text-slate-500">F2</span>
                         </div>
@@ -107,17 +108,17 @@
                                 <span x-text="shown.length"></span> of <span x-text="ofCompany.length"></span> products
                                 <span x-show="fromOthers > 0" x-text="'· ' + fromOthers + ' from other companies'"></span>
                             </span>
-                            <span x-show="! companyId">Their products</span>
+                            <span x-show="! companyId">Company products</span>
                             <button type="button" x-show="companyId" x-cloak x-on:click="openNew()"
                                     class="font-medium text-emerald-700 hover:text-emerald-800">
-                                Not in the list? Add it
+                                Add new product
                             </button>
                         </p>
                     </div>
 
                     <div class="till-rows min-h-0 flex-1 overflow-y-auto" x-ref="list">
                         <p x-show="! companyId" class="px-4 py-10 text-center text-sm text-slate-500">
-                            Choose a company first — the list reads its catalogue.
+                            Select a company to see its products.
                         </p>
 
                         {{-- Up and Down in the search box move the lit row; Enter
@@ -132,23 +133,23 @@
                                          catalogue: the same goods, bought here this time. --}}
                                     <span x-show="! ownProduct(product)" x-cloak
                                           class="mt-0.5 inline-block rounded-md bg-amber-50 px-1.5 py-0.5 text-[11px] font-medium text-amber-800 ring-1 ring-inset ring-amber-600/20"
-                                          x-text="'Usually from ' + (product.company || 'another company')"></span>
+                                          x-text="'Usual supplier: ' + (product.company || 'another company')"></span>
                                 </button>
                                 <span class="{{ $label }} font-semibold text-emerald-700" x-show="onDelivery(product.id)" x-cloak
                                       x-text="onDelivery(product.id) + ' on delivery'"></span>
                                 <span x-show="! onDelivery(product.id)"></span>
-                                <button type="button" x-on:click="add(product)" title="What it cost last time"
+                                <button type="button" x-on:click="add(product)" title="Last cost"
                                         class="text-right font-mono text-sm font-semibold tabular-nums text-slate-900"
                                         x-text="'Rs. ' + money(product.rate)"></button>
-                                <button type="button" x-on:click="add(product)" :title="'Add one of ' + product.name"
+                                <button type="button" x-on:click="add(product)" :title="'Add ' + product.name"
                                         class="flex h-11 w-11 items-center justify-center justify-self-end rounded-lg bg-emerald-700 text-xl font-semibold leading-none text-white hover:bg-emerald-800">+</button>
                             </div>
                         </template>
 
                         <p x-show="companyId && shown.length === 0" x-cloak class="px-4 py-10 text-center text-sm text-slate-500">
-                            Nothing of theirs matches that.
+                            No products found.
                             <button type="button" x-on:click="openNew()"
-                                    class="font-medium text-emerald-700 hover:text-emerald-800">Add it as a new product</button>
+                                    class="font-medium text-emerald-700 hover:text-emerald-800">Add as a new product</button>
                         </p>
                     </div>
                 </section>
@@ -164,14 +165,14 @@
                         <label class="ml-auto flex items-center gap-3">
                             <span class="{{ $label }} text-slate-500">Invoice no.</span>
                             <input id="invoice_no" name="invoice_no" type="text" x-model="invoiceNo" x-ref="invoice" required
-                                   placeholder="Required — as printed on their bill" maxlength="60"
+                                   placeholder="Required. As printed on supplier bill" maxlength="60"
                                    :class="tried && ! invoiceNo.trim() ? 'border-red-500 bg-red-50' : (lines.length > 0 && ! invoiceNo.trim() ? 'border-amber-400 bg-amber-50' : 'border-slate-300')"
                                    :aria-invalid="tried && ! invoiceNo.trim()"
                                    class="block w-64 rounded-lg py-2 font-mono text-sm placeholder:font-sans focus:border-emerald-700 focus:ring-emerald-600">
                         </label>
                         <label class="flex items-center gap-3">
                             <span class="{{ $label }} text-slate-500">Note</span>
-                            <input id="notes" name="notes" type="text" placeholder="Ordered by phone on Tuesday" maxlength="255"
+                            <input id="notes" name="notes" type="text" placeholder="e.g. Ordered by phone" maxlength="255"
                                    class="block w-64 rounded-lg border-slate-300 py-2 text-sm focus:border-emerald-700 focus:ring-emerald-600">
                         </label>
                     </div>
@@ -210,15 +211,15 @@
                                     <template x-if="! line.extra">
                                         <span>
                                             <span class="block break-words text-base font-medium leading-snug text-slate-900" x-text="line.name"></span>
-                                            <span x-show="line.other" x-cloak class="block text-xs text-slate-500" x-text="'Usually from ' + line.other"></span>
+                                            <span x-show="line.other" x-cloak class="block text-xs text-slate-500" x-text="'Usual supplier: ' + line.other"></span>
                                             <template x-if="priceMove(line)">
                                                 <span class="text-xs font-medium" :class="priceMove(line).up ? 'text-red-700' : 'text-emerald-700'"
-                                                      x-text="(priceMove(line).up ? '▲ ' : '▼ ') + priceMove(line).percent.toFixed(0) + '% on last cost of ' + priceMove(line).was.toFixed(2)"></span>
+                                                      x-text="(priceMove(line).up ? '▲ ' : '▼ ') + priceMove(line).percent.toFixed(0) + '% from last cost of ' + priceMove(line).was.toFixed(2)"></span>
                                             </template>
                                         </span>
                                     </template>
                                     <template x-if="line.extra">
-                                        <span class="block pl-4 text-sm text-slate-500">↳ another batch of the same</span>
+                                        <span class="block pl-4 text-sm text-slate-500">↳ Another batch of this product</span>
                                     </template>
                                     <input type="hidden" :name="`lines[${i}][company_product_id]`" :value="line.id">
                                 </span>
@@ -228,12 +229,19 @@
                                 <span>
                                     <template x-if="! line.extra">
                                         <span>
+                                            {{-- "Nos" from the old system says nothing about the
+                                                 pack, so it shows as 0 and asks for the real size.
+                                                 Left at 0, the product is not changed. --}}
                                             <input type="text" x-model="line.pack" :name="`lines[${i}][pack_size]`"
-                                                   placeholder="10/10" maxlength="60" title="Pack size — change it if the carton says otherwise"
-                                                   class="block w-full rounded-lg border-slate-300 px-2 py-2 text-center font-mono text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                                                   x-on:focus="$el.select()"
+                                                   placeholder="10/10" maxlength="60" title="Pack size. Change it if the carton shows a different size."
+                                                   :class="String(line.pack).trim() === '0' ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
+                                                   class="block w-full rounded-lg px-2 py-2 text-center font-mono text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                                            <span class="mt-0.5 block text-center text-[0.6875rem] leading-tight text-amber-700"
+                                                  x-show="String(line.pack).trim() === '0'" x-cloak>Enter pack size</span>
                                             @if ($business->sellsLoose())
                                                 <span class="mt-0.5 block text-center text-[11px] leading-tight text-slate-500"
-                                                      x-show="piecesFromPack(line.pack) > 1" x-text="piecesFromPack(line.pack) + ' to a pack'"></span>
+                                                      x-show="piecesFromPack(line.pack) > 1" x-text="piecesFromPack(line.pack) + ' per pack'"></span>
                                             @endif
                                         </span>
                                     </template>
@@ -251,23 +259,24 @@
                                     <span class="mt-0.5 block text-center text-[0.6875rem] leading-tight"
                                           x-show="isPart(line)" x-cloak
                                           :class="perOf(line) > 1 ? 'text-emerald-700' : 'text-red-600'"
-                                          x-text="perOf(line) > 1 ? '= ' + piecesOf(line) + (piecesOf(line) === 1 ? ' piece' : ' pieces') : 'needs pack size'"></span>
+                                          x-text="perOf(line) > 1 ? '= ' + piecesOf(line) + (piecesOf(line) === 1 ? ' piece' : ' pieces') : 'Enter pack size'"></span>
                                 </span>
 
                                 {{-- The date on the carton, taken while it is still in
-                                     someone's hands. Blank is an answer: not everything
-                                     expires. Under it, the batch number printed beside it.
-                                     The + adds a row for another batch of the same product. --}}
+                                     someone's hands. It has to be given: stock with no
+                                     date can never be warned about. Under it, the batch
+                                     number printed beside it. The + adds a row for
+                                     another batch of the same product. --}}
                                 <span class="flex items-center gap-1.5">
-                                    <span class="min-w-0 flex-1 space-y-1">
-                                        <input type="month" x-model="line.expires_on" :name="`lines[${i}][expires_on]`"
-                                               :class="line.expires_on && expiresSoon(line.expires_on) ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
-                                               class="block w-full rounded-lg px-2 py-1 text-sm focus:border-emerald-700 focus:ring-emerald-600">
+                                    <span class="min-w-0 flex-1 space-y-1 rounded-lg"
+                                          :class="tried && ! line.expires_on ? 'ring-2 ring-red-500 ring-offset-2' : ''">
+                                        <input type="month" data-must x-model="line.expires_on" :name="`lines[${i}][expires_on]`"
+                                               class="block w-full rounded-lg px-2 py-1 text-sm">
                                         <input type="text" x-model="line.batch_no" :name="`lines[${i}][batch_no]`"
                                                placeholder="Batch no." maxlength="60"
                                                class="block w-full rounded-lg border-slate-300 px-2 py-1 font-mono text-sm uppercase placeholder:font-sans placeholder:normal-case focus:border-emerald-700 focus:ring-emerald-600">
                                     </span>
-                                    <button type="button" x-on:click="addBatch(line)" title="Another batch of this product, with its own expiry"
+                                    <button type="button" x-on:click="addBatch(line)" title="Add another batch of this product with its own expiry date"
                                             class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-emerald-700 text-lg font-semibold leading-none text-emerald-700 hover:bg-emerald-50">+</button>
                                 </span>
 
@@ -302,7 +311,7 @@
                                 <span>
                                     <template x-if="! line.extra">
                                         <input type="text" inputmode="decimal" x-model.number="line.mrp" :name="`lines[${i}][mrp]`"
-                                               placeholder="{{ $sellRequired ? 'required' : '—' }}"
+                                               placeholder="{{ $sellRequired ? 'Required' : '—' }}"
                                                :class="{{ $sellRequired ? 'true' : 'false' }} && ! (Number(line.mrp) > 0) ? 'border-amber-400 bg-amber-50' : 'border-slate-300'"
                                                class="w-full rounded-lg py-2 text-right font-mono text-sm tabular-nums focus:border-emerald-700 focus:ring-emerald-600">
                                     </template>
@@ -324,8 +333,8 @@
                         </template>
 
                         <div x-show="lines.length === 0" class="flex h-full flex-col items-center justify-center gap-1 py-16 text-center">
-                            <p class="text-lg font-medium text-slate-400">Nothing on the delivery yet</p>
-                            <p class="text-sm text-slate-400">Choose the company, then pick from their products on the left.</p>
+                            <p class="text-lg font-medium text-slate-400">No items added yet</p>
+                            <p class="text-sm text-slate-400">Select the company, then add products from the list on the left.</p>
                         </div>
                     </div>
                     </div>
@@ -333,47 +342,53 @@
 
                     <div class="flex shrink-0 flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t border-slate-200 px-4 py-3">
                         <p class="flex items-center gap-3 text-sm text-slate-600">
-                            <span x-text="lines.length + (lines.length === 1 ? ' line' : ' lines') + ' · ' + totalPacks + ' {{ $many }}'"></span>
+                            <span x-text="lines.length + (lines.length === 1 ? ' item' : ' items') + ' · ' + totalPacks + ' {{ $many }}'"></span>
                             <button type="button" x-on:click="lines = []" x-show="lines.length > 0" x-cloak
                                     class="font-medium text-slate-500 underline hover:text-red-700">Clear</button>
                         </p>
-                        <p class="text-sm" :class="missingSellPrice > 0 ? 'font-medium text-amber-700' : 'text-slate-500'"
-                           x-text="lines.length > 0 && ! invoiceNo.trim() ? 'The invoice number is needed' : missingSellPrice > 0
-                               ? missingSellPrice + ' ' + (missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP'
+                        <p class="text-sm" :class="missingSellPrice > 0 || missingExpiry > 0 ? 'font-medium text-amber-700' : 'text-slate-500'"
+                           x-text="lines.length > 0 && ! invoiceNo.trim() ? 'Invoice number is required' : missingSellPrice > 0
+                               ? missingSellPrice + ' ' + (missingSellPrice === 1 ? 'item needs' : 'items need') + ' an MRP'
                                : (missingExpiry > 0
-                                   ? missingExpiry + ' ' + (missingExpiry === 1 ? 'line has' : 'lines have') + ' no expiry date'
-                                   : @js('Recorded on ' . $today->format('j M Y')))"></p>
+                                   ? missingExpiry + ' ' + (missingExpiry === 1 ? 'item needs' : 'items need') + ' an expiry date'
+                                   : @js('Delivery date: ' . $today->format('j M Y')))"></p>
                     </div>
                 </section>
             </div>
 
-            {{-- The foot of the screen: what their bill comes to, what is paid
-                 now, what is left on their account, and the button that
+            {{-- The foot of the screen: the total bill, what is paid
+                 now, what stays pending with the supplier, and the button that
                  finishes it. --}}
             <footer class="till-foot flex shrink-0 flex-wrap items-end justify-between gap-x-8 gap-y-4 border-t border-slate-300 bg-white px-4 py-5 sm:px-6">
-                <div>
-                    <p class="{{ $label }} text-slate-500">Bill comes to</p>
-                    <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-slate-900" x-text="'Rs. ' + money(total)"></p>
+                {{-- The figure everything else is measured against, so it
+                     stands on a block of its own. --}}
+                <div class="rounded-xl bg-slate-900 px-5 py-3">
+                    <p class="{{ $label }} text-slate-300">Total bill</p>
+                    <p class="till-total mt-1 whitespace-nowrap font-mono text-5xl font-bold leading-none tabular-nums text-white" x-text="'Rs. ' + money(total)"></p>
                 </div>
 
-                <div>
-                    <p class="{{ $label }} text-slate-500">Paid now</p>
+                {{-- What is handed over now. The two usual answers come
+                     first, one press each; the box is for anything between. --}}
+                <div class="rounded-xl bg-emerald-700 px-4 py-3">
+                    <p class="{{ $label }} text-white">Paid now</p>
                     <div class="mt-1 flex flex-wrap items-stretch gap-2">
-                        <input id="paid" name="paid" x-model="paid" type="text" inputmode="decimal" placeholder="0.00"
-                               class="block w-44 rounded-lg border-2 border-emerald-700 py-2 text-right font-mono text-2xl font-semibold tabular-nums focus:border-emerald-700 focus:ring-2 focus:ring-emerald-600/30">
                         <button type="button" x-on:click="paid = total.toFixed(2)"
-                                class="rounded-lg bg-slate-100 px-4 font-mono text-sm font-semibold text-slate-900 hover:bg-slate-200">In full</button>
+                                class="rounded-lg bg-white px-4 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-50"
+                                title="The full bill is paid now">In full</button>
                         <button type="button" x-on:click="paid = ''"
-                                class="rounded-lg bg-amber-100 px-4 font-mono text-sm font-semibold text-amber-800 hover:bg-amber-200"
-                                title="Nothing paid now — the whole bill goes on their account">On account</button>
+                                class="rounded-lg bg-emerald-900 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-950"
+                                title="No payment now. The full bill stays pending with the supplier.">On account</button>
+                        <input id="paid" name="paid" x-model="paid" type="text" inputmode="decimal" placeholder="0.00"
+                               class="block w-44 rounded-lg border-2 border-white bg-white py-2 text-right font-mono text-2xl font-semibold tabular-nums text-slate-900 focus:border-white focus:ring-2 focus:ring-white/60">
                     </div>
                 </div>
 
                 <div>
-                    <p class="{{ $label }}" :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-500'">On their account</p>
+                    <p class="{{ $label }}" :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-500'">Pending supplier bill</p>
                     <p class="till-figure mt-1 whitespace-nowrap font-mono text-3xl font-semibold leading-tight tabular-nums"
                        :class="onAccount > 0 ? 'text-amber-700' : 'text-slate-300'"
                        x-text="'Rs. ' + money(onAccount)"></p>
+                    <p class="mt-0.5 text-xs text-slate-500">Amount still to pay the supplier for this bill</p>
                 </div>
 
                 {{-- Always there to be pressed. If something is missing it
@@ -382,14 +397,14 @@
                     {{-- Everything in the way of saving, all at once, and
                          nothing typed is lost: the page is never reloaded. --}}
                     <ul x-show="tried && problems.length > 0" x-cloak role="alert"
-                        class="max-h-32 max-w-xl space-y-0.5 overflow-y-auto rounded-md bg-red-50 px-3 py-1.5 text-sm font-semibold text-red-700">
+                        class="max-h-24 max-w-md list-disc space-y-0.5 overflow-y-auto rounded-md border border-red-200 bg-red-50 py-1.5 pl-7 pr-3 text-sm font-semibold text-red-700">
                         <template x-for="(message, n) in problems" :key="n">
                             <li x-text="message"></li>
                         </template>
                     </ul>
                     <button type="button" x-on:click="save()" :disabled="saving" :class="saving ? 'opacity-60' : ''"
                             class="till-save flex items-center gap-3 rounded-xl bg-emerald-700 px-10 py-4 text-xl font-bold text-white shadow-sm hover:bg-emerald-800">
-                        <span x-text="saving ? 'Saving…' : 'Put it into stock'">Put it into stock</span>
+                        <span x-text="saving ? 'Saving…' : 'Save stock'">Save stock</span>
                         <span class="rounded border border-white/60 px-1.5 py-0.5 font-mono text-xs font-semibold">F9</span>
                     </button>
                 </div>
@@ -555,7 +570,8 @@
                                 expires_on: '',
                                 batch_no: '',
                                 // As on file; sent back only to be compared.
-                                pack: product.pack ?? '',
+                                // "Nos" is no pack size at all: shown as 0, to be filled in.
+                                pack: /^nos\.?$/i.test(String(product.pack ?? '').trim()) ? '0' : (product.pack ?? ''),
                                 // Whose catalogue it sits in, when not this company's.
                                 other: this.ownProduct(product) ? '' : (product.company || 'another company'),
                                 // What it cost before this delivery, so a rate
@@ -567,7 +583,9 @@
                         // Seen arriving: scrolled into view and held in colour briefly.
                         this.flashOn(String(product.id));
 
-                        this.$refs.search?.focus();
+                        // Back to the search with what was typed selected, so
+                        // the next thing typed starts a new search.
+                        this.$nextTick(() => { this.$refs.search?.focus(); this.$refs.search?.select(); });
                     },
 
                     flash: null,
@@ -686,8 +704,8 @@
 
                         if (this.isPart(line)) {
                             if (! @js($business->sellsLoose())) return line.name + ': the quantity must be whole packs.';
-                            if (this.perOf(line) < 2) return line.name + ': part of a pack needs a pack size such as 3x10, or enter whole packs.';
-                            if (this.piecesOf(line) < 1) return line.name + ': that is less than one piece.';
+                            if (this.perOf(line) < 2) return line.name + ': enter a pack size such as 3x10 for a part pack, or enter whole packs.';
+                            if (this.piecesOf(line) < 1) return line.name + ': the quantity is less than one piece.';
                         }
 
                         return '';
@@ -702,15 +720,24 @@
                     get problems() {
                         const found = [];
 
-                        if (@js($dayClosed)) found.push('Today is closed. Reopen the day before recording a delivery.');
-                        if (! this.companyId) found.push('Choose the company first.');
+                        if (@js($dayClosed)) found.push('Today is closed. Reopen the day before saving a delivery.');
+                        if (! this.companyId) found.push('Select the company first.');
                         if (this.lines.length === 0) found.push('Add at least one product.');
                         if (! this.invoiceNo.trim()) found.push('Invoice number is required.');
                         if (this.missingSellPrice > 0) {
-                            found.push(this.missingSellPrice + ' ' + (this.missingSellPrice === 1 ? 'line needs' : 'lines need') + ' an MRP.');
+                            found.push(this.missingSellPrice + ' ' + (this.missingSellPrice === 1 ? 'item needs' : 'items need') + ' an MRP.');
                         }
 
                         this.lines.forEach(line => { const p = this.lineProblem(line); if (p) found.push(p); });
+                        // One line for all of them: the rows themselves are
+                        // marked in red, so the names are not listed again here.
+                        const noExpiry = this.lines.filter(line => ! line.expires_on);
+
+                        if (noExpiry.length === 1) {
+                            found.push(noExpiry[0].name + ': enter the expiry date.');
+                        } else if (noExpiry.length > 1) {
+                            found.push(noExpiry.length + ' products need an expiry date. They are marked in red.');
+                        }
 
                         // What the server refused last time, until something is changed.
                         return found.length > 0 ? found : this.refused;
@@ -740,6 +767,10 @@
                         if (this.problems.length > 0) {
                             if (this.companyId && this.lines.length > 0 && ! this.invoiceNo.trim()) this.$refs.invoice.focus();
 
+                            // Brought into view: the first row that still needs something.
+                            const first = this.lines.find(l => ! l.expires_on || this.lineProblem(l));
+                            if (first) this.flashOn(first.key);
+
                             return;
                         }
 
@@ -764,14 +795,14 @@
                             if (response.status === 422) {
                                 this.refused = [...new Set(Object.values(answer.errors ?? {}).flat())];
                             } else if (response.status === 419 || response.status === 401) {
-                                this.refused = ['You were signed out. Sign in again in another tab, then press save here: nothing typed is lost.'];
+                                this.refused = ['You have been signed out. Sign in again in another tab, then save here. Your entries are not lost.'];
                             } else {
-                                this.refused = [answer.message || 'It could not be saved. Nothing typed is lost: try again.'];
+                                this.refused = [answer.message || 'Could not save. Your entries are not lost. Please try again.'];
                             }
 
-                            if (this.refused.length === 0) this.refused = ['It could not be saved. Nothing typed is lost: try again.'];
+                            if (this.refused.length === 0) this.refused = ['Could not save. Your entries are not lost. Please try again.'];
                         } catch (e) {
-                            this.refused = ['This computer could not reach Pharmaco. Nothing typed is lost: check the connection and press save again.'];
+                            this.refused = ['Could not connect to Pharmaco. Your entries are not lost. Check the connection and save again.'];
                         }
 
                         this.saving = false;

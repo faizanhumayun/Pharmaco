@@ -14,9 +14,9 @@
     'neutral' => ['bg-gray-400', 'bg-gray-100 text-gray-700 ring-gray-500/20'],
 ])
 <x-panel :title="$panelTitle ?? 'Change history'"
-         :description="$panelDescription ?? 'Everyone who entered, edited, counted, closed or reopened this day — with their role, the time, and the reason they gave.'">
+         :description="$panelDescription ?? 'All users who entered, edited, counted, closed or reopened this day, with their role, the time and the reason.'">
     @if ($history->isEmpty())
-        <p class="px-4 py-6 text-sm text-gray-500 sm:px-6">Nothing recorded yet.</p>
+        <p class="px-4 py-6 text-sm text-gray-500 sm:px-6">No records found.</p>
     @else
         <ol class="px-4 py-4 sm:px-6">
             @foreach ($history as $item)

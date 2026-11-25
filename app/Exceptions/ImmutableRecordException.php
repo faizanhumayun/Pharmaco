@@ -8,7 +8,7 @@ class ImmutableRecordException extends LedgerException
     {
         return new self(
             "This transaction {$reason} and cannot be changed. "
-            . 'Corrections are made by reversing it and posting a replacement.'
+            . 'To correct it, reverse it and post a new entry.'
         );
     }
 
@@ -19,14 +19,14 @@ class ImmutableRecordException extends LedgerException
 
         return new self(
             "This {$what} has been posted{$detail} and cannot be changed. "
-            . 'Corrections are made by reversing it and posting a replacement.'
+            . 'To correct it, reverse it and post a new entry.'
         );
     }
 
     public static function forLedgerEntry(): self
     {
         return new self(
-            'Ledger entries are append-only. They are never updated and never deleted.'
+            'Ledger entries cannot be edited or deleted.'
         );
     }
 }

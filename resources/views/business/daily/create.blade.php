@@ -58,9 +58,9 @@
             @if ($amending)
                 <div class="mb-4 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
                     <strong>This day is already posted.</strong>
-                    Saving reverses what it posted and posts the new figures in its place. Both stay
-                    visible on the day, so the change is on the record. Once the day is closed it can
-                    no longer be edited.
+                    Saving reverses the earlier posting and posts the new figures. Both remain
+                    visible on the day, so the change is on record. After the day is closed it
+                    cannot be edited.
                 </div>
             @endif
 
@@ -82,7 +82,7 @@
                         <x-input-error :messages="$errors->get('business_date')" class="mt-2" />
                     </div>
                     <p class="pb-2 text-xs text-gray-500">
-                        The day this activity belongs to, in {{ $business->timezone }}.
+                        The date these entries belong to ({{ $business->timezone }} time).
                     </p>
                 </div>
 
@@ -141,9 +141,9 @@
                                 + Add an invoice
                             </button>
                             <p class="text-xs text-gray-500">
-                                Optional. A new company name is created with its own ledger. Paying more than
-                                an invoice is worth settles that company's earlier bills — leave the amount
-                                blank to record a payment on its own.
+                                Optional. A new company name is created with its own ledger. An amount paid above
+                                the invoice is applied to that company's earlier bills. Leave the invoice amount
+                                blank to record a payment only.
                             </p>
                         </div>
 
@@ -192,7 +192,7 @@
                                 <dd class="font-mono tabular-nums text-gray-900" x-text="fmt(paidNow)"></dd>
                             </div>
                             <div class="flex justify-between font-semibold" x-show="excess === 0">
-                                <dt class="text-gray-700">Pending — company payable</dt>
+                                <dt class="text-gray-700">Pending (company payable)</dt>
                                 <dd class="font-mono tabular-nums text-gray-900" x-text="fmt(pending)"></dd>
                             </div>
                             {{-- Paid more than the goods cost: the rest comes off
@@ -257,9 +257,9 @@
                                 + Add a {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }} sale
                             </button>
                             <p class="text-xs text-gray-500">
-                                Optional. A new {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }} name is created with its own ledger. Taking more
-                                than an invoice is worth recovers that {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }}'s earlier credit — leave the
-                                amount blank to record a recovery on its own.
+                                Optional. A new {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }} name is created with its own ledger. An amount received
+                                above the invoice is applied to that {{ $business->sellsAtMrp() ? 'customer' : 'pharmacy' }}'s earlier credit. Leave the
+                                invoice amount blank to record a receipt only.
                             </p>
                         </div>
 
@@ -306,7 +306,7 @@
                                     x-text="fmt(creditSales)"></dd>
                             </div>
                             <div class="flex items-baseline justify-between text-emerald-800" x-show="saleRecovered > 0" x-cloak>
-                                <dt class="font-medium">Recovered against earlier credit</dt>
+                                <dt class="font-medium">Received against earlier credit</dt>
                                 <dd class="font-mono tabular-nums" x-text="fmt(saleRecovered)"></dd>
                             </div>
                             <p class="pt-0.5 text-xs text-gray-500">Credit sales go to market receivables</p>
@@ -335,7 +335,7 @@
                                        class="block w-full rounded-md border-gray-300 pl-10 text-right font-mono tabular-nums shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             </div>
                             <p class="mt-1 text-xs text-gray-500">
-                                Recovery on credit given before today. Reduces market receivables.
+                                Amount received on credit given before today. Reduces market receivables.
                             </p>
                             <x-input-error :messages="$errors->get('collection_cash')" class="mt-2" />
                         </div>
@@ -408,8 +408,8 @@
                                 + Add an expense
                             </button>
                             <p class="text-xs text-gray-500">
-                                Optional. Freight, fuel, salaries, rent. A head that does not exist yet is
-                                created with its own ledger, so nothing has to be filed under "Other".
+                                Optional. Freight, fuel, salaries, rent. A new expense head is
+                                created with its own ledger.
                             </p>
                         </div>
 
@@ -430,7 +430,7 @@
                                 <dt class="text-gray-700">Total expenses</dt>
                                 <dd class="font-mono tabular-nums text-gray-900" x-text="fmt(expensesTotal)"></dd>
                             </div>
-                            <p class="text-xs font-normal text-gray-500">Comes off net profit, never off gross profit</p>
+                            <p class="text-xs font-normal text-gray-500">Deducted from net profit, not from gross profit</p>
                         </dl>
                     </div>
                 </x-panel>
@@ -450,7 +450,7 @@
             <div class="mt-6 flex items-center justify-between rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <p class="text-sm text-gray-500">
                     {{ $amending
-                        ? 'Saving replaces this day\'s postings straight away.'
+                        ? 'Saving replaces this day\'s postings immediately.'
                         : 'Saving keeps this as a draft. It has no effect on any balance until you post it.' }}
                 </p>
                 <button class="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">
@@ -461,7 +461,7 @@
             {{-- The buying side of the same panel. --}}
             <x-drawer name="purchase-invoice" max-width="md"
                       title="Purchase invoice"
-                      subtitle="One invoice. Whatever is not paid today is left owing to that company.">
+                      subtitle="One invoice. Any amount not paid today stays pending to that company.">
                 <div class="space-y-5" @keydown.enter.prevent="commitPurchase()">
                     <div>
                         <x-input-label for="draft_company" value="Company" />
@@ -469,7 +469,7 @@
                                placeholder="Getz Pharma"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                         <p class="mt-1 text-xs text-gray-500">
-                            A name that does not exist yet is created with its own ledger when the day is saved.
+                            A new name is created with its own ledger when the day is saved.
                         </p>
                     </div>
 
@@ -487,7 +487,7 @@
                                 <input id="draft_purchase_amount" type="text" inputmode="decimal" x-model="purchaseDraft.amount" placeholder="0.00"
                                        class="block w-full rounded-md border-gray-300 pl-10 text-right font-mono tabular-nums shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                             </div>
-                            <p class="mt-1 text-xs text-gray-500">Leave blank to record a payment on its own.</p>
+                            <p class="mt-1 text-xs text-gray-500">Leave blank to record a payment only.</p>
                         </div>
                         <div>
                             <x-input-label for="draft_purchase_paid" value="Paid now" />
@@ -501,11 +501,11 @@
 
                     <dl class="space-y-1 rounded-md bg-gray-50 px-3 py-2 text-sm">
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Left owing</dt>
+                            <dt class="text-gray-500">Pending amount</dt>
                             <dd class="font-mono tabular-nums text-gray-900" x-text="fmt(purchaseDraftPending)"></dd>
                         </div>
                         <div class="flex justify-between text-emerald-800" x-show="purchaseDraftExcess > 0" x-cloak>
-                            <dt>Pays off earlier bills</dt>
+                            <dt>Paid against earlier bills</dt>
                             <dd class="font-mono tabular-nums" x-text="fmt(purchaseDraftExcess)"></dd>
                         </div>
                     </dl>
@@ -531,7 +531,7 @@
                  panel by naming it. --}}
             <x-drawer name="pharmacy-sale" max-width="md"
                       :title="$business->sellsAtMrp() ? 'Customer sale' : 'Pharmacy sale'"
-                      :subtitle="$business->sellsAtMrp() ? 'One bill. Leave the name blank for a walk-in customer. Whatever is not received today becomes that customer\'s credit.' : 'One invoice. Whatever is not received today becomes that pharmacy\'s credit.'">
+                      :subtitle="$business->sellsAtMrp() ? 'One bill. Leave the name blank for a walk-in customer. Any amount not received today becomes that customer\'s credit.' : 'One invoice. Any amount not received today becomes that pharmacy\'s credit.'">
                 <div class="space-y-5" @keydown.enter.prevent="commitSale()">
                     <div>
                         <x-input-label for="draft_pharmacy" :value="$business->sellsAtMrp() ? 'Customer' : 'Pharmacy'" />
@@ -539,7 +539,7 @@
                                placeholder="{{ $business->sellsAtMrp() ? 'Walk-in customer' : 'Al-Shifa Medical Store' }}"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                         <p class="mt-1 text-xs text-gray-500">
-                            A name that does not exist yet is created with its own ledger when the day is saved.
+                            A new name is created with its own ledger when the day is saved.
                         </p>
                     </div>
 
@@ -570,11 +570,11 @@
 
                     <dl class="space-y-1 rounded-md bg-gray-50 px-3 py-2 text-sm">
                         <div class="flex justify-between">
-                            <dt class="text-gray-500">Goes on credit</dt>
+                            <dt class="text-gray-500">On credit</dt>
                             <dd class="font-mono tabular-nums text-gray-900" x-text="fmt(draftPending)"></dd>
                         </div>
                         <div class="flex justify-between text-emerald-800" x-show="draftExcess > 0" x-cloak>
-                            <dt>Recovers earlier credit</dt>
+                            <dt>Received against earlier credit</dt>
                             <dd class="font-mono tabular-nums" x-text="fmt(draftExcess)"></dd>
                         </div>
                     </dl>
@@ -599,7 +599,7 @@
             {{-- Same drawer, different record. Naming it is the whole API. --}}
             <x-drawer name="expense-line" max-width="md"
                       title="Operating expense"
-                      subtitle="What it was spent on, and under which head it belongs.">
+                      subtitle="Enter the expense and select its expense head.">
                 <div class="space-y-5" @keydown.enter.prevent="commitExpense()">
                     <div>
                         <x-input-label for="draft_head" value="Expense head" />
@@ -607,7 +607,7 @@
                                placeholder="Freight"
                                class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                         <p class="mt-1 text-xs text-gray-500">
-                            A head that does not exist yet is created with its own ledger when the day is saved.
+                            A new expense head is created with its own ledger when the day is saved.
                         </p>
                     </div>
 
@@ -719,8 +719,8 @@
                         if (row.invoice_no) parts.push(row.invoice_no);
 
                         const owing = this.n(row.amount) - this.n(row.paid);
-                        if (owing > 0) parts.push(this.fmt(owing) + ' left owing');
-                        else if (owing < 0) parts.push(this.fmt(-owing) + ' off earlier bills');
+                        if (owing > 0) parts.push(this.fmt(owing) + ' pending');
+                        else if (owing < 0) parts.push(this.fmt(-owing) + ' against earlier bills');
                         else parts.push('paid in full');
 
                         return parts.join(' · ');

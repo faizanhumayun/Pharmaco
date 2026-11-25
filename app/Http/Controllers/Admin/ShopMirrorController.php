@@ -179,7 +179,7 @@ class ShopMirrorController extends Controller
 
             $shopMirror->moveTo(ShopMirror::PAUSING);
 
-            return back()->with('status', "{$name} will lock within a minute or two, once its computer has sent its last entries. Its books open for you here as soon as they arrive.");
+            return back()->with('status', "{$name} will lock within a minute or two, after its computer has sent its last entries. Its records will open for you here as soon as they arrive.");
         }
 
         if ($action === 'resume') {
@@ -187,7 +187,7 @@ class ShopMirrorController extends Controller
             if ($shopMirror->entry === ShopMirror::PAUSING) {
                 $shopMirror->moveTo(ShopMirror::SHOP);
 
-                return back()->with('status', "The pause was called off. {$name} carries on as it was.");
+                return back()->with('status', "The pause was cancelled. {$name} continues as before.");
             }
 
             if ($shopMirror->entry !== ShopMirror::OFFICE) {
@@ -210,7 +210,7 @@ class ShopMirrorController extends Controller
             $shopMirror->moveTo(ShopMirror::RETURNING);
 
             return back()->with('status', sprintf(
-                '%s is being handed back: %d changed and %d removed records. Its computer takes them and opens within a minute or two.',
+                '%s is being returned to the shop: %d changed and %d removed records. Its computer will receive them and open within a minute or two.',
                 $name, $done['changed'], $done['removed']
             ));
         }
@@ -223,7 +223,7 @@ class ShopMirrorController extends Controller
         $shopMirror->forceFill(['last_error' => null])->save();
         $shopMirror->moveTo(ShopMirror::SHOP);
 
-        return back()->with('status', "The fix was given up. {$name} opens with its own books as they were, and what was changed here is replaced by them.");
+        return back()->with('status', "The fix was cancelled. {$name} opens with its own records as they were. The changes made here are discarded.");
     }
 
     /** The number a paused shop is told to call. */
@@ -268,7 +268,7 @@ class ShopMirrorController extends Controller
 
         return redirect()->route('admin.shop-mirrors.index')
             ->with('status', $merged
-                ? "{$name} is no longer registered, and its copy was removed. The shop's own books are untouched."
+                ? "{$name} is no longer registered, and its copy was removed. The shop's own records were not changed."
                 : "{$name} is no longer registered. Its database was not touched.");
     }
 }

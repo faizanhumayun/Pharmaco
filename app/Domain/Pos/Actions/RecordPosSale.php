@@ -60,7 +60,7 @@ class RecordPosSale
         $discount ??= Money::zero();
 
         if ($via !== null && ($via->business_id !== $business->id || ! $via->is_active)) {
-            throw new LedgerException('That payment method is not switched on for this business.');
+            throw new LedgerException('This payment method is not enabled for this business.');
         }
 
         // Nothing taken means there is nothing to say about how it was taken.
@@ -74,7 +74,13 @@ class RecordPosSale
             $total = $total->minus($discount);
 
             if ($total->isNegative()) {
-                throw new LedgerException('The discount is more than the bill.');
+                throw new LedgerException('The discount cannot be more than the bill total.');
+            }
+
+            // A walk-in is a stranger: there is nobody to collect from later,
+            // so a bill with no customer on it is paid in full or not saved.
+            if (($customer === null || trim($customer) === '') && $received->lessThan($total)) {
+                throw new LedgerException('A walk-in bill must be paid in full. Add a customer to keep an amount pending.');
             }
 
             $bill = PosBill::create([
@@ -161,7 +167,7 @@ class RecordPosSale
                     'margin' => $bill->margin()->toDecimal(),
                 ])
                 ->event('pos.sold')
-                ->log('Sale at the counter ' . $bill->reference());
+                ->log('Sale at POS ' . $bill->reference());
 
             return $bill->fresh('lines');
         });

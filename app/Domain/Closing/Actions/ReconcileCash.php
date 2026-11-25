@@ -52,7 +52,7 @@ class ReconcileCash
 
             if (! $variance->isZero() && trim((string) $reason) === '') {
                 throw new LedgerException(
-                    'A cash difference must be explained before it can be recorded.'
+                    'Enter the reason for the cash difference before recording it.'
                 );
             }
 

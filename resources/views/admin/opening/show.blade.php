@@ -47,7 +47,7 @@
 
         <div class="grid gap-6 lg:grid-cols-3">
             <div class="space-y-6 lg:col-span-2">
-                <x-panel title="Position as confirmed">
+                <x-panel title="Confirmed position">
                     @include('admin.opening._position', ['position' => $position, 'fields' => $fields])
                 </x-panel>
 
@@ -86,7 +86,7 @@
 
                 @can('correct', $opening)
                     <x-panel title="Correct the opening balance"
-                             description="The original entry is never edited. A correction is a dated adjustment, and both stay visible.">
+                             description="The original entry is not edited. A correction is posted as a dated adjustment, and both remain visible.">
                         <form method="POST" action="{{ route('admin.businesses.opening.correct', $business) }}"
                               class="space-y-4 p-4 sm:p-6">
                             @csrf
@@ -154,7 +154,7 @@
                             <dd class="font-medium text-gray-900">{{ $opening->status->label() }}</dd>
                         </div>
                         <div class="px-4 py-3 sm:px-6">
-                            <dt class="text-gray-500">What that means</dt>
+                            <dt class="text-gray-500">Description</dt>
                             <dd class="mt-1 text-gray-700">{{ $opening->status->description() }}</dd>
                         </div>
                         <div class="flex justify-between px-4 py-3 sm:px-6">
@@ -179,8 +179,8 @@
                                 {{ $position->balancingFigure()->format(withCurrency: true) }}
                             </p>
                             <p class="text-gray-600">
-                                Posted to 3900 Opening Balance Equity. It stays visible until it is
-                                explained or corrected, rather than being folded into equity and forgotten.
+                                Posted to 3900 Opening Balance Equity. It remains visible until it is
+                                explained or corrected.
                             </p>
                         </div>
                     </x-panel>

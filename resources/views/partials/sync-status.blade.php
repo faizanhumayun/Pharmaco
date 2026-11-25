@@ -85,14 +85,14 @@
                         },
 
                         get detail() {
-                            if (! configured) return 'This computer has not been given a platform to send its books to. See Shop copies in the platform\'s back office.';
+                            if (! configured) return 'This computer is not connected to the platform, so its records are not sent. See Shop copies in the back office.';
                             if (! this.state) return '';
-                            if (this.state.attempt === 'failed') return 'The platform did not accept the last one: ' + (this.state.message || 'no reason given');
-                            if (this.state.synced) return 'Everything entered here is in the online copy.';
+                            if (this.state.attempt === 'failed') return 'The platform rejected the last sync: ' + (this.state.message || 'no reason given');
+                            if (this.state.synced) return 'All entries made here are in the online copy.';
 
                             return this.state.online
-                                ? 'Something entered here has not been sent yet. It goes by itself within five minutes, or press Sync now.'
-                                : 'The platform cannot be reached. What has been entered is safe on this computer and is sent when it can be.'
+                                ? 'Some entries have not been sent yet. They are sent automatically within five minutes, or press Sync now.'
+                                : 'The platform cannot be reached. Your entries are saved on this computer and will be sent when the connection is back.'
                                     + (this.state.message ? ' Reason: ' + this.state.message : '');
                         },
 

@@ -81,7 +81,7 @@
     <div class="mt-5 flex items-start justify-between gap-8">
         <div>
             <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Billed to</p>
-            <p class="mt-0.5 text-base font-semibold">{{ $bill->customer_name ?? 'Cash sale' }}</p>
+            <p class="mt-0.5 text-base font-semibold">{{ $bill->customer_name ?? 'Walk-in customer' }}</p>
             @if ($customer?->area)
                 <p class="text-sm text-gray-600">{{ $customer->area }}</p>
             @endif
@@ -141,8 +141,8 @@
             </tr>
             <tr>
                 <td class="px-2 pb-2 text-xs text-gray-500" colspan="6">
-                    Total amount is before the {{ $percent }}% trade discount; the figure beside the
-                    item count is what is receivable.
+                    Total amount is before the {{ $percent }}% trade discount. The amount next to the
+                    item count is the amount receivable.
                 </td>
             </tr>
         </tfoot>
@@ -150,8 +150,8 @@
 
     <div class="mt-5 flex items-start justify-between gap-8">
         <p class="max-w-xs text-xs leading-relaxed text-gray-500">
-            Rates are quoted before the trade discount shown opposite. Please
-            quote the bill number on payment.
+            Rates are shown before the trade discount. Please
+            mention the bill number when paying.
         </p>
 
         <dl class="w-72 shrink-0 text-sm">

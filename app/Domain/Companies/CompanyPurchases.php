@@ -22,15 +22,18 @@ use Illuminate\Support\Collection;
 class CompanyPurchases
 {
     /**
-     * Keyed by company id.
+     * Keyed by company id. With dates, only the invoices of those days.
      *
      * @return Collection<int, array{invoices: int, billed: Money, paid: Money, outstanding: Money, last: ?string}>
      */
-    public function totals(Business $business): Collection
+    public function totals(Business $business, ?string $from = null, ?string $to = null): Collection
     {
         return PurchaseLine::query()
+            // Between two days when asked: what was bought in a month, a week.
             ->whereHas('dailyEntry', fn ($q) => $q->forBusiness($business)
-                ->where('status', DocumentStatus::Posted))
+                ->where('status', DocumentStatus::Posted)
+                ->when($from !== null, fn ($d) => $d->whereDate('business_date', '>=', $from))
+                ->when($to !== null, fn ($d) => $d->whereDate('business_date', '<=', $to)))
             ->whereNotNull('company_id')
             ->with('dailyEntry:id,business_date')
             ->get()

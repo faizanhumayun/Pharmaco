@@ -321,13 +321,13 @@ Route::middleware(['auth', 'business'])
         Route::get('stock', [StockVerificationController::class, 'index'])->name('stock.index');
         Route::post('stock', [StockVerificationController::class, 'store'])->name('stock.store');
 
+        // The Daily Log: read only. Everything on it is written by the till,
+        // deliveries, collections, payments and expenses (DayWriter).
         Route::prefix('daily')->name('daily.')->controller(DailyEntryController::class)->group(function () {
             Route::get('/', 'index')->name('index');
-            Route::get('new', 'create')->name('create');
-            Route::post('/', 'store')->name('store');
+            Route::get('day/{date?}', 'day')->where('date', '\\d{4}-\\d{2}-\\d{2}')->name('day');
+            // Older links to a day by its entry: sent to the day.
             Route::get('{entry}', 'show')->name('show');
-            Route::post('{entry}/post', 'post')->name('post');
-            Route::post('{entry}/reverse', 'reverse')->name('reverse');
         });
 
         Route::prefix('closing')->name('closing.')->controller(DailyClosingController::class)->group(function () {

@@ -39,14 +39,8 @@ class DailyClosingCalculator
             'payable' => $this->balances->asAt($business, AccountCode::CompanyPayables, $date),
         ];
 
-        $sales = $this->balances->movement($business, AccountCode::Sales, $date, $date)
-            ->minus($this->balances->movement($business, AccountCode::SalesReturns, $date, $date));
-        $cogs = $this->balances->movement($business, AccountCode::CostOfGoodsSold, $date, $date);
-        $expenses = $this->balances->movement($business, AccountCode::OperatingExpenses, $date, $date);
-        $variance = $this->balances->movement($business, AccountCode::StockVariance, $date, $date);
-        $badDebts = $this->balances->movement($business, AccountCode::BadDebts, $date, $date);
-
-        $grossProfit = $sales->minus($cogs);
+        ['sales' => $sales, 'cogs' => $cogs, 'gross_profit' => $grossProfit, 'expenses' => $expenses, 'net_profit' => $netProfit]
+            = $this->profitBetween($business, $date, $date);
 
         return [
             'opening_stock' => $open['stock'],
@@ -67,7 +61,7 @@ class DailyClosingCalculator
             'gross_profit' => $grossProfit,
             'expenses' => $expenses,
             // Two labelled figures, never one number called "profit".
-            'net_profit' => $grossProfit->minus($expenses)->minus($variance)->minus($badDebts),
+            'net_profit' => $netProfit,
 
             'collections' => $this->movementByType($business, $date, [TransactionType::Collection]),
             'company_payments' => $this->movementByType($business, $date, [TransactionType::CompanyPayment]),
@@ -86,6 +80,44 @@ class DailyClosingCalculator
 
             'net_position' => $this->balances->position($business, $date)->netPosition(),
         ];
+    }
+
+    /**
+     * Sales, what they cost, expenses and the profit left, over a run of days
+     * (one day, or the month so far). The one formula for net profit: gross
+     * profit less expenses, stock written off and debts written off.
+     *
+     * @return array{sales: Money, cogs: Money, gross_profit: Money, expenses: Money, written_off: Money, net_profit: Money}
+     */
+    public function profitBetween(Business $business, Carbon $from, Carbon $to): array
+    {
+        $sales = $this->balances->movement($business, AccountCode::Sales, $from, $to)
+            ->minus($this->balances->movement($business, AccountCode::SalesReturns, $from, $to));
+        $cogs = $this->balances->movement($business, AccountCode::CostOfGoodsSold, $from, $to);
+        $expenses = $this->balances->movement($business, AccountCode::OperatingExpenses, $from, $to);
+        $writtenOff = $this->balances->movement($business, AccountCode::StockVariance, $from, $to)
+            ->plus($this->balances->movement($business, AccountCode::BadDebts, $from, $to));
+        $grossProfit = $sales->minus($cogs);
+
+        return [
+            'sales' => $sales,
+            'cogs' => $cogs,
+            'gross_profit' => $grossProfit,
+            'expenses' => $expenses,
+            'written_off' => $writtenOff,
+            'net_profit' => $grossProfit->minus($expenses)->minus($writtenOff),
+        ];
+    }
+
+    /**
+     * Cash the owner already had before the day's own trading: the cash at
+     * the start of the day and any correction to the opening balance made on
+     * it. Everything else that moved cash on the day went through the drawer.
+     */
+    public function carriedCash(Business $business, Carbon $date): Money
+    {
+        return $this->balances->asAt($business, AccountCode::Cash, $date->copy()->subDay())
+            ->plus($this->openingCashCorrection($business, $date));
     }
 
     /**

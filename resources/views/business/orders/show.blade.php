@@ -247,7 +247,7 @@
                                 {{ $bill->dailyEntry->business_date->format('j M Y') }} is posted.
                             </span>
                             <a href="{{ route('businesses.daily.show', [$business, $bill->dailyEntry]) }}"
-                               class="ml-auto font-semibold underline">Open daily entry</a>
+                               class="ml-auto font-semibold underline">Open Daily Log</a>
                         </div>
                     @endif
                 @endif

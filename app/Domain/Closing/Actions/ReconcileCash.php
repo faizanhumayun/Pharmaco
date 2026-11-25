@@ -37,6 +37,7 @@ class ReconcileCash
         Money $counted,
         ?string $reason,
         User $by,
+        bool $drawerOnly = false,
     ): DailyClosing {
         $closing = DailyClosing::forBusiness($business)
             ->where('business_date', $date->toDateString())
@@ -46,8 +47,20 @@ class ReconcileCash
             throw new LedgerException('This day is closed. Reopen it before changing the cash count.');
         }
 
-        return DB::transaction(function () use ($business, $date, $counted, $reason, $by) {
+        return DB::transaction(function () use ($business, $date, $counted, $reason, $by, $drawerOnly) {
             $figures = $this->calculator->compute($business, $date);
+
+            /*
+             * The owner takes each day's takings home, so the drawer holds only
+             * the day's own cash. A count of the drawer is turned into the count
+             * of all the cash by adding what the owner already had from earlier
+             * days; the difference is the same either way.
+             */
+            $drawerCounted = $counted;
+            if ($drawerOnly) {
+                $counted = $counted->plus($this->calculator->carriedCash($business, $date));
+            }
+
             $variance = $counted->minus($figures['closing_cash']);
 
             if (! $variance->isZero() && trim((string) $reason) === '') {
@@ -104,6 +117,7 @@ class ReconcileCash
                 ->withProperties([
                     'date' => $date->toDateString(),
                     'counted' => $counted->toDecimal(),
+                    'drawer_counted' => $drawerOnly ? $drawerCounted->toDecimal() : null,
                     'expected' => $counted->minus($variance)->toDecimal(),
                     'difference' => $variance->toDecimal(),
                     'reason' => $reason,

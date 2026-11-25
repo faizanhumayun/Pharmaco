@@ -28,8 +28,8 @@
 
     $groups = array_filter([
         'The day' => array_filter([
-            $tab('Daily entry', 'businesses.daily.index',   'businesses.daily.*',     $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
-            $tab('Day closing', 'businesses.closing.index', 'businesses.closing.*',   $user->can('viewAny', [\App\Models\DailyClosing::class, $business])),
+            // Closing a day is part of its Daily Log: Business standing and Close day.
+            $tab('Daily Log', 'businesses.daily.index',   'businesses.daily.*',     $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
             $tab('Expenses',    'businesses.expenses.index','businesses.expenses.*',  $user->can('configure', $business)),
             $tab('Bill Collection', 'businesses.collections.index','businesses.collections.*', $user->can('viewAny', [\App\Models\DailyEntry::class, $business])),
         ]),

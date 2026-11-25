@@ -79,3 +79,16 @@ function postEntry(
         reason: $reason,
     ));
 }
+
+/**
+ * The drawer count that means a given total of cash on a day. The close counts
+ * only the day's drawer (the owner takes the takings home); a test thinks in
+ * the business's whole cash, so it is turned into the drawer here.
+ */
+function drawerCount(App\Models\Business $business, string $date, string $totalCash): string
+{
+    $carried = app(App\Domain\Closing\DailyClosingCalculator::class)
+        ->carriedCash($business, Illuminate\Support\Carbon::parse($date));
+
+    return App\Support\Money::of($totalCash)->minus($carried)->toDecimal();
+}

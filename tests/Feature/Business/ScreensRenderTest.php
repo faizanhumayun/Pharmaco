@@ -19,9 +19,8 @@ it('renders every business screen', function () {
         route('businesses.show', $business),
         route('businesses.attention', $business),
         route('businesses.daily.index', $business),
-        route('businesses.daily.show', [$business, $entry]),
-        route('businesses.closing.index', $business),
-        route('businesses.closing.show', $business),
+        route('businesses.daily.day', [$business, $entry->business_date->toDateString()]),
+        route('businesses.daily.day', [$business, $entry->business_date->toDateString(), 'section' => 'standing']),
         route('businesses.stock.index', $business),
         route('businesses.companies.index', $business),
         route('businesses.companies.show', [$business, $company]),
@@ -31,20 +30,12 @@ it('renders every business screen', function () {
     }
 });
 
-it('renders the daily entry form on a day with no entry yet', function () {
-    // The worked-day business already has today posted, and asking to enter it
-    // again correctly redirects to the posted day instead.
+it('renders the Daily Log on a day with nothing recorded yet', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->get(route('businesses.daily.create', $business))->assertOk();
-});
-
-it('sends you to the posted day rather than a second entry form', function () {
-    [$business, $owner] = businessWithPostedDay();
-
-    $this->actingAs($owner)
-        ->get(route('businesses.daily.create', $business))
-        ->assertRedirect();
+    $this->actingAs($owner)->get(route('businesses.daily.day', $business))
+        ->assertOk()
+        ->assertSee('Nothing was recorded on this day.');
 });
 
 it('keeps every business screen out of reach of an outsider', function () {

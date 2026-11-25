@@ -38,22 +38,6 @@ class DailyEntryPolicy
             && ! $entry->business->isDayClosed($entry->business_date);
     }
 
-    /** Only a draft is posted; a posted day is amended instead. */
-    public function post(User $user, DailyEntry $entry): bool
-    {
-        return $entry->isEditable()
-            && $this->create($user, $entry->business)
-            && $this->allows($user, $entry->business, Permission::DailyEntryPost);
-    }
-
-    /** Reversing a posted day is a correction to the record, not data entry. */
-    public function reverse(User $user, DailyEntry $entry): bool
-    {
-        return ! $entry->isEditable()
-            && ! $entry->business->isDayClosed($entry->business_date)
-            && $this->allows($user, $entry->business, Permission::TransactionReverse);
-    }
-
     public function delete(User $user, DailyEntry $entry): bool
     {
         return false;

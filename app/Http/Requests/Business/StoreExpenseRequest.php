@@ -22,7 +22,10 @@ class StoreExpenseRequest extends FormRequest
 
         $earliest = collect([
             $business->locked_through_date?->copy()->addDay(),
-            $business->opening_date?->copy()->addDay(),
+            // The opening date itself is a working day: the opening
+            // position is taken when the business starts on the system,
+            // and the till, deliveries and closing all count that day.
+            $business->opening_date?->copy(),
         ])->filter()->max();
 
         return [
@@ -46,7 +49,7 @@ class StoreExpenseRequest extends FormRequest
     {
         return [
             'business_date.before_or_equal' => 'The date cannot be in the future.',
-            'business_date.after_or_equal' => 'This day is closed, or is on or before the opening date. Reopen it first.',
+            'business_date.after_or_equal' => 'This day is closed, or is before the opening date. Reopen it first.',
             'category.required' => 'Choose the expense head.',
             'amount.not_in' => 'Enter the amount spent.',
             'amount.regex' => 'Enter a plain amount, for example 1500 or 1,500.00',

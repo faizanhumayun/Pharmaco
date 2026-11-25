@@ -3,6 +3,8 @@
 use App\Domain\Ledger\BalanceService;
 use App\Enums\AccountCode;
 use App\Enums\BusinessRole;
+use App\Domain\Daily\Actions\PostDailyEntry;
+use App\Domain\Daily\Actions\SaveDailyEntry;
 use App\Enums\DocumentStatus;
 use App\Exceptions\ImmutableRecordException;
 use App\Models\DailyEntry;
@@ -47,15 +49,32 @@ function workedDayInput(array $overrides = []): array
     ], $overrides);
 }
 
+/**
+ * A day saved straight through the engine, the way DayWriter saves one: the
+ * hand-entered form is gone, the rules that put a day in the books are not.
+ */
+function saveDay($business, $by, array $overrides = []): DailyEntry
+{
+    $data = array_replace(
+        array_fill_keys(DailyEntry::MONEY_FIELDS, '0'),
+        ['purchases' => [], 'sales' => [], 'collections' => [], 'returns' => [], 'expenses' => []],
+        workedDayInput($overrides),
+    );
+
+    return app(SaveDailyEntry::class)->handle($business, $data, $by);
+}
+
+/** The same, posted to the ledger. */
+function postDay($business, $by, array $overrides = []): DailyEntry
+{
+    return app(PostDailyEntry::class)->handle(saveDay($business, $by, $overrides), $by);
+}
+
 it('saves a day as a draft with no ledger effect', function () {
     [$business, $owner] = tradingBusiness();
     $before = Transaction::forBusiness($business)->count();
 
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput())
-        ->assertRedirect();
-
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
+    $entry = saveDay($business, $owner);
 
     expect($entry->status)->toBe(DocumentStatus::Draft)
         ->and(Transaction::forBusiness($business)->count())->toBe($before);
@@ -64,8 +83,7 @@ it('saves a day as a draft with no ledger effect', function () {
 it('computes totals rather than accepting them', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
+    $entry = saveDay($business, $owner);
 
     expect($entry->totalPurchases()->toDecimal())->toBe('150000.00')
         ->and($entry->costAddedToStock()->toDecimal())->toBe('129000.00')
@@ -78,12 +96,7 @@ it('computes totals rather than accepting them', function () {
 it('posts the worked day to exactly the figures the design predicted', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.post', [$business, $entry]))
-        ->assertRedirect();
+    postDay($business, $owner);
 
     $balances = app(BalanceService::class);
 
@@ -98,9 +111,7 @@ it('posts the worked day to exactly the figures the design predicted', function 
 it('produces one transaction per kind of activity from a single document', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    $entry = postDay($business, $owner);
 
     // Purchase, two sales, COGS, collection, payment, expense.
     expect($entry->fresh()->transactions)->toHaveCount(7);
@@ -109,12 +120,10 @@ it('produces one transaction per kind of activity from a single document', funct
 it('keeps the trade discount out of stock', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput([
+    postDay($business, $owner, [
         'sale_cash' => '0', 'sale_credit' => '0', 'gross_profit' => '0',
         'collection_cash' => '0', 'company_payment_cash' => '0', 'expenses_cash' => '0',
-    ]));
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    ]);
 
     $balances = app(BalanceService::class);
 
@@ -123,76 +132,19 @@ it('keeps the trade discount out of stock', function () {
         ->and($balances->asAt($business, AccountCode::CompanyPayables)->toDecimal())->toBe('3329000.00');
 });
 
-it('refuses a second entry for the same day at the database level', function () {
-    [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
-
-    // A posted day cannot be overwritten — the unique constraint plus the
-    // immutability guard, not UI discipline, are what stop a day doubling.
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput(['sale_cash' => '999999']))
-        ->assertSessionHasErrors('business_date');
-
-    expect(DailyEntry::forBusiness($business)->count())->toBe(1)
-        ->and(app(BalanceService::class)->asAt($business, AccountCode::Cash)->toDecimal())->toBe('15093.00');
-});
-
 it('refuses to edit a posted day', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    $entry = postDay($business, $owner);
 
     expect(fn () => $entry->fresh()->update(['sale_cash' => '1.00']))
         ->toThrow(ImmutableRecordException::class);
 });
 
-it('blocks gross profit that exceeds net sales', function () {
-    [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput(['gross_profit' => '400000']))
-        ->assertSessionHasErrors('gross_profit');
-});
-
-it('blocks a trade discount larger than the purchase it applies to', function () {
-    [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput(['purchase_discount' => '200000']))
-        ->assertSessionHasErrors('purchase_discount');
-});
-
-it('blocks returns larger than the day\'s sales', function () {
-    [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput(['sales_return' => '400000']))
-        ->assertSessionHasErrors('sales_return');
-});
-
-it('blocks a future business date', function () {
-    [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput([
-            'business_date' => now()->addWeek()->toDateString(),
-        ]))
-        ->assertSessionHasErrors('business_date');
-});
-
 it('records owner drawings against equity rather than profit', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput([
-        'owner_drawing' => '10000',
-    ]));
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    $entry = postDay($business, $owner, ['owner_drawing' => '10000']);
 
     $balances = app(BalanceService::class);
 
@@ -206,12 +158,7 @@ it('records owner drawings against equity rather than profit', function () {
 it('clears a receivable through discount and write-off without cash', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput([
-        'discount_allowed' => '2000',
-        'bad_debt' => '3000',
-    ]));
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    postDay($business, $owner, ['discount_allowed' => '2000', 'bad_debt' => '3000']);
 
     $balances = app(BalanceService::class);
 
@@ -220,57 +167,26 @@ it('clears a receivable through discount and write-off without cash', function (
         ->and($balances->trialBalance($business)['balanced'])->toBeTrue();
 });
 
-it('reverses a posted day and leaves both records visible', function () {
+it('shows a day read only, with each section on its own', function () {
     [$business, $owner] = tradingBusiness();
-    $balances = app(BalanceService::class);
+    postDay($business, $owner);
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    foreach (['', '?section=sales', '?section=purchases', '?section=collections', '?section=payments', '?section=expenses', '?section=history'] as $section) {
+        $this->actingAs($owner)
+            ->get(route('businesses.daily.day', [$business, '2026-09-01']).$section)
+            ->assertOk()
+            ->assertDontSee('Post day')
+            ->assertDontSee('Reverse day');
+    }
 
-    $this->actingAs($owner)->post(route('businesses.daily.reverse', [$business, $entry]), [
-        'reason' => 'Sales figure taken from the wrong POS report.',
-    ])->assertRedirect();
-
-    // Back to the opening position exactly.
-    expect($balances->asAt($business, AccountCode::Cash)->toDecimal())->toBe('93.00')
-        ->and($balances->asAt($business, AccountCode::Stock)->toDecimal())->toBe('1000000.00')
-        ->and($balances->trialBalance($business)['balanced'])->toBeTrue()
-        ->and($entry->fresh()->transactions()->count())->toBe(14);
+    $this->actingAs($owner)->get(route('businesses.daily.index', $business))->assertOk();
 });
 
-it('demands a reason to reverse a day', function () {
+it('sends an old link to a day to the day', function () {
     [$business, $owner] = tradingBusiness();
-
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    $entry = postDay($business, $owner);
 
     $this->actingAs($owner)
-        ->post(route('businesses.daily.reverse', [$business, $entry]), ['reason' => ''])
-        ->assertSessionHasErrors('reason');
-});
-
-it('refuses to record activity before the opening balance is finalized', function () {
-    $business = setupBusiness();
-    $owner = App\Models\User::factory()->create();
-    $business->members()->attach($owner->id, ['role' => BusinessRole::Owner->value, 'is_active' => true]);
-
-    $this->actingAs($owner)
-        ->post(route('businesses.daily.store', $business), workedDayInput())
-        ->assertForbidden();
-});
-
-it('stops an operator reversing a day', function () {
-    [$business] = tradingBusiness();
-    $operator = App\Models\User::factory()->create();
-    $business->members()->attach($operator->id, ['role' => BusinessRole::Operator->value, 'is_active' => true]);
-
-    $this->actingAs($operator)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($operator)->post(route('businesses.daily.post', [$business, $entry]));
-
-    $this->actingAs($operator)
-        ->post(route('businesses.daily.reverse', [$business, $entry]), ['reason' => 'Changed my mind about it.'])
-        ->assertForbidden();
+        ->get(route('businesses.daily.show', [$business, $entry]))
+        ->assertRedirect(route('businesses.daily.day', [$business, '2026-09-01']));
 });

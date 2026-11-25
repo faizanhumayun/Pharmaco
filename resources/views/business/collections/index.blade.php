@@ -83,16 +83,14 @@
         {{-- Cost and profit are for those who may see the reports. --}}
         @php($seesProfit = $show === 'all' && auth()->user()->can('viewReports', $business))
         {{-- All bills: how many is already said under the search, so the
-             cards are the money — total, cost, profit, still to come in. --}}
-        <div @class(['mb-4 grid gap-3', 'sm:grid-cols-4' => $seesProfit, 'sm:grid-cols-2' => $show === 'all' && ! $seesProfit, 'sm:grid-cols-3' => $show !== 'all'])>
-            @if ($show !== 'all')
-                <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
-                    <p class="text-xs uppercase tracking-wide text-gray-400">Pending bills</p>
-                    <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($billCount) }}</p>
-                    <p class="mt-0.5 text-xs text-gray-500">from {{ $rounds->count() }} {{ Str::plural('customer', $rounds->count()) }}</p>
-                </div>
-            @endif
-
+             cards are the money — total, what it cost, cash in, still to come
+             in, and the profit. --}}
+        @php($pendingCard = $pendingNow->isPositive()
+            ? ['border-amber-200 bg-amber-50', 'text-amber-700', 'text-amber-900', 'To be collected on the listed bills']
+            : ['border-emerald-200 bg-emerald-50', 'text-emerald-700', 'text-emerald-800', 'All paid. No pending amount.'])
+        <div @class(['mb-4 grid gap-3',
+                     'sm:grid-cols-2 lg:grid-cols-5' => $show === 'all' && $seesProfit,
+                     'sm:grid-cols-3' => $show !== 'all' || ! $seesProfit])>
             @if ($show === 'all')
                 <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                     <p class="text-xs uppercase tracking-wide text-gray-400">Total of these bills</p>
@@ -105,14 +103,18 @@
                         <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $rs($allCost) }}</p>
                         <p class="mt-0.5 text-xs text-gray-500">What the goods sold cost, after returns</p>
                     </div>
-                    @php($profitLoss = $allProfit->isNegative())
-                    <div class="rounded-md border px-4 py-3 shadow-sm {{ $profitLoss ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50' }}">
-                        <p class="text-xs uppercase tracking-wide {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">Gross profit</p>
-                        <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $profitLoss ? 'text-red-800' : 'text-emerald-800' }}">{{ $rs($allProfit) }}</p>
-                        <p class="mt-0.5 text-xs {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">On these bills, after returns</p>
-                    </div>
                 @endif
+                <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-gray-400">Cash received</p>
+                    <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $rs($allPaidAtSale->plus($allCollected)) }}</p>
+                    <p class="mt-0.5 text-xs text-gray-500">{{ $rs($allPaidAtSale) }} at the sale · {{ $rs($allCollected) }} collected later</p>
+                </div>
             @else
+                <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                    <p class="text-xs uppercase tracking-wide text-gray-400">Pending bills</p>
+                    <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($billCount) }}</p>
+                    <p class="mt-0.5 text-xs text-gray-500">from {{ $rounds->count() }} {{ Str::plural('customer', $rounds->count()) }}</p>
+                </div>
                 <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                     <p class="text-xs uppercase tracking-wide text-gray-400">Total pending in market</p>
                     <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $rs($marketTotal) }}</p>
@@ -124,13 +126,21 @@
                 </div>
             @endif
 
-            <div class="rounded-md border px-4 py-3 shadow-sm {{ $pendingNow->isPositive() ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50' }}">
-                <p class="text-xs uppercase tracking-wide {{ $pendingNow->isPositive() ? 'text-amber-700' : 'text-emerald-700' }}">Still pending</p>
-                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $pendingNow->isPositive() ? 'text-amber-900' : 'text-emerald-800' }}">{{ $rs($pendingNow) }}</p>
-                <p class="mt-0.5 text-xs {{ $pendingNow->isPositive() ? 'text-amber-700' : 'text-emerald-700' }}">
-                    {{ $pendingNow->isPositive() ? 'To be collected on the listed bills' : 'All paid. No pending amount.' }}
-                </p>
+            <div class="rounded-md border px-4 py-3 shadow-sm {{ $pendingCard[0] }}">
+                <p class="text-xs uppercase tracking-wide {{ $pendingCard[1] }}">Still pending</p>
+                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $pendingCard[2] }}">{{ $rs($pendingNow) }}</p>
+                <p class="mt-0.5 text-xs {{ $pendingCard[1] }}">{{ $pendingCard[3] }}</p>
             </div>
+
+            @if ($show === 'all' && $seesProfit)
+                @php($profitLoss = $allProfit->isNegative())
+                <div class="rounded-md border px-4 py-3 shadow-sm {{ $profitLoss ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50' }}">
+                    <p class="text-xs uppercase tracking-wide {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">Gross profit</p>
+                    <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $profitLoss ? 'text-red-800' : 'text-emerald-800' }}">{{ $rs($allProfit) }}</p>
+                    <p class="mt-0.5 text-xs {{ $profitLoss ? 'text-red-700' : 'text-emerald-700' }}">On these bills, after returns</p>
+                </div>
+            @endif
+        </div>
         </div>
 
         @if ($dayClosed)

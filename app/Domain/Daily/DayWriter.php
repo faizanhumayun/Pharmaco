@@ -13,15 +13,16 @@ use Closure;
 use Illuminate\Support\Carbon;
 
 /**
- * Adds something to a day from outside the daily form.
+ * Adds something to a day: the one way anything reaches the Daily Log.
  *
  * The day's entry is the financial document, so an expense added on the
- * Expenses page and a bill rung up on the till both end up there, saved the
- * way the form would save it: the day as it stands, plus the new thing.
+ * Expenses page and a bill rung up on the till both end up there: the day as
+ * it stands, plus the new thing.
  *
  * A posted day is amended — its old postings reversed and replaced, the change
- * on the record. A draft stays a draft. A day with nothing on it yet gets an
- * entry, posted, so what happened is in the books at once. A closed day is
+ * on the record. A draft (left from the old hand-entered form) is posted. A
+ * day with nothing on it yet gets an entry, posted, so what happened is in
+ * the books at once. A closed day is
  * refused; it has to be reopened first.
  */
 class DayWriter
@@ -50,8 +51,10 @@ class DayWriter
             return $this->post->handle($this->save->handle($business, $data, $by), $by);
         }
 
+        // A draft left from the old hand-entered form is saved and posted at
+        // once: nothing posts it by hand any more, and a draft is in no figure.
         return $entry->isEditable()
-            ? $this->save->handle($business, $data, $by)
+            ? $this->post->handle($this->save->handle($business, $data, $by), $by)
             : $this->amend->handle($entry, $data, $by);
     }
 

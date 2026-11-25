@@ -133,6 +133,9 @@ class CollectionController extends Controller
             // to, and what is still to come in on them.
             'allTotal' => Money::sum($all->pluck('total')),
             'allPending' => Money::sum($all->map(fn (PosBill $bill) => $outstanding->onBill($bill))),
+            // Money in on these bills: paid at the sale, and collected later.
+            'allPaidAtSale' => Money::sum($all->pluck('received')),
+            'allCollected' => Money::sum($all->pluck('collected')),
             // What the listed bills earned: sale kept less what the goods cost.
             'allProfit' => Money::sum($all->map(fn (PosBill $bill) => $bill->grossProfit()['profit'])),
             'allCost' => Money::sum($all->map(fn (PosBill $bill) => $bill->grossProfit()['cost'])),

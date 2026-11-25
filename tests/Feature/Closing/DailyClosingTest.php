@@ -14,9 +14,7 @@ function businessWithPostedDay(): array
 {
     [$business, $owner] = tradingBusiness();
 
-    test()->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    test()->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    postDay($business, $owner);
 
     return [$business->fresh(), $owner];
 }
@@ -49,10 +47,10 @@ it('blocks closing until the cash has been counted', function () {
 it('blocks closing while a day still has a draft entry', function () {
     [$business, $owner] = tradingBusiness();
 
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput());
+    saveDay($business, $owner);
 
     $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, '2026-09-01']), [
-        'counted_cash' => '93',
+        'counted_cash' => drawerCount($business, '2026-09-01', '93'),
     ]);
 
     $this->actingAs($owner)
@@ -65,7 +63,7 @@ it('closes a day once the checks pass', function () {
     $date = $business->today()->toDateString();
 
     $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), [
-        'counted_cash' => '15093',
+        'counted_cash' => drawerCount($business, $date, '15093'),
     ])->assertRedirect();
 
     $this->actingAs($owner)
@@ -83,7 +81,7 @@ it('stops anything posting into a closed day afterwards', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
 
     expect(fn () => postEntry($business->fresh(), $owner, [
@@ -98,7 +96,7 @@ it('posts a cash shortage as a real transaction rather than a note', function ()
     $balances = app(BalanceService::class);
 
     $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), [
-        'counted_cash' => '13093',
+        'counted_cash' => drawerCount($business, $date, '13093'),
         'variance_reason' => 'Owner took 2,000 for fuel and did not record it.',
     ])->assertRedirect();
 
@@ -115,7 +113,7 @@ it('refuses an unexplained cash difference', function () {
 
     $this->actingAs($owner)
         ->post(route('businesses.closing.reconcile', [$business, $business->today()->toDateString()]), [
-            'counted_cash' => '13093',
+            'counted_cash' => drawerCount($business, $business->today()->toDateString(), '13093'),
         ])
         ->assertSessionHasErrors('variance_reason');
 });
@@ -125,7 +123,7 @@ it('closes days in sequence and refuses to skip one', function () {
 
     // 2026-09-01 has not been closed, so 2026-09-02 cannot be.
     $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, '2026-09-02']), [
-        'counted_cash' => '15093',
+        'counted_cash' => drawerCount($business, '2026-09-02', '15093'),
     ]);
 
     $this->actingAs($owner)
@@ -137,7 +135,7 @@ it('reopens the most recent closed day with a reason', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
 
     $this->actingAs($owner)->post(route('businesses.closing.reopen', [$business, $date]), [
@@ -153,7 +151,7 @@ it('demands a reason to reopen', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
 
     $this->actingAs($owner)
@@ -176,7 +174,7 @@ it('rebuilds every stored closing to exactly the same figures', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
 
     // The check that keeps daily_closings a cache rather than a second source
@@ -189,7 +187,7 @@ it('notices when a stored closing drifts from the ledger', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
 
     DailyClosing::forBusiness($business)->firstOrFail()->forceFill(['net_profit' => '999999.00'])->save();

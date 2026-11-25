@@ -290,7 +290,11 @@ class DayChecklist
         ];
     }
 
-    /** The day itself: entered, and posted. */
+    /**
+     * The day itself. It fills in by itself from the till, deliveries,
+     * collections, payments and expenses, so there is nothing to enter: this
+     * only says whether anything has happened yet, and opens the Daily Log.
+     */
     private function entry(Business $business, User $user, ?DailyEntry $entry, bool $posted): ?array
     {
         if (! $user->can('viewAny', [DailyEntry::class, $business])) {
@@ -299,17 +303,16 @@ class DayChecklist
 
         return [
             'key' => 'entry',
-            'title' => 'Enter and post the day',
+            'title' => 'Check the Daily Log',
             'state' => $posted ? self::DONE : self::TODO,
             'detail' => match (true) {
-                $posted => 'Posted. The day is in the ledger.',
-                $entry !== null => 'Saved as a draft. A draft is not in the ledger yet. '
-                    . 'Post it to include it.',
-                default => 'Not entered yet. Bills created at the POS are waiting for the day entry.',
+                $posted => 'Today\'s sales, purchases, payments and expenses are in the books.',
+                $entry !== null => 'An earlier draft is waiting. It goes into the books with the next sale, delivery or expense.',
+                default => 'Nothing recorded yet today.',
             },
-            'why' => 'Posting adds the day to the ledger. Until the day is posted, no report includes it.',
-            'route' => $entry !== null ? 'businesses.daily.index' : 'businesses.daily.create',
-            'action' => $posted ? 'View the day' : ($entry !== null ? 'Post it' : 'Enter the day'),
+            'why' => 'The Daily Log is every bill, delivery, collection, payment and expense of the day in one place.',
+            'route' => 'businesses.daily.day',
+            'action' => 'Open the Daily Log',
         ];
     }
 
@@ -363,7 +366,7 @@ class DayChecklist
             'state' => self::TODO,
             'detail' => 'Posted but not closed. They are in the ledger, but no one has confirmed the cash.',
             'why' => 'Past figures are reliable only after someone has confirmed they are correct.',
-            'route' => 'businesses.closing.index',
+            'route' => 'businesses.daily.index',
             'action' => 'Close these days',
         ];
     }

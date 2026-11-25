@@ -26,24 +26,11 @@ it('records the figures posted for a day', function () {
         ->and($activity->business_id)->toBe($business->id);
 });
 
-it('carries the stated reason onto the audit record', function () {
-    [$business, $owner] = businessWithPostedDay();
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-
-    $this->actingAs($owner)->post(route('businesses.daily.reverse', [$business, $entry]), [
-        'reason' => 'Sales figure taken from the wrong POS report.',
-    ]);
-
-    $activity = Activity::where('event', 'daily_entry.reversed')->firstOrFail();
-
-    expect($activity->reason)->toBe('Sales figure taken from the wrong POS report.');
-});
-
 it('records the closing and the reopen with its reason', function () {
     [$business, $owner] = businessWithPostedDay();
     $date = $business->today()->toDateString();
 
-    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => '15093']);
+    $this->actingAs($owner)->post(route('businesses.closing.reconcile', [$business, $date]), ['counted_cash' => drawerCount($business, $date, '15093')]);
     $this->actingAs($owner)->post(route('businesses.closing.finalize', [$business, $date]));
     $this->actingAs($owner)->post(route('businesses.closing.reopen', [$business, $date]), [
         'reason' => 'Company invoice arrived late.',

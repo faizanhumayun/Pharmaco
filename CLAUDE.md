@@ -231,6 +231,13 @@ app(LedgerPoster::class)->post(new PostingSpec(
 ));
 ```
 
+A day's `DailyEntry` is written only through `DayWriter` (till, deliveries,
+collections, company payments, expenses). The Daily Log screen
+(`daily/day/{date}`) is read only — there is no hand-entered day form any more.
+Closing a day lives there too: the Business standing section and the Close day
+window (count, then close). `daily` is the one list of days, closed or not;
+`closing` and `closing/day/{date}` only redirect to it.
+
 Accounts are named by `AccountCode`, never by id or name: ids differ per business
 and names are editable. The poster refuses anything that does not balance, posts
 into a closed period, names a non-postable account, or omits a reason on an

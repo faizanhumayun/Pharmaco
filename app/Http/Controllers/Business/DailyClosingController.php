@@ -2,21 +2,16 @@
 
 namespace App\Http\Controllers\Business;
 
-use App\Domain\Reporting\ChangeHistory;
 use App\Domain\Closing\Actions\FinalizeDailyClosing;
 use App\Domain\Closing\Actions\ReconcileCash;
 use App\Domain\Closing\Actions\ReopenDailyClosing;
 use App\Domain\Closing\ClosingGuard;
 use App\Domain\Closing\DailyClosingCalculator;
-use App\Enums\OrderStatus;
 use App\Exceptions\LedgerException;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\DailyClosing;
-use App\Models\Order;
-use App\Models\StockMovement;
 use App\Support\Money;
-use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -29,30 +24,20 @@ class DailyClosingController extends Controller
         private readonly ClosingGuard $guard,
     ) {}
 
-    public function index(Request $request, Business $business): View
+    /** The closings are listed in the Daily Log now, beside each day's trading. */
+    public function index(Request $request, Business $business): RedirectResponse
     {
         $this->authorize('viewAny', [DailyClosing::class, $business]);
 
-        // Either end may be left open: "from the 1st", "up to the 15th".
-        $from = $request->date('from');
-        $to = $request->date('to');
-
-        return view('business.closing.index', [
-            'business' => $business,
-            'from' => $from,
-            'to' => $to,
-            'total' => DailyClosing::forBusiness($business)->count(),
-            'closings' => DailyClosing::forBusiness($business)
-                ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
-                ->when($to, fn ($q) => $q->where('business_date', '<=', $to->toDateString()))
-                ->with('finalizer')
-                ->orderByDesc('business_date')
-                ->paginate(30)
-                ->withQueryString(),
-        ]);
+        return redirect()->route('businesses.daily.index', [$business, ...$request->only('from', 'to')]);
     }
 
-    public function show(Request $request, Business $business, ChangeHistory $history, ?string $date = null): View
+    /**
+     * A day's closing is part of its Daily Log now: Business standing shows
+     * where the business stands, and Close day there counts and closes.
+     * Older links land on that section. With no day named, the one due.
+     */
+    public function show(Business $business, ?string $date = null): RedirectResponse
     {
         $this->authorize('viewAny', [DailyClosing::class, $business]);
 
@@ -60,37 +45,7 @@ class DailyClosingController extends Controller
             ? Carbon::parse($date)
             : ($business->locked_through_date?->copy()->addDay() ?? $business->opening_date?->copy()->addDay() ?? $business->today());
 
-        $closing = DailyClosing::forBusiness($business)
-            ->where('business_date', $date->toDateString())
-            ->first();
-
-        // What physically arrived that day. Not a figure the closing stores —
-        // it is derived, and it is here so the day can be read whole.
-        $deliveries = Order::forBusiness($business)
-            ->where('status', OrderStatus::Received)
-            ->whereDate('received_at', $date->toDateString())
-            ->with(['company', 'receiptLines', 'purchaseLine.dailyEntry'])
-            ->orderBy('received_at')
-            ->get();
-
-        $packsIn = (int) StockMovement::forBusiness($business)
-            ->where('business_date', $date->toDateString())
-            ->sum('packs');
-
-        return view('business.closing.show', [
-            'business' => $business,
-            'date' => $date,
-            'closing' => $closing,
-            'figures' => $this->calculator->compute($business, $date),
-            'openingCashCorrection' => $this->calculator->openingCashCorrection($business, $date),
-            'checks' => $this->guard->checks($business, $date, $closing),
-            'canClose' => $this->guard->canClose($business, $date, $closing),
-            'deliveries' => $deliveries,
-            'deliveriesValue' => Money::sum($deliveries->map(fn (Order $o) => $o->receivedTotal())),
-            'packsIn' => $packsIn,
-            // Who counted, closed, reopened and corrected this day, and why.
-            'history' => $history->forClosingDay($business, $date),
-        ]);
+        return redirect()->route('businesses.daily.day', [$business, $date->toDateString(), 'section' => 'standing']);
     }
 
     public function reconcile(Request $request, Business $business, string $date, ReconcileCash $action): RedirectResponse
@@ -111,12 +66,15 @@ class DailyClosingController extends Controller
                 Money::of(str_replace(',', '', $validated['counted_cash'])),
                 $validated['variance_reason'] ?? null,
                 $request->user(),
+                // The form counts today's drawer only, not all the owner's cash.
+                drawerOnly: true,
             );
         } catch (LedgerException $e) {
             throw ValidationException::withMessages(['variance_reason' => $e->getMessage()]);
         }
 
-        return back()->with('status', 'Cash reconciled.');
+        // Back to the day, with the Close day window open again.
+        return back()->with('status', 'Cash count saved.')->with('closeDay', true);
     }
 
     public function finalize(Request $request, Business $business, string $date, FinalizeDailyClosing $action): RedirectResponse
@@ -130,7 +88,7 @@ class DailyClosingController extends Controller
         }
 
         return redirect()
-            ->route('businesses.closing.index', $business)
+            ->route('businesses.daily.day', [$business, $date, 'section' => 'standing'])
             ->with('status', "Day closed. No entry can now be posted on or before {$date}.");
     }
 

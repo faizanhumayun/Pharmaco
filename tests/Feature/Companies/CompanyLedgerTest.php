@@ -49,16 +49,13 @@ it('routes later summary entries to Unallocated, because a day total names no co
 
     $this->actingAs($owner)->post(route('businesses.companies.store', $business), ['name' => 'Getz Pharma']);
 
-    // A second trading day, entered at summary level as usual.
-    $this->actingAs($owner)->post(route('businesses.daily.store', $business), workedDayInput([
-        'business_date' => '2026-09-01',
+    // A second trading day, entered at summary level.
+    postDay($business, $owner, [
+        'business_date' => '2026-09-02',
         'purchase_total' => '0', 'purchase_paid' => '0', 'purchase_discount' => '0',
         'sale_cash' => '0', 'sale_credit' => '0', 'gross_profit' => '0',
         'collection_cash' => '0', 'company_payment_cash' => '10000', 'expenses_cash' => '0',
-    ]));
-
-    $entry = DailyEntry::forBusiness($business)->firstOrFail();
-    $this->actingAs($owner)->post(route('businesses.daily.post', [$business, $entry]));
+    ]);
 
     $balances = app(BalanceService::class);
 

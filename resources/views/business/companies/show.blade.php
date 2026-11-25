@@ -257,7 +257,7 @@
                     </div>
 
                     <p class="mt-4 text-xs text-gray-500">
-                        The payment is recorded as cash paid today, {{ $business->today()->format('j M Y') }}, on the daily entry.
+                        The payment is recorded as cash paid today, {{ $business->today()->format('j M Y') }}, in the Daily Log.
                         The company's bills are not changed.
                     </p>
 

@@ -296,16 +296,13 @@
                 {{-- The whole list, not only what was searched for. --}}
                 <div class="till-rows min-h-0 flex-1 overflow-y-auto" x-ref="list">
                     <template x-for="(p, i) in shown" :key="p.id">
-                        {{-- Short-dated goods are coloured so they can be taken off
-                             the shelf rather than sold by accident: amber while the
-                             clock is running, red once it has run out. --}}
+                        {{-- Each kind of row has its colour — short-dated amber, expired
+                             red, out of stock grey — so it is not sold by accident; the
+                             row the keys are on is the same colour, deeper, with a bar
+                             down its left edge (rowTone()). --}}
                         <div x-on:mouseenter="highlight = i"
-                             :class="{
-                                 'bg-emerald-50': highlight === i && ! p.expiry_state,
-                                 'bg-amber-50 ring-1 ring-inset ring-amber-200': p.expiry_state === 'expiring',
-                                 'bg-red-50 ring-1 ring-inset ring-red-200': p.expiry_state === 'expired',
-                             }"
-                             class="grid w-full grid-cols-[minmax(0,1fr)_auto_7.5rem_6.5rem_2.75rem] items-center gap-3 border-b border-slate-200 px-4 py-2.5 last:border-0">
+                             :class="rowTone(p, i)"
+                             class="grid w-full grid-cols-[minmax(0,1fr)_auto_7.5rem_6.5rem_2.75rem] items-center gap-3 border-b border-l-4 border-b-slate-200 px-4 py-2.5 last:border-b-0">
                             {{-- The row asks how many; the + puts one on the bill and
                                  moves on, which is most of a counter's work. --}}
                             <button type="button" x-on:click="ask(p)" class="min-w-0 text-left">
@@ -1132,8 +1129,22 @@
                     customerQuery: '',
                     owes: 0,
                     query: '',
-                    inStockOnly: false,
+                    // What can be sold, unless the counter asks for the whole list.
+                    inStockOnly: true,
                     highlight: 0,
+                    /* A row's colours: what it is, and deeper when the keys are on it. */
+                    rowTone(p, i) {
+                        const on = this.highlight === i;
+                        const kind = p.expiry_state === 'expired' ? 'expired'
+                            : (p.expiry_state === 'expiring' ? 'expiring'
+                            : (this.piecesHeld(p) <= 0 ? 'out' : 'normal'));
+                        return {
+                            normal:   on ? 'bg-emerald-200 border-l-emerald-800' : 'border-l-transparent',
+                            expiring: on ? 'bg-amber-200 border-l-amber-600' : 'bg-amber-50 border-l-transparent',
+                            expired:  on ? 'bg-red-200 border-l-red-700' : 'bg-red-50 border-l-transparent',
+                            out:      on ? 'bg-slate-300 border-l-slate-600' : 'bg-slate-100 border-l-transparent',
+                        }[kind];
+                    },
                     limit: 200,
                     // The discount in rupees — what is saved with the bill — and
                     // the percentage typed at the till that it is worked out from.
@@ -1348,7 +1359,8 @@
                     // the only thing shown.
                     get found() {
                         const q = this.query.trim().toLowerCase();
-                        let list = this.inStockOnly ? this.products.filter(p => p.stock > 0) : this.products;
+                        // In stock: a whole pack, or loose pieces of an open one.
+                        let list = this.inStockOnly ? this.products.filter(p => this.piecesHeld(p) > 0) : this.products;
                         if (q === '') return list;
                         const exact = list.filter(p => (p.code || '').toLowerCase() === q);
                         if (exact.length) return exact;

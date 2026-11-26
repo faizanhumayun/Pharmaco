@@ -284,31 +284,33 @@ body, [class*="side-"], [class*="accent-"], .mode-receiving {
    to that computer only. Set on <html> before the page is drawn
    (partials/theme-script).
 
-   Everything moves toward ink: text is darker, lines and borders are clearly
-   visible, tinted backgrounds are a step deeper, buttons a step stronger.
-   The look stays the same — only clearer. */
+   A moderate step toward ink: text is darker, lines and borders clearly
+   visible, buttons and accent text a step stronger. Pale tinted backgrounds
+   stay pale — deepened, they made the whole page heavy. The look stays the
+   same — only clearer. */
 :root.screen-strong {
-  --muted-rgb: 52 62 57;
-  --line-rgb: 168 161 146;
-  --neutral-50: 238 234 224;
-  --neutral-100: 228 223 210;
-  --neutral-300: 150 143 128;
-  --neutral-400: 82 92 86;
-  --neutral-600: 40 50 45;
-  --neutral-700: 30 40 35;
-  --neutral-800: 20 30 26;
-  --ink-rgb: 8 14 12;
-  --alert-50: 246 213 210;
-  --alert-100: 237 174 170;
-  --alert-200: 224 127 121;
-  --alert-600: 160 24 18;
-  --alert-700: 130 20 14;
+  /* Halfway from the normal greys to dark: enough for a dull screen to show
+     every edge and caption, not so much that the page turns heavy. */
+  --muted-rgb: 69 80 74;
+  --line-rgb: 193 187 173;
+  --neutral-50: 243 240 231;
+  --neutral-100: 234 230 218;
+  --neutral-300: 176 169 154;
+  --neutral-400: 104 114 108;
+  --neutral-600: 55 66 60;
+  --neutral-700: 41 52 47;
+  --neutral-800: 27 38 34;
+  --ink-rgb: 15 24 21;
+  --alert-50: 249 225 223;
+  --alert-100: 242 194 190;
+  --alert-200: 231 151 146;
+  --alert-600: 170 31 24;
+  --alert-700: 143 26 19;
 }
+/* The accent's solid shades — text, buttons, borders, bars — a step darker.
+   Its pale tints, the backgrounds of chips, rows and panels, stay as they
+   are: darkened too, they turned every highlight into a dark block. */
 .screen-strong body, .screen-strong [class*="side-"], .screen-strong [class*="accent-"], .screen-strong .mode-receiving {
-  --accent-50: var(--a-100);
-  --accent-100: var(--a-200);
-  --accent-200: var(--a-300);
-  --accent-300: var(--a-400);
   --accent-400: var(--a-500);
   --accent-500: var(--a-600);
   --accent-600: var(--a-700);

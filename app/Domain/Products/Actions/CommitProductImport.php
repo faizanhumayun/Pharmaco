@@ -30,9 +30,13 @@ class CommitProductImport
 {
     public function __construct(private readonly RecordProductPrice $prices) {}
 
-    /** Fields a later list may refresh on a product it has seen before. */
+    /**
+     * Fields a later list may refresh on a product it has seen before. Not
+     * the code: every product's is PRD- and its number (CompanyProduct), and
+     * the company's own code lives on in the match key.
+     */
     private const DESCRIPTIVE = [
-        'code', 'brand_name', 'generic_name', 'strength', 'dosage_form', 'pack_size', 'pack_type',
+        'brand_name', 'generic_name', 'strength', 'dosage_form', 'pack_size', 'pack_type',
     ];
 
     private const PRICED = ['mrp', 'trade_price', 'purchase_rate', 'case_size'];

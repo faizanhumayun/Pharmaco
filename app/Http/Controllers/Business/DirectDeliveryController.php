@@ -73,9 +73,6 @@ class DirectDeliveryController extends Controller
             // What a new product can be: tablet, syrup, injection…
             'forms' => array_map(fn (DosageForm $form) => $form->label(), DosageForm::cases()),
             'today' => $business->today(),
-            // Shown on the add-a-product dialog, so the code is known before
-            // the product exists rather than discovered after it.
-            'nextCode' => $this->nextCode($business),
             // A shop selling to the public must know its own price; a
             // distributor quotes per customer and can fill it in later.
             // A pharmacy sells at the MRP, so the delivery asks for that and
@@ -157,10 +154,8 @@ class DirectDeliveryController extends Controller
             'business_id' => $business->id,
             'company_id' => $company->id,
             'match_key' => $key,
-            // Theirs if they have one, ours otherwise — a product with nothing
-            // to call it cannot be scanned, searched for, or put on a bill line
-            // that anyone can check afterwards.
-            'code' => $typed ?: $this->nextCode($business),
+            // The code is PRD- and the product's number, given as it is made
+            // (CompanyProduct). A code of the company's goes into the match key.
             'brand_name' => $data['brand_name'],
             'dosage_form' => $data['dosage_form'],
             'strength' => $data['strength'] ?? null,
@@ -174,12 +169,11 @@ class DirectDeliveryController extends Controller
         $prices->handle($product, $request->user());
 
         return response()->json([
-            'next_code' => $this->nextCode($business),
             'id' => $product->id,
             'company_id' => $product->company_id,
             'company' => $company->name,
             'name' => $product->label(),
-            'code' => $product->code,
+            'code' => $product->fresh()->code,
             'rate' => (float) ($product->purchase_rate?->toDecimal() ?? 0),
             'mrp' => $product->mrp?->toDecimal(),
             'trade' => $product->trade_price?->toDecimal(),
@@ -249,26 +243,6 @@ class DirectDeliveryController extends Controller
 
             $update->handle($product, $changes, $by);
         }
-    }
-
-    /**
-     * The next code of our own, as PRD-000123.
-     *
-     * Per business and taken from the highest already issued, so it cannot
-     * collide with one in use. Lettered on purpose: a company's own codes are
-     * barcodes and article numbers, and a glance should say which is which.
-     */
-    private function nextCode(Business $business): string
-    {
-        $highest = CompanyProduct::forBusiness($business)
-            ->where('code', 'like', 'PRD-%')
-            ->orderByRaw('LENGTH(code) DESC')
-            ->orderByDesc('code')
-            ->value('code');
-
-        $next = $highest === null ? 1 : ((int) substr($highest, 4)) + 1;
-
-        return 'PRD-'.str_pad((string) $next, 6, '0', STR_PAD_LEFT);
     }
 
     public function store(

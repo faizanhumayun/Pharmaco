@@ -297,6 +297,8 @@ Route::middleware(['auth', 'business'])
             Route::get('/', 'index')->name('index');
             Route::post('/', 'store')->name('store');
             Route::get('{companyAudit}', 'show')->name('show');
+            // A product on the rack the sheet does not list, put on it.
+            Route::post('{companyAudit}/items', 'addItem')->name('add-item');
             Route::post('{companyAudit}/items/{companyAuditItem}', 'count')->name('count');
             // A line with nothing in the records, taken off this audit's sheet.
             Route::post('{companyAudit}/items/{companyAuditItem}/remove', 'removeItem')->name('remove-item');

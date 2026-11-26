@@ -127,7 +127,7 @@
                     </div>
                 </div>
 
-                <p class="text-xs text-gray-500">The product code is created automatically.</p>
+                <p class="text-xs text-gray-500">The product code is created automatically: PRD- and the product's number.</p>
                 <p class="text-sm text-red-600" x-show="errors.general" x-cloak x-text="errors.general"></p>
             </div>
 

@@ -13,16 +13,11 @@
              figures below start higher up the page. --}}
         <x-back-link :href="route('businesses.products.index', $business)" :label="'All products'" />
         <div class="-my-2 flex flex-wrap items-center gap-x-3 gap-y-1">
+            {{-- Its code, then its name — nothing else: a product may come from
+                 more than one supplier, and its pack, generic and stock are in
+                 the cards and tabs below. --}}
+            <x-badge classes="bg-gray-100 text-gray-800 ring-gray-500/20 font-mono font-semibold" title="Product code">{{ $product->code }}</x-badge>
             <h1 class="text-xl font-semibold text-gray-900">{{ $product->brand_name }}</h1>
-            <p class="text-sm text-gray-500">
-                {{ $product->company?->name }}
-                @if ($product->generic_name) · {{ $product->generic_name }} @endif
-                @if ($product->pack_size) · Pack {{ $product->pack_size }} @endif
-                · {{ $product->stockLabel($onHand, $looseOnHand) }} in stock
-            </p>
-            @if ($suppliers->count() > 1)
-                <x-badge classes="bg-gray-100 text-gray-700 ring-gray-500/20">+ {{ $suppliers->count() - 1 }} more {{ Str::plural('supplier', $suppliers->count() - 1) }}</x-badge>
-            @endif
             @unless ($product->is_active)
                 <x-badge classes="bg-gray-100 text-gray-600 ring-gray-500/20">Withdrawn</x-badge>
             @endunless
@@ -113,10 +108,12 @@
                                             @if ($price->import)
                                                 <a href="{{ route('businesses.companies.imports.show', [$business, $product->company_id, $price->import]) }}"
                                                    class="text-emerald-700 hover:text-emerald-800">{{ $price->import->original_filename }}</a>
+                                                <span class="text-gray-500">({{ $price->import->company?->name ?? $product->company?->name }})</span>
                                             @elseif ($price->source instanceof \App\Models\Order)
                                                 {{-- The company charged this on a delivery. --}}
                                                 <a href="{{ route('businesses.orders.show', [$business, $price->source]) }}"
-                                                   class="text-emerald-700 hover:text-emerald-800">Delivery {{ $price->source->reference }}</a>
+                                                   class="font-mono text-emerald-700 hover:text-emerald-800">{{ $price->source->reference }}</a>
+                                                <span class="text-gray-500">({{ $price->source->company?->name ?? '—' }})</span>
                                             @else
                                                 {{-- Priced without a list behind it: carried over from an
                                                      older system, or set when the product was added. --}}
@@ -153,6 +150,7 @@
                                         @if ($movement->source instanceof App\Models\Order)
                                             <a href="{{ route('businesses.orders.show', [$business, $movement->source]) }}"
                                                class="ml-1 font-mono text-xs text-emerald-700 hover:text-emerald-800">{{ $movement->source->reference }}</a>
+                                            <span class="text-xs text-gray-500">({{ $movement->source->company?->name ?? '—' }})</span>
                                         @endif
                                     </td>
                                     <td class="px-3 py-2 text-right font-mono tabular-nums text-emerald-700">

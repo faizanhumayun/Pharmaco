@@ -80,10 +80,21 @@
                 </div>
             @endif
 
+            {{-- Only what is on the shelf: a whole pack, or loose pieces of one. --}}
             <label class="flex items-center gap-2 pb-2 text-sm text-gray-600">
+                <input type="checkbox" name="in_stock" value="1" @checked($filters['in_stock'])
+                       class="rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
+                In stock
+            </label>
+
+            {{-- Withdrawn: a product switched off on its edit page. It is not
+                 sold at POS or put on order forms, but its history is kept;
+                 hidden here unless asked for. --}}
+            <label class="flex items-center gap-2 pb-2 text-sm text-gray-600"
+                   title="Withdrawn products are switched off on their edit page: not sold at POS or put on order forms, history kept. Tick to list them too.">
                 <input type="checkbox" name="inactive" value="1" @checked($filters['inactive'])
                        class="rounded border-gray-300 text-emerald-700 focus:ring-emerald-600">
-                Include withdrawn
+                Include withdrawn products
             </label>
 
             <x-slot name="count">{{ number_format($products->total()) }} of {{ number_format($total) }} products</x-slot>
@@ -117,11 +128,13 @@
                                 <td class="px-3 py-2 sm:px-6">
                                     <a href="{{ route('businesses.products.show', [$business, $product]) }}"
                                        class="font-medium text-gray-900 hover:text-emerald-700">{{ $product->brand_name }}</a>
-                                    @if ($product->strength || $product->dosage_form)
-                                        <div class="text-xs text-gray-500">
-                                            {{ trim(($product->strength ?? '') . ' ' . ($product->dosageForm()?->label() ?? $product->dosage_form ?? '')) }}
-                                        </div>
-                                    @endif
+                                    <div class="text-xs text-gray-500">
+                                        <span class="font-mono text-gray-600">{{ $product->code }}</span>
+                                        @if ($product->strength || $product->dosage_form)
+                                            · {{ trim(($product->strength ?? '') . ' ' . ($product->dosageForm()?->label() ?? $product->dosage_form ?? '')) }}
+                                        @endif
+                                        @unless ($product->is_active) · <span class="font-medium text-gray-700">withdrawn</span> @endunless
+                                    </div>
                                 </td>
                                 <td class="px-3 py-2 text-gray-600">{{ $product->generic_name ?? '—' }}</td>
                                 <td class="px-3 py-2 text-gray-600">

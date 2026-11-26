@@ -10,7 +10,8 @@
 --}}
 <x-workspace-layout :business="$business">
     <div class="w-full px-4 py-5 sm:px-6 lg:px-8"
-         x-data="auditSheet({ rows: @js($rows), totals: @js($totals), byBatch: @js($audit->by_batch), canEditProducts: @js($canEditProducts), sellsLoose: @js($business->sellsLoose()), forms: @js($forms) })"
+         x-data="auditSheet({ rows: @js($rows), totals: @js($totals), byBatch: @js($audit->by_batch), canEditProducts: @js($canEditProducts), sellsLoose: @js($business->sellsLoose()), forms: @js($forms), catalogue: @js($catalogue), addUrl: @js($addUrl), companyId: @js($audit->company_id) })"
+         x-on:product-added.window="if (Number($event.detail.company_id) === companyId) addProduct($event.detail.id)"
          x-on:keydown.window="onKey($event)">
         <x-flash :keys="['audit']" />
 
@@ -138,7 +139,55 @@
                         class="inline-flex items-center gap-1.5 rounded-md border border-gray-900 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-100">
                     <span aria-hidden="true">&times;</span> Clear
                 </button>
+                {{-- On the same line: a product on the rack that the sheet does not list. --}}
+                <button type="button" x-on:click="adding ? (adding = false) : openAdd()" :aria-expanded="adding"
+                        class="ml-auto inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-sm font-semibold"
+                        :class="adding ? 'border-emerald-700 bg-emerald-50 text-emerald-800' : 'border-dashed border-gray-400 bg-white text-gray-700 hover:border-emerald-600 hover:text-emerald-800'">
+                    + Product found on the rack
+                </button>
             </div>
+            {{-- A product on the rack that the sheet does not list: the records
+                 put it at nothing, so it was left off. Found here, it goes on
+                 the sheet and is counted like the rest. --}}
+            <div class="mb-3" x-on:keydown.escape.stop="adding = false">
+                <div x-show="adding" x-cloak class="rounded-md border border-emerald-300 bg-white p-3 shadow-sm">
+                    <div class="flex flex-wrap items-center gap-3">
+                        <label for="add-find" class="text-sm font-medium text-gray-700">Product found on the rack</label>
+                        <input id="add-find" type="search" x-ref="addFind" x-model="addQuery" autocomplete="off"
+                               placeholder="Name or code of a {{ $audit->company->name }} product"
+                               x-on:keydown.arrow-down.prevent="addCursor = Math.min(addCursor + 1, addMatches().length - 1)"
+                               x-on:keydown.arrow-up.prevent="addCursor = Math.max(addCursor - 1, 0)"
+                               x-on:keydown.enter.prevent="addMatches()[addCursor] && addProduct(addMatches()[addCursor].id)"
+                               class="min-w-[16rem] flex-1 rounded-md border-gray-300 py-1.5 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                        {{-- Not in the catalogue at all: made here, and it lands on this sheet. --}}
+                        <button type="button" title="Not in the catalogue? It goes onto this sheet once it is added."
+                                x-on:click="$dispatch('add-product', { company_id: companyId, name: addQuery.trim() })"
+                                class="rounded-md border border-emerald-700 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-800 hover:bg-emerald-50">+ Add a new product</button>
+                        <button type="button" x-on:click="adding = false" class="text-sm text-gray-500 hover:text-gray-800">Close</button>
+                    </div>
+                    <ul class="mt-2 max-h-64 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-100" x-show="addMatches().length">
+                        <template x-for="(p, k) in addMatches()" :key="p.id">
+                            <li>
+                                <button type="button" x-on:click="addProduct(p.id)" x-on:mouseenter="addCursor = k"
+                                        class="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm"
+                                        :class="k === addCursor ? 'bg-emerald-50 text-emerald-900' : 'text-gray-800 hover:bg-gray-50'">
+                                    <span>
+                                        <span class="font-medium" x-text="p.name"></span>
+                                        <span class="ml-1 font-mono text-xs text-gray-500" x-show="p.code" x-text="p.code"></span>
+                                        <span class="ml-1 text-xs text-gray-400" x-show="! p.active">inactive</span>
+                                    </span>
+                                    <span class="text-xs text-gray-500">0 in records · add and count</span>
+                                </button>
+                            </li>
+                        </template>
+                    </ul>
+                    <p class="mt-2 text-sm text-gray-500" x-show="addQuery.trim() !== '' && addMatches().length === 0">
+                        No {{ $audit->company->name }} product matches “<span x-text="addQuery"></span>”.
+                    </p>
+                    <p class="mt-1 text-xs text-red-700" x-show="addError" x-text="addError"></p>
+                </div>
+            </div>
+
             <p class="mb-3 px-1 text-sm text-gray-500">
                 <span x-text="shown().length"></span> of <span x-text="rows.length"></span> products
             </p>
@@ -399,9 +448,66 @@
                 return 1;
             }
 
-            function auditSheet({ rows, totals, byBatch, canEditProducts, sellsLoose, forms }) {
+            function auditSheet({ rows, totals, byBatch, canEditProducts, sellsLoose, forms, catalogue, addUrl, companyId }) {
                 return {
                     forms,
+                    // The company's products not on the sheet, for one found on the rack.
+                    catalogue,
+                    addUrl,
+                    companyId,
+                    adding: false,
+                    addQuery: '',
+                    addCursor: 0,
+                    addError: null,
+                    openAdd() {
+                        this.adding = true;
+                        this.addQuery = '';
+                        this.addError = null;
+                        this.addCursor = 0;
+                        this.$nextTick(() => this.$refs.addFind.focus());
+                    },
+                    addMatches() {
+                        const q = this.addQuery.trim().toLowerCase();
+                        if (q === '') return [];
+                        return this.catalogue.filter(p => p.name.toLowerCase().includes(q) || String(p.code || '').toLowerCase().includes(q)).slice(0, 20);
+                    },
+                    /* Onto the sheet, then straight to counting it: the records
+                       hold none, so its window opens on a new batch to type. */
+                    async addProduct(id) {
+                        this.addError = null;
+                        try {
+                            const res = await fetch(this.addUrl, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json',
+                                           'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
+                                body: JSON.stringify({ company_product_id: id }),
+                            });
+                            const data = await res.json();
+                            if (! res.ok) {
+                                this.addError = Object.values(data.errors || {}).flat()[0] || data.message || 'The product could not be added.';
+                                return;
+                            }
+                            this.catalogue = this.catalogue.filter(p => p.id !== id);
+                            if (! this.rows.some(r => r.id === data.row.id)) {
+                                // At the top, where it was asked for, not at the end of a long list.
+                                this.rows.unshift({ ...data.row, editing: false, confirmDelete: false, busy: false, error: null, lines: [],
+                                                    draftNote: '', draftPack: '', draftName: '', draftStrength: '', draftForm: '' });
+                            }
+                            // The line as the page holds it — the watched copy — so
+                            // opening its window shows; a plain copy would open unseen.
+                            const row = this.rows.find(r => r.id === data.row.id);
+                            this.totals = data.totals;
+                            this.adding = false;
+                            this.find = '';
+                            this.show = 'todo';
+                            this.$nextTick(() => {
+                                this.edit(row);
+                                document.querySelector(`[data-row="${row.id}"]`)?.scrollIntoView({ block: 'nearest' });
+                            });
+                        } catch (e) {
+                            this.addError = 'The product could not be added. Check the connection and try again.';
+                        }
+                    },
                     rows: rows.map(r => ({ ...r, editing: false, confirmDelete: false, busy: false, error: null, lines: [], draftNote: '', draftPack: '', draftName: '', draftStrength: '', draftForm: '' })),
                     totals,
                     byBatch,

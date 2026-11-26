@@ -37,11 +37,16 @@ class ProductController extends Controller
          * either a delivery never entered or a count that needs redoing.
          */
         $onHand = $stock->onHandByProduct($business);
+        $looseOnHand = $stock->looseByProduct($business);
         $belowZero = $onHand->filter(fn ($packs) => (int) $packs < 0)->keys();
+
+        // Something on the shelf: a whole pack, or loose pieces of an open one.
+        $inStock = $onHand->filter(fn ($packs, $id) => (int) $packs > 0 || (int) ($looseOnHand[$id] ?? 0) > 0)->keys();
 
         $products = CompanyProduct::forBusiness($business)
             ->with('company')
             ->when($request->boolean('short'), fn ($q) => $q->whereIn('id', $belowZero->all()))
+            ->when($request->boolean('in_stock'), fn ($q) => $q->whereIn('id', $inStock->all()))
             ->search($request->query('q'))
             ->when($request->query('company'), fn ($q, $id) => $q->where('company_id', $id))
             ->when($request->query('form'), fn ($q, $form) => $q->where('dosage_form', $form))
@@ -59,6 +64,7 @@ class ProductController extends Controller
                 'company' => $request->query('company'),
                 'form' => $request->query('form'),
                 'inactive' => $request->boolean('inactive'),
+                'in_stock' => $request->boolean('in_stock'),
                 'short' => $request->boolean('short'),
             ],
             'forms' => CompanyProduct::forBusiness($business)
@@ -69,7 +75,7 @@ class ProductController extends Controller
             'total' => CompanyProduct::forBusiness($business)->count(),
             // One query for the page, rather than one per row.
             'onHand' => $onHand,
-            'looseOnHand' => $stock->looseByProduct($business),
+            'looseOnHand' => $looseOnHand,
             'belowZero' => $belowZero,
         ]);
     }
@@ -109,7 +115,10 @@ class ProductController extends Controller
             // The record of what this product has cost, newest first. Each row
             // is an import that moved a figure; the gaps are the lists that
             // repeated what was already on file.
-            'history' => $product->prices()->with('import')->get(),
+            // Each price with where it came from: the list (and its company),
+            // or the delivery (and its supplier).
+            'history' => $product->prices()->with(['import.company', 'source'])->get()
+                ->each(fn ($price) => $price->source instanceof \App\Models\Order ? $price->source->loadMissing('company') : null),
         ]);
     }
 

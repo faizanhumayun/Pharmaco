@@ -56,8 +56,28 @@ class CompanyProduct extends Model
      * figure of their own. Enforced here, on the model, so an import, a
      * delivery and the edit form cannot each do it differently.
      */
+    /** Every product's code: PRD- and its own number, as in /products/31588. */
+    public static function codeFor(int $id): string
+    {
+        return 'PRD-'.$id;
+    }
+
     protected static function booted(): void
     {
+        /*
+         * One rule for every code, however the product came to exist — added
+         * by hand, from a price list, from the old system: PRD- and its number.
+         * A company's own code is kept where it matters, in the match key that
+         * recognises the product on its next price list.
+         */
+        static::created(function (self $product) {
+            $code = self::codeFor($product->id);
+
+            if ($product->code !== $code) {
+                $product->forceFill(['code' => $code])->saveQuietly();
+            }
+        });
+
         static::saving(function (self $product) {
             static $loose = [];
 

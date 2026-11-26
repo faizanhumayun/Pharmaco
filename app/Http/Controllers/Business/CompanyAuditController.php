@@ -118,6 +118,16 @@ class CompanyAuditController extends Controller
                 'rows' => $rows->map(fn ($r) => $this->rowPayload($business, $companyAudit, $r))->values(),
                 'totals' => $this->totalsPayload($report->summary($companyAudit, $rows)),
                 'canEditProducts' => request()->user()->can('editProducts', $business),
+                // The company's other products, for one found on the rack that
+                // the sheet does not list.
+                'catalogue' => CompanyProduct::forBusiness($business)
+                    ->where('company_id', $companyAudit->company_id)
+                    ->whereNotIn('id', $companyAudit->items()->select('company_product_id'))
+                    ->orderBy('brand_name')
+                    ->get()
+                    ->map(fn (CompanyProduct $p) => ['id' => $p->id, 'name' => $p->label(), 'code' => $p->code, 'active' => (bool) $p->is_active])
+                    ->values(),
+                'addUrl' => route('businesses.company-audits.add-item', [$business, $companyAudit]),
                 // The types a product can be, as Add product offers them.
                 'forms' => array_map(fn (\App\Enums\DosageForm $f) => $f->label(), \App\Enums\DosageForm::cases()),
             ]);
@@ -172,6 +182,33 @@ class CompanyAuditController extends Controller
         return response()->json([
             'row' => $this->rowPayload($business, $companyAudit, $row),
             'totals' => $this->totalsPayload($report->summary($companyAudit, $rows)),
+        ]);
+    }
+
+    /** A product found on the rack, onto the sheet. Answered as JSON with its line. */
+    public function addItem(Request $request, Business $business, CompanyAudit $companyAudit, \App\Domain\Stock\Audits\Actions\AddAuditItem $action, CompanyAuditReport $report): JsonResponse
+    {
+        $this->authorize('verifyStock', $business);
+        abort_if($companyAudit->business_id !== $business->id, 404);
+
+        $data = $request->validate(['company_product_id' => ['required', 'integer']]);
+        $product = CompanyProduct::forBusiness($business)->find($data['company_product_id']);
+
+        if ($product === null) {
+            throw ValidationException::withMessages(['company_product_id' => 'That product is not in this business\'s catalogue.']);
+        }
+
+        try {
+            $item = $action->handle($companyAudit, $product);
+        } catch (RuntimeException $e) {
+            throw ValidationException::withMessages(['company_product_id' => $e->getMessage()]);
+        }
+
+        $row = $report->rows($companyAudit, $item->id)->first();
+
+        return response()->json([
+            'row' => $this->rowPayload($business, $companyAudit, $row),
+            'totals' => $this->totalsPayload($report->summary($companyAudit)),
         ]);
     }
 

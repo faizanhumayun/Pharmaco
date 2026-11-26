@@ -80,13 +80,14 @@ class ExpiryWatch
             ->when($only !== null, fn ($q) => $q->whereIn('company_product_id', $only))
             ->orderBy('expires_on')
             ->orderBy('id')
-            ->get(['company_product_id', 'expires_on', 'packs', 'loose', 'batch_no'])
+            ->get(['company_product_id', 'expires_on', 'packs', 'loose', 'batch_no', 'unit_cost'])
             ->groupBy('company_product_id');
 
         return $batches->mapWithKeys(function (Collection $forProduct, int $productId) use ($pieces, $perPack) {
             $size = max(1, (int) ($perPack[$productId] ?? 1));
             $left = max(0, (int) ($pieces[$productId] ?? 0));
             $held = [];
+            $heldPieces = [];
 
             foreach ($forProduct as $batch) {
                 if ($left <= 0) {
@@ -101,13 +102,24 @@ class ExpiryWatch
                     continue;
                 }
 
-                $held[] = [
+                // One batch that came in more than once (two deliveries, or a
+                // count that dated some of it) is still one batch on the shelf.
+                $key = mb_strtolower((string) $batch->batch_no).'|'.$batch->expires_on->toDateString();
+                $pieces = ($heldPieces[$key] ?? 0) + $fromThisBatch;
+                $heldPieces[$key] = $pieces;
+
+                $held[$key] = [
                     'expires_on' => $batch->expires_on,
-                    'packs' => intdiv($fromThisBatch, $size),
-                    'loose' => $fromThisBatch % $size,
+                    'packs' => intdiv($pieces, $size),
+                    'loose' => $pieces % $size,
                     'batch_no' => $batch->batch_no,
+                    // What this batch was bought at: its delivery's rate, the
+                    // latest where it came in more than once.
+                    'unit_cost' => $batch->unit_cost ?? ($held[$key]['unit_cost'] ?? null),
                 ];
             }
+
+            $held = array_values($held);
 
             return $held === [] ? [] : [$productId => $held];
         });

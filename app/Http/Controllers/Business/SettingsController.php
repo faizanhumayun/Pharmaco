@@ -22,12 +22,16 @@ use Illuminate\Validation\Rule;
  */
 class SettingsController extends Controller
 {
-    public function edit(Business $business): View
+    /** The page's sections, down its side as on the Daily Log. */
+    public const SECTIONS = ['details', 'printing', 'colour', 'expiry', 'payments', 'fixed'];
+
+    public function edit(Request $request, Business $business): View
     {
         $this->authorize('configure', $business);
 
         return view('business.settings.edit', [
             'business' => $business,
+            'section' => $this->section($request),
             'formats' => ReceiptFormat::cases(),
             // The platform's list, and which of it this business has on.
             'paymentMethods' => \App\Models\PaymentMethod::query()->active()->orderBy('sort_order')->get()->groupBy('kind'),
@@ -53,7 +57,7 @@ class SettingsController extends Controller
         $action->handle($business, $data['methods'] ?? [], $data['titles'] ?? [], $request->user());
 
         return redirect()
-            ->route('businesses.settings.edit', $business)
+            ->route('businesses.settings.edit', [$business, 'section' => 'payments'])
             ->with('status', 'Payment methods saved.');
     }
 
@@ -85,8 +89,17 @@ class SettingsController extends Controller
 
         $action->handle($business, $data);
 
+        // Back to the section that was saved, not to the top.
         return redirect()
-            ->route('businesses.settings.edit', $business)
+            ->route('businesses.settings.edit', [$business, 'section' => $this->section($request)])
             ->with('status', 'Settings saved.');
+    }
+
+    /** The section asked for, or the first. */
+    private function section(Request $request): string
+    {
+        $asked = (string) $request->input('section');
+
+        return in_array($asked, self::SECTIONS, true) ? $asked : 'details';
     }
 }

@@ -24,7 +24,6 @@
             },
          }">
         <x-flash />
-        <x-input-error :messages="$errors->get('status')" class="mb-4" />
 
         <x-filter-bar submit="Filter" :active="($filters['q'] ?? '') !== '' || ($filters['status'] ?? '') !== ''" clear="{{ route('admin.businesses.index') }}" class="mb-4">
             <input type="search" name="q" value="{{ $filters['q'] ?? '' }}" placeholder="Search by name"

@@ -25,6 +25,15 @@
                         </button>
                     @endif
                 @endcan
+                {{-- A delivery from this company, checked in today: the
+                     company is chosen already. Its own tab, like the nav's. --}}
+                @can('manageOrders', $business)
+                    <a href="{{ route('businesses.stock.receive', ['business' => $business, 'company' => $company->id]) }}" target="_blank"
+                       title="Opens Add stock in a new tab with {{ $company->name }} chosen"
+                       class="rounded-md border border-emerald-600 bg-white px-3 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
+                        + Stock delivery
+                    </a>
+                @endcan
                 <a href="{{ route('businesses.products.index', ['business' => $business, 'company' => $company->id]) }}"
                    class="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-gray-300 hover:bg-gray-50">
                     Products ({{ number_format($productCount) }})
@@ -54,12 +63,12 @@
             </div>
         @endif
 
-        {{-- The account in five figures: what is still to pay first, and
+        {{-- The account in six figures: what is still to pay first, and
              last their stock against it. Not a rule, a reading: stock worth
              less than the pending balance usually means the goods were sold
              and the company has not been paid yet. --}}
         @php($gap = $stock['value']->minus($balance))
-        <div class="mb-4 grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <div class="mb-4 grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div class="rounded-md border px-4 py-3 shadow-sm {{ $balance->isPositive() ? 'border-amber-200 bg-amber-50' : 'border-emerald-200 bg-emerald-50' }}">
                 <p class="text-xs uppercase tracking-wide {{ $balance->isPositive() ? 'text-amber-700' : 'text-emerald-700' }}">Pending balance</p>
                 <p class="mt-1 font-mono text-2xl font-semibold tabular-nums {{ $balance->isPositive() ? 'text-amber-900' : 'text-emerald-800' }}">{{ $balance->absolute()->format() }}</p>
@@ -82,11 +91,36 @@
                 <p class="mt-0.5 text-xs text-gray-500">{{ $purchases['outstanding']->format() }} pending on invoices</p>
             </div>
 
+            {{-- Their goods as sold at the counter, returns taken off. --}}
+            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm"
+                 title="Sold {{ $sales['sales']->format() }}{{ $sales['returned']->isZero() ? '' : ', returned '.$sales['returned']->format() }}">
+                <p class="text-xs uppercase tracking-wide text-gray-400">Total sold</p>
+                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $sales['net']->format() }}</p>
+                <p class="mt-0.5 text-xs text-gray-500">
+                    @if ($sales['bills'] > 0)
+                        {{ number_format($sales['packs']) }} {{ $business->unit()->many() }} · {{ number_format($sales['bills']) }} {{ Str::plural('bill', $sales['bills']) }}{{ $sales['returned']->isZero() ? '' : ' · '.$sales['returned']->format().' returned' }}
+                    @else
+                        nothing sold yet
+                    @endif
+                </p>
+            </div>
+
             <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <p class="text-xs uppercase tracking-wide text-gray-400">Their stock in hand</p>
                 <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $stock['value']->format() }}</p>
                 <p class="mt-0.5 text-xs text-gray-500">
                     {{ number_format($stock['packs']) }} {{ $business->unit()->many() }} at purchase price
+                </p>
+                {{-- The last audit of their rack, and what it did to this figure. --}}
+                <p class="mt-0.5 text-xs">
+                    @if ($lastAudit)
+                        <a href="{{ route('businesses.company-audits.show', [$business, $lastAudit['audit']]) }}" class="text-gray-500 hover:text-emerald-700">
+                            Audited {{ $lastAudit['audit']->business_date->format('j M') }}:
+                            <span class="font-mono {{ $lastAudit['change']->isNegative() ? 'text-red-700' : ($lastAudit['change']->isPositive() ? 'text-sky-800' : 'text-emerald-700') }}">{{ $lastAudit['change']->isZero() ? 'matched' : ($lastAudit['change']->isNegative() ? '−' : '+') . $lastAudit['change']->absolute()->format() }}</span>{{ $lastAudit['audit']->status === 'submitted' ? ' · waiting for approval' : '' }}
+                        </a>
+                    @else
+                        <a href="{{ route('businesses.company-audits.index', [$business, 'company' => $company->id]) }}" class="font-medium text-amber-700 hover:text-amber-800">Never audited · audit now</a>
+                    @endif
                 </p>
             </div>
 
@@ -132,7 +166,19 @@
                             <tr>
                                 <td class="whitespace-nowrap px-4 py-2 text-gray-600 sm:px-6">{{ $entry->business_date->format('d M Y') }}</td>
                                 <td class="px-4 py-2">
-                                    <span class="font-medium text-gray-900">{{ $entry->transaction->type->label() }}</span>
+                                    @if ($row['bill'])
+                                        {{-- The bill behind this line: its invoice and its goods. --}}
+                                        <a href="{{ route('businesses.companies.bill', [$business, $company, $row['bill']]) }}"
+                                           class="font-medium text-emerald-700 hover:text-emerald-800 hover:underline">
+                                            {{ $entry->transaction->type->label() }}
+                                            @if ($row['bill']->invoice_no)
+                                                <span class="font-mono text-xs">· {{ $row['bill']->invoice_no }}</span>
+                                            @endif
+                                            <span aria-hidden="true">→</span>
+                                        </a>
+                                    @else
+                                        <span class="font-medium text-gray-900">{{ $entry->transaction->type->label() }}</span>
+                                    @endif
                                     <p class="text-xs text-gray-500">
                                         @if ($entry->transaction->narration) {{ $entry->transaction->narration }} · @endif
                                         by {{ $entry->transaction->creator->name }}

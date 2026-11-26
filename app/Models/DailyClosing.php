@@ -16,7 +16,7 @@ class DailyClosing extends Model
     public const FIGURES = [
         'opening_stock', 'opening_cash', 'opening_receivable', 'opening_payable',
         'purchases', 'purchases_paid', 'purchases_on_account',
-        'sales', 'cogs', 'gross_profit', 'expenses', 'net_profit',
+        'sales', 'cogs', 'gross_profit', 'expenses', 'net_profit', 'stock_variance',
         'collections', 'company_payments', 'credit_sales', 'cash_sales',
         'closing_stock', 'closing_cash', 'closing_receivable', 'closing_payable',
         'receivable_delta', 'payable_delta', 'net_position',

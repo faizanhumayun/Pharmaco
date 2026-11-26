@@ -86,7 +86,7 @@
                                         class="block w-full rounded-lg border-slate-300 py-2.5 text-base font-semibold text-slate-900 focus:border-emerald-700 focus:ring-emerald-600">
                                     <option value="">Select company…</option>
                                     @foreach ($companies as $company)
-                                        <option value="{{ $company->id }}">{{ $company->name }}</option>
+                                        <option value="{{ $company->id }}" @selected((string) $company->id === (string) old('company_id', $companyId))>{{ $company->name }}</option>
                                     @endforeach
                                 </select>
                             </div>
@@ -453,7 +453,7 @@
             function delivery({ products }) {
                 return {
                     products,
-                    companyId: '',
+                    companyId: @js(old('company_id', $companyId)),
                     query: '',
                     paid: '',
                     lines: [],

@@ -24,7 +24,6 @@ use App\Http\Controllers\Business\PharmacyController;
 use App\Http\Controllers\Business\SettingsController;
 use App\Http\Controllers\Business\PriceListImportController;
 use App\Http\Controllers\Business\ProductController;
-use App\Http\Controllers\Business\StockAuditController;
 use App\Http\Controllers\Business\StockVerificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SecurityCodeController;
@@ -225,6 +224,7 @@ Route::middleware(['auth', 'business'])
         Route::get('companies', [CompanyController::class, 'index'])->name('companies.index');
         Route::post('companies', [CompanyController::class, 'store'])->name('companies.store');
         Route::get('companies/{company}', [CompanyController::class, 'show'])->name('companies.show');
+        Route::get('companies/{company}/bills/{purchaseLine}', [CompanyController::class, 'bill'])->name('companies.bill');
         // Money paid to a company against its pending balance.
         Route::post('companies/{company}/pay', [CompanyController::class, 'pay'])->name('companies.pay');
 
@@ -291,10 +291,20 @@ Route::middleware(['auth', 'business'])
         Route::put('settings', [SettingsController::class, 'update'])->name('settings.update');
         Route::put('settings/payment-methods', [SettingsController::class, 'paymentMethods'])->name('settings.payment-methods');
 
-        // Counting the shelves a few lines at a time.
-        Route::get('stock/audit', [StockAuditController::class, 'index'])->name('stock.audit');
-        Route::post('stock/audit', [StockAuditController::class, 'store'])->name('stock.audit.store');
-        Route::post('stock/audit/{stockCount}', [StockAuditController::class, 'resolve'])->name('stock.audit.resolve');
+
+        // One company's rack counted in one go, each company once a month.
+        Route::prefix('stock/company-audits')->name('company-audits.')->controller(\App\Http\Controllers\Business\CompanyAuditController::class)->group(function () {
+            Route::get('/', 'index')->name('index');
+            Route::post('/', 'store')->name('store');
+            Route::get('{companyAudit}', 'show')->name('show');
+            Route::post('{companyAudit}/items/{companyAuditItem}', 'count')->name('count');
+            // A line with nothing in the records, taken off this audit's sheet.
+            Route::post('{companyAudit}/items/{companyAuditItem}/remove', 'removeItem')->name('remove-item');
+            Route::post('{companyAudit}/finish', 'finish')->name('finish');
+            Route::post('{companyAudit}/reopen', 'reopen')->name('reopen');
+            Route::post('{companyAudit}/approve', 'approve')->name('approve');
+            Route::post('{companyAudit}/close', 'close')->name('close');
+        });
 
         // The shelf sweep: what is running out of time.
         Route::get('stock/expiring', [ExpiringStockController::class, 'index'])->name('stock.expiring');

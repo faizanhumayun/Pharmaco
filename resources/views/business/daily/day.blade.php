@@ -100,6 +100,12 @@
                     @elseif (! $closeState['isClosed'] && $closeState['closable'])
                         <button type="button" x-on:click="$dispatch('open-modal', 'close-day')"
                                 class="rounded-md bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Close day</button>
+                    @elseif (! $closeState['closable'])
+                        {{-- The opening day (and any before it) is not closed: the chain starts the day after. --}}
+                        <span class="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-600"
+                              title="The opening balances are set on this day. Days are closed from the next day.">
+                            Opening day · closing starts {{ $business->opening_date->copy()->addDay()->format('D d M') }}
+                        </span>
                     @endif
                 @endif
             </div>

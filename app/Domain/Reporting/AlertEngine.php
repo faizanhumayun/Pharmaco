@@ -126,6 +126,16 @@ class AlertEngine
             ];
         }
 
+        // The monthly round of company audits: a reminder, never a block.
+        $due = app(\App\Domain\Stock\Audits\CompanyAuditSchedule::class)->dueCount($business);
+        if ($due > 0) {
+            $alerts[] = [
+                'level' => 'warning',
+                'title' => $due === 1 ? '1 company is due for a stock audit' : "{$due} companies are due for a stock audit",
+                'detail' => 'Each company\'s rack should be counted at least once a month. Selling and receiving are not affected.',
+            ];
+        }
+
         return $alerts;
     }
 

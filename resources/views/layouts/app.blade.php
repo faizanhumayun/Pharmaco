@@ -29,7 +29,7 @@
             @endisset
 
             <!-- Page Content -->
-            <main>
+            <main data-list-keys>
                 {{ $slot }}
             </main>
         </div>

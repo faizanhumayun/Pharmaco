@@ -39,11 +39,13 @@ class GoodsReceived
      *
      * @return Collection<int, Order>
      */
-    public function deliveries(Business $business, ?Carbon $from): Collection
+    public function deliveries(Business $business, ?Carbon $from, ?int $companyId = null): Collection
     {
         return Order::forBusiness($business)
             ->where('status', OrderStatus::Received)
             ->when($from, fn ($q) => $q->where('received_at', '>=', $from))
+            // One company's deliveries, when the page is filtered to it.
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
             ->with(['company', 'receiptLines', 'receiver', 'purchaseLine.dailyEntry'])
             ->orderByDesc('received_at')
             ->get();
@@ -64,11 +66,13 @@ class GoodsReceived
      * received. Sales at the till less goods that came back, each at the cost
      * it was sold at, with loose pieces counted as their share of a pack.
      */
-    public function soldValue(Business $business, ?Carbon $from): Money
+    /** @param  array<int, int>|null  $only  product ids, for one company's goods */
+    public function soldValue(Business $business, ?Carbon $from, ?array $only = null): Money
     {
         return \App\Models\StockMovement::forBusiness($business)
             ->whereIn('type', [\App\Enums\StockMovementType::Sale, \App\Enums\StockMovementType::SaleReturn])
             ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
+            ->when($only !== null, fn ($q) => $q->whereIn('company_product_id', $only))
             ->with('product:id,units_per_pack')
             ->get()
             ->reduce(function (Money $total, $movement) {
@@ -110,21 +114,27 @@ class GoodsReceived
             ->map(function (int $packs, int $productId) use ($products, $received, $loose) {
                 $product = $products->get($productId);
 
-                if ($product === null) {
+                // Nothing on hand is not stock held: a product taken off the
+                // shelf stays in the catalogue but leaves this list.
+                if ($product === null || ($packs === 0 && (int) ($loose[$productId] ?? 0) === 0)) {
                     return null;
                 }
 
                 $rate = $product->purchase_rate ?? $product->trade_price;
+                $looseHeld = (int) ($loose[$productId] ?? 0);
 
                 return [
                     'product' => $product,
                     'packs' => $packs,
-                    'loose' => (int) ($loose[$productId] ?? 0),
+                    'loose' => $looseHeld,
                     'received' => (int) ($received->get($productId)['packs'] ?? 0),
                     // At what a pack costs today, which is a sound enough
                     // estimate to check against the book value and is not a
                     // costing method — the ledger holds the value that counts.
-                    'value' => $rate?->times($packs),
+                    // Loose pieces at their share of a pack, as everywhere else.
+                    'value' => $rate?->times($packs)->plus(
+                        \App\Models\PosBillLine::piece($rate, max(1, (int) $product->units_per_pack))->times($looseHeld)
+                    ),
                 ];
             })
             ->filter()

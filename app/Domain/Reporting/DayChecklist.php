@@ -8,7 +8,7 @@ use App\Models\Business;
 use App\Models\DailyClosing;
 use App\Models\DailyEntry;
 use App\Models\PosBill;
-use App\Models\StockCount;
+use App\Models\CompanyAudit;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Support\Money;
@@ -87,7 +87,6 @@ class DayChecklist
             $this->counter($business, $user, $today),
             $this->collections($business, $user, $entry),
             $this->expenses($business, $user, $entry),
-            $this->stockCount($business, $user, $today),
             $this->approvals($business, $user),
             $this->entry($business, $user, $entry, $posted),
             $this->closing($business, $user, $closing, $posted),
@@ -236,34 +235,9 @@ class DayChecklist
         ];
     }
 
-    /** Today's counting sheet. */
-    private function stockCount(Business $business, User $user, Carbon $today): ?array
-    {
-        if (! $user->can('verifyStock', $business)) {
-            return null;
-        }
-
-        $counted = StockCount::forBusiness($business)
-            ->whereDate('business_date', $today->toDateString())
-            ->count();
-
-        return [
-            'key' => 'count',
-            'title' => "Complete today's stock count",
-            'state' => $counted > 0 ? self::DONE : self::TODO,
-            'detail' => $counted > 0
-                ? "{$counted} " . str('product')->plural($counted) . ' counted today.'
-                : 'No product counted today. The count sheet selects the products to check by value and movement.',
-            'why' => 'Stock is the only balance that nothing else checks. Counting a few products every day '
-                . 'keeps the stock figure correct.',
-            'route' => 'businesses.stock.audit',
-            'action' => 'Open the count sheet',
-        ];
-    }
-
     /**
-     * Differences somebody found but nobody has agreed to yet. Only a step when
-     * there are some — an empty approvals queue is not a job.
+     * Company audits counted and waiting for the owner. Only a step when there
+     * are some — an empty approvals queue is not a job.
      */
     private function approvals(Business $business, User $user): ?array
     {
@@ -271,22 +245,23 @@ class DayChecklist
             return null;
         }
 
-        $open = StockCount::forBusiness($business)->where('status', StockCount::FOUND)->count();
+        $waiting = CompanyAudit::forBusiness($business)->where('status', CompanyAudit::SUBMITTED)->with('company')->get();
 
-        if ($open === 0) {
+        if ($waiting->isEmpty()) {
             return null;
         }
 
         return [
             'key' => 'approvals',
-            'title' => 'Approve stock differences',
+            'title' => 'Approve company audits',
             'state' => self::TODO,
-            'detail' => "{$open} " . str('count')->plural($open) . ' found a difference and '
-                . ($open === 1 ? 'is' : 'are') . ' waiting for approval.',
-            'why' => 'A difference changes the recorded stock, so the owner must approve it, '
+            'detail' => $waiting->count() === 1
+                ? "The audit of {$waiting->first()->company->name} is counted and waiting for approval."
+                : "{$waiting->count()} company audits are counted and waiting for approval.",
+            'why' => 'An audit changes the recorded stock and books the difference, so the owner must approve it, '
                 . 'not the person who counted.',
-            'route' => 'businesses.stock.audit',
-            'action' => 'Review differences',
+            'route' => 'businesses.company-audits.index',
+            'action' => 'Review audits',
         ];
     }
 

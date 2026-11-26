@@ -64,7 +64,7 @@
                 <x-input-label for="sort" value="Sort by" />
                 <select id="sort" name="sort"
                         class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                    @foreach (['name' => 'Name', 'owed' => 'Highest pending first', 'purchased' => 'Highest purchases first'] as $value => $label)
+                    @foreach (['name' => 'Name', 'owed' => 'Highest pending first', 'purchased' => 'Highest purchases first', 'stock' => 'Highest stock first'] as $value => $label)
                         <option value="{{ $value }}" @selected($sort === $value)>{{ $label }}</option>
                     @endforeach
                 </select>
@@ -88,7 +88,7 @@
         @php($period = $from || $to
             ? ($from ? \Illuminate\Support\Carbon::parse($from)->format('j M Y') : 'the start') . ' to ' . ($to ? \Illuminate\Support\Carbon::parse($to)->format('j M Y') : 'today')
             : 'all dates')
-        <div class="mb-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
             <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
                 <p class="text-xs uppercase tracking-wide text-gray-400">Companies listed</p>
                 <p class="mt-1 text-2xl font-semibold tabular-nums text-gray-900">{{ number_format($companies->total()) }}</p>
@@ -105,6 +105,16 @@
                 <p class="text-xs uppercase tracking-wide text-emerald-700">Total paid amount</p>
                 <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-emerald-800">{{ $listedPaid->format() }}</p>
                 <p class="mt-0.5 text-xs text-emerald-700">paid on these invoices · {{ $period }}</p>
+            </div>
+
+            {{-- Their goods on the shelf, at what they were bought at. --}}
+            <div class="rounded-md border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <p class="text-xs uppercase tracking-wide text-gray-400">Stock in hand</p>
+                <p class="mt-1 font-mono text-2xl font-semibold tabular-nums text-gray-900">{{ $listedStock->format() }}</p>
+                <p class="mt-0.5 text-xs text-gray-500">
+                    at purchase price · {{ number_format($listedStockProducts) }} {{ Str::plural('product', $listedStockProducts) }}
+                    from {{ number_format($listedWithStock) }} {{ Str::plural('company', $listedWithStock) }}
+                </p>
             </div>
 
             <div class="rounded-md border px-4 py-3 shadow-sm {{ $shownOwed->isPositive() ? 'border-amber-200 bg-amber-50' : 'border-gray-200 bg-white' }}">
@@ -131,7 +141,7 @@
                                 @foreach ([
                                     ['Company','left'], ['Invoices','right'],
                                     ['Purchased','right'], ['Paid','right'], ['Pending on invoices','right'],
-                                    ['Pending balance','right'], ['Last bill','left'], ['Price list','left'],
+                                    ['Pending balance','right'], ['Stock value','right'], ['Last bill','left'], ['Price list','left'],
                                 ] as [$h, $align])
                                     <th class="whitespace-nowrap px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500 text-{{ $align }} {{ $loop->first ? 'sm:px-6' : '' }}">{{ $h }}</th>
                                 @endforeach
@@ -163,6 +173,16 @@
                                             <span class="font-sans text-xs font-medium text-gray-400">No pending balance</span>
                                         @endif
                                     </td>
+                                    {{-- Their goods in hand, at purchase price. --}}
+                                    <td class="whitespace-nowrap px-4 py-2 text-right font-mono tabular-nums">
+                                        @if ($stock[$company->id]['products'] > 0)
+                                            <a href="{{ route('businesses.stock.index', [$business, 'period' => 'all', 'company' => $company->id]) }}"
+                                               class="text-gray-900 hover:text-emerald-700" title="{{ $stock[$company->id]['products'] }} {{ Str::plural('product', $stock[$company->id]['products']) }} in stock">{{ $stock[$company->id]['value']->format() }}</a>
+                                            <span class="block font-sans text-xs text-gray-500">{{ number_format($stock[$company->id]['products']) }} {{ Str::plural('product', $stock[$company->id]['products']) }}</span>
+                                        @else
+                                            <span class="font-sans text-xs font-medium text-gray-400">No stock</span>
+                                        @endif
+                                    </td>
                                     <td class="whitespace-nowrap px-4 py-2 text-xs text-gray-500">{{ $bought['last'] ?? '—' }}</td>
                                     <td class="whitespace-nowrap px-4 py-2 text-sm">
                                         @can('importProducts', $business)
@@ -176,7 +196,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="8" class="px-6 py-10 text-center text-gray-500">
+                                    <td colspan="9" class="px-6 py-10 text-center text-gray-500">
                                         No companies yet. Until a company is added, payables are tracked as one
                                         total and a price list cannot be imported.
                                         <button type="button" x-data x-on:click="$dispatch('add-company')"
@@ -193,6 +213,7 @@
                                     <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums text-gray-600">{{ $paidTotal->format() }}</td>
                                     <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums text-amber-700">{{ $billedTotal->minus($paidTotal)->format() }}</td>
                                     <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums text-gray-900">{{ $shownOwed->format() }}</td>
+                                    <td class="px-4 py-2 text-right font-mono font-semibold tabular-nums text-gray-900">{{ $listedStock->format() }}</td>
                                     <td colspan="2"></td>
                                 </tr>
                             </tfoot>

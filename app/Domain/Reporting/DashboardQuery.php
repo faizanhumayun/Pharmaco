@@ -69,7 +69,6 @@ class DashboardQuery
             ->each(fn ($bill) => $bill->setAttribute('collected', $collectedBill[$bill->id] ?? Money::zero()))
             ->filter(fn ($bill) => $outstanding->onBill($bill)->isPositive());
 
-        $schedule = app(\App\Domain\Stock\CountSchedule::class)->ranked($business);
 
         return [
             'expired' => ['count' => $expiredCount, 'value' => $expired],
@@ -79,14 +78,8 @@ class DashboardQuery
                 'customers' => $openBills->pluck('customer_name')->filter()->unique()->count(),
                 'value' => Money::sum($openBills->map(fn ($bill) => $outstanding->onBill($bill))),
             ],
-            'audit' => [
-                'due' => $schedule->where('due', true)->count(),
-                'products' => $schedule->count(),
-                'countedToday' => \App\Models\StockCount::forBusiness($business)
-                    ->whereDate('business_date', $date->toDateString())->count(),
-                'open' => \App\Models\StockCount::forBusiness($business)
-                    ->where('status', \App\Models\StockCount::FOUND)->count(),
-            ],
+            // The month's round of company audits, each company in one place.
+            'audit' => app(\App\Domain\Stock\Audits\CompanyAuditSchedule::class)->summary($business),
         ];
     }
 

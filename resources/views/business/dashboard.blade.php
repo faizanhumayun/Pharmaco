@@ -143,22 +143,36 @@
                 @endif
             </a>
 
-            <a href="{{ route('businesses.stock.audit', $business) }}"
+            {{-- The monthly round: each company's rack counted at least once a
+                 month. Every company holding stock is in exactly one line below,
+                 so the lines add up to the total. --}}
+            @php($round = $watch['audit'])
+            <a href="{{ route('businesses.company-audits.index', $business) }}"
                class="flex flex-col rounded-lg bg-white p-4 shadow-sm ring-1 ring-gray-200 transition hover:ring-emerald-300">
-                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Stock audit</p>
+                <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Company audit</p>
                 <p class="mt-1 font-mono text-2xl font-bold tabular-nums text-gray-900">
-                    {{ number_format($watch['audit']['due']) }}<span class="text-base font-normal text-gray-400">/{{ number_format($watch['audit']['products']) }}</span>
+                    {{ number_format($round['audited']) }}<span class="text-base font-normal text-gray-400">/{{ number_format($round['companies']) }}</span>
                 </p>
+                <p class="text-xs text-gray-500">companies audited this month</p>
+                <div class="mt-1.5 h-1.5 rounded-full bg-gray-100">
+                    <div class="h-1.5 rounded-full bg-emerald-700" style="width: {{ $round['companies'] ? round($round['audited'] / $round['companies'] * 100) : 0 }}%"></div>
+                </div>
                 <dl class="mt-3 space-y-1 border-t border-gray-100 pt-2 text-xs">
                     <div class="flex justify-between gap-2">
-                        <dt class="text-gray-400">Counted today</dt>
-                        <dd class="font-mono tabular-nums text-gray-700">{{ $watch['audit']['countedToday'] }}</dd>
+                        <dt class="text-gray-400">Audited</dt>
+                        <dd class="font-mono tabular-nums text-emerald-700">{{ $round['audited'] }}</dd>
                     </div>
                     <div class="flex justify-between gap-2">
-                        <dt class="{{ $watch['audit']['open'] > 0 ? 'text-amber-700' : 'text-gray-400' }}">Differences</dt>
-                        <dd class="font-mono tabular-nums {{ $watch['audit']['open'] > 0 ? 'font-semibold text-amber-800' : 'text-gray-700' }}">
-                            {{ $watch['audit']['open'] }}
-                        </dd>
+                        <dt class="text-gray-400">Being counted</dt>
+                        <dd class="font-mono tabular-nums text-gray-700">{{ $round['counting'] }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="{{ $round['waiting'] > 0 ? 'text-amber-700' : 'text-gray-400' }}">Waiting for approval</dt>
+                        <dd class="font-mono tabular-nums {{ $round['waiting'] > 0 ? 'font-semibold text-amber-800' : 'text-gray-700' }}">{{ $round['waiting'] }}</dd>
+                    </div>
+                    <div class="flex justify-between gap-2">
+                        <dt class="{{ $round['not_started'] > 0 ? 'text-amber-700' : 'text-gray-400' }}">Not started</dt>
+                        <dd class="font-mono tabular-nums {{ $round['not_started'] > 0 ? 'font-semibold text-amber-800' : 'text-gray-700' }}">{{ $round['not_started'] }}</dd>
                     </div>
                 </dl>
             </a>

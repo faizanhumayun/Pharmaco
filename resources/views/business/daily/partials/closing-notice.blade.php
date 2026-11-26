@@ -12,6 +12,12 @@
             @endif
         </p>
     </div>
+@elseif (! $closeState['closable'])
+    <div class="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700 sm:px-6">
+        <p><strong class="font-semibold">{{ $day->toDateString() === $business->opening_date?->toDateString() ? 'This is the opening day.' : 'This day is before the opening date.' }}</strong>
+            The opening balances are set as at {{ $business->opening_date->format('d M Y') }}, so it is not closed.
+            Closing starts on {{ $business->opening_date->copy()->addDay()->format('D d M Y') }}.</p>
+    </div>
 @elseif ($closeState['closable'] && $closeState['dueLater'])
     {{-- Days close in order: say so, and offer the way there. --}}
     <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">

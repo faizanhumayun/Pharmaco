@@ -32,7 +32,9 @@ final class ProductLabel
     {
         $value = trim((string) $dosageForm);
 
-        if ($value === '') {
+        // "Other" says nothing about the product, so it is not said:
+        // "POLYTHIN GLOVES", not "POLYTHIN GLOVES Other".
+        if ($value === '' || strtolower($value) === DosageForm::Other->value) {
             return null;
         }
 

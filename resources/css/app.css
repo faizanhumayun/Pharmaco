@@ -10,6 +10,16 @@
 @tailwind utilities;
 
 /*
+ * SELECTED LINE
+ *
+ * The line ↑ ↓ are on, in any list (resources/js/list-keys.js): the accent
+ * tint, a bar down its left edge. From the tokens, so it follows the
+ * business colour and Strong colours.
+ */
+tr[data-line-selected] > td { background-color: rgb(var(--accent-100)); }
+tr[data-line-selected] > td:first-child { box-shadow: inset 4px 0 0 0 rgb(var(--accent-700)); }
+
+/*
  * SMALLER SCREENS
  *
  * A 13-inch laptop — and any Windows laptop set to 125% or 150% — shows the

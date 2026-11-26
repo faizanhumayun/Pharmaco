@@ -31,13 +31,18 @@ use Illuminate\Validation\ValidationException;
  */
 class DirectDeliveryController extends Controller
 {
-    public function create(Business $business): View
+    public function create(Request $request, Business $business): View
     {
         $this->authorize('manageOrders', $business);
 
+        $companies = Company::forBusiness($business)->orderBy('name')->get(['id', 'name']);
+
         return view('business.stock.receive', [
             'business' => $business,
-            'companies' => Company::forBusiness($business)->orderBy('name')->get(['id', 'name']),
+            'companies' => $companies,
+            // Arriving from a company's own page, that company is chosen
+            // already — only if it is one of this business's.
+            'companyId' => (string) ($companies->firstWhere('id', $request->integer('company'))?->id ?? ''),
             // The whole catalogue, narrowed in the browser once a company is
             // picked — the same trick the counter uses, and for the same
             // reason: a delivery is checked in at speed.

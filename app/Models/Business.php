@@ -46,6 +46,12 @@ class Business extends Model
         ];
     }
 
+    /** Company stock audits: one company's rack counted in one go. */
+    public function companyAudits(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(CompanyAudit::class);
+    }
+
     public function members(): BelongsToMany
     {
         return $this->belongsToMany(User::class)

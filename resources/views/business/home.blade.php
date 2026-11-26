@@ -25,7 +25,7 @@
             @can('viewOrders', $business)
                 <a href="{{ route('businesses.orders.index', $business) }}"
                    class="block rounded-lg border border-gray-200 bg-white px-5 py-4 shadow-sm hover:border-emerald-600">
-                    <p class="text-sm font-semibold text-gray-900">Order forms</p>
+                    <p class="text-sm font-semibold text-gray-900">Order forms &amp; deliveries</p>
                     <p class="mt-1 text-sm text-gray-500">Orders placed with companies.</p>
                 </a>
             @endcan

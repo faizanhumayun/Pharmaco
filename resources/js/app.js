@@ -5,6 +5,7 @@ import Alpine from 'alpinejs';
 import { startKebabSelects } from './kebab-select';
 import { startDateFields } from './date-fields';
 import { startLiveFilters } from './live-filters';
+import { startListKeys } from './list-keys';
 
 window.Alpine = Alpine;
 
@@ -13,7 +14,8 @@ Alpine.start();
 // Every dropdown becomes a kebab menu, once Alpine has drawn the page.
 // …and every date a calendar.
 // …and every list filters as it is typed into.
-const dressFields = () => { startKebabSelects(); startDateFields(); startLiveFilters(); };
+// …and every list answers ↑ ↓ Enter.
+const dressFields = () => { startKebabSelects(); startDateFields(); startLiveFilters(); startListKeys(); };
 
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', dressFields);

@@ -194,7 +194,11 @@
                             ['− Purchase price of these sales', $m['cogs'], false],
                             ['Gross profit', $m['gross_profit'], true],
                             ['− Expenses', $m['expenses'], false],
-                            $m['written_off']->isZero() ? null : ['− Stock and debts written off', $m['written_off'], false],
+                            // Stock short on counts and bad debts come off; stock found on counts comes back.
+                            $m['written_off']->isZero() ? null
+                                : ($m['written_off']->isPositive()
+                                    ? ['− Stock short on counts and debts written off', $m['written_off'], false]
+                                    : ['+ Stock found on counts', $m['written_off']->absolute(), false]),
                         ]));
                         $monthLoss = $m['net_profit']->isNegative();
                     @endphp

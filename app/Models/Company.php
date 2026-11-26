@@ -32,6 +32,12 @@ class Company extends Model
         return $this->hasMany(CompanyProduct::class);
     }
 
+    /** Every bill from this company, as entered on its day. */
+    public function purchaseLines(): HasMany
+    {
+        return $this->hasMany(PurchaseLine::class);
+    }
+
     public function productImports(): HasMany
     {
         return $this->hasMany(CompanyProductImport::class)->latest('id');

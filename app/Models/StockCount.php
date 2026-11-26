@@ -44,6 +44,18 @@ class StockCount extends Model
         return $this->belongsTo(CompanyProduct::class, 'company_product_id');
     }
 
+    /** Batch by batch, where the count was taken that way. */
+    public function lines(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(StockCountLine::class)->orderBy('expires_on')->orderBy('id');
+    }
+
+    /** The company audit this count was taken in, if any. */
+    public function auditItem(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(CompanyAuditItem::class);
+    }
+
     public function counter(): BelongsTo
     {
         return $this->belongsTo(User::class, 'counted_by');

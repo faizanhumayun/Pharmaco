@@ -36,8 +36,9 @@
         'Stock' => array_filter([
             $tab('Products',    'businesses.products.index','businesses.products.*',  $user->can('viewProducts', $business)),
             $tab('Stock held',  'businesses.stock.index',   'businesses.stock.index', $user->can('verifyStock', $business)),
-            $tab('Order forms', 'businesses.orders.index',  'businesses.orders.*',    $user->can('viewOrders', $business)),
-            $tab('Stock audit', 'businesses.stock.audit',   'businesses.stock.audit*', $user->can('verifyStock', $business)),
+            $tab('Order forms & deliveries', 'businesses.orders.index',  'businesses.orders.*',    $user->can('viewOrders', $business)),
+            $tab('Company audit', 'businesses.company-audits.index', 'businesses.company-audits.*', $user->can('verifyStock', $business)),
+            $tab('Near expiry', 'businesses.stock.expiring', 'businesses.stock.expiring', $user->can('viewProducts', $business)),
         ]),
         'People' => array_filter([
             $tab('Customers',   'businesses.pharmacies.index','businesses.pharmacies.*', $user->can('configure', $business)),
@@ -63,10 +64,6 @@
     $notice = $business->acceptsTransactions() && $user->can('viewAny', [\App\Models\DailyEntry::class, $business])
         ? app(\App\Domain\Reporting\Notices::class)->for($business, $user)
         : null;
-
-    // Out of the Stock group and in plain sight: expired stock that has not
-    // gone back to the company is money being lost, and it is checked often.
-    $expiring = $tab('Near expiry', 'businesses.stock.expiring', 'businesses.stock.expiring', $user->can('viewProducts', $business));
 
     // Its own tab rather than inside a group: it is reached rarely and looked
     // for by name, which is the opposite of everything above.
@@ -189,18 +186,6 @@
                     @endif
 
 
-                    @if ($expiring)
-                        @php($active = request()->routeIs($expiring['pattern']))
-                        <a href="{{ route($expiring['route'], $business) }}"
-                           @class([
-                               'whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition',
-                               'border-emerald-700 text-emerald-800' => $active,
-                               'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700' => ! $active,
-                           ])
-                           @if ($active) aria-current="page" @endif>
-                            {{ $expiring['label'] }}
-                        </a>
-                    @endif
 
                     @foreach ($groups as $name => $items)
                         @continue($items === [])
@@ -335,7 +320,10 @@
                     @endif
 
                     @if ($addStock)
-                        <a href="{{ route($addStock['route'], $business) }}"
+                        {{-- Opens in its own tab, like the counter: a delivery is
+                             checked in alongside whatever was already open. --}}
+                        <a href="{{ route($addStock['route'], $business) }}" target="_blank"
+                           title="Opens Add stock in a new tab"
                            class="my-1 ms-2 inline-flex items-center gap-1.5 whitespace-nowrap rounded-md border border-emerald-600 bg-white px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50">
                             <span aria-hidden="true" class="text-base leading-none">+</span>
                             {{ $addStock['label'] }}
@@ -365,7 +353,8 @@
                 </div>
             @endisset
 
-            <main @class(['min-h-0 flex-1 overflow-hidden' => $fill])>
+            {{-- data-list-keys: every list on the page answers ↑ ↓ Enter (resources/js/list-keys.js). --}}
+            <main data-list-keys @class(['min-h-0 flex-1 overflow-hidden' => $fill])>
                 {{ $slot }}
             </main>
         </div>

@@ -32,7 +32,6 @@ class StockVerificationController extends Controller
         $this->authorize('verifyStock', $business);
 
         $period = $received->period($business, $request->query('period'));
-        $deliveries = $received->deliveries($business, $period['from']);
         $held = $received->onHand($business, $stock, $period['from']);
 
         /*
@@ -42,12 +41,27 @@ class StockVerificationController extends Controller
          */
         $search = trim((string) $request->string('q'));
 
-        $matching = $search === ''
-            ? $held
-            : $held->filter(fn (array $row) => str_contains(
+        // The companies whose goods are held, for the filter: no point
+        // offering one with nothing on the shelf.
+        $companies = $held->map(fn (array $row) => $row['product']->company)->filter()
+            ->unique('id')->sortBy(fn ($c) => mb_strtolower($c->name))->values();
+        $company = $companies->firstWhere('id', $request->integer('company'));
+
+        // Filtered to a company, the figures at the top are that company's:
+        // its goods held, its deliveries, its goods sold.
+        $scope = $company ? $held->filter(fn (array $row) => $row['product']->company_id === $company->id)->values() : $held;
+        $deliveries = $received->deliveries($business, $period['from'], $company?->id);
+        $productIds = $company
+            ? \App\Models\CompanyProduct::forBusiness($business)->where('company_id', $company->id)->pluck('id')->all()
+            : null;
+
+        $matching = $held
+            ->when($company, fn ($rows) => $rows->filter(fn (array $row) => $row['product']->company_id === $company->id))
+            ->when($search !== '', fn ($rows) => $rows->filter(fn (array $row) => str_contains(
                 mb_strtolower($row['product']->label() . ' ' . $row['product']->generic_name . ' ' . $row['product']->code),
                 mb_strtolower($search)
-            ))->values();
+            )))
+            ->values();
 
         $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
         $onHand = new \Illuminate\Pagination\LengthAwarePaginator(
@@ -73,14 +87,18 @@ class StockVerificationController extends Controller
             'periodKey' => $request->query('period', 'all'),
             'deliveries' => $deliveries,
             'receivedValue' => $received->value($deliveries),
-            'soldValue' => $received->soldValue($business, $period['from']),
+            'soldValue' => $received->soldValue($business, $period['from'], $productIds),
 
             // What is held, product by product.
             'onHand' => $onHand,
             'search' => $search,
-            'productsHeld' => $held->count(),
-            'packsHeld' => $held->sum('packs'),
-            'heldValue' => Money::sum($held->pluck('value')->filter()),
+            'companies' => $companies,
+            'company' => $company,
+            // What the filtered list is worth, said under the bar.
+            'matchingValue' => Money::sum($matching->pluck('value')->filter()),
+            'productsHeld' => $scope->count(),
+            'packsHeld' => $scope->sum('packs'),
+            'heldValue' => Money::sum($scope->pluck('value')->filter()),
         ]);
     }
 

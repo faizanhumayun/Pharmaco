@@ -148,7 +148,9 @@ class CompanyProduct extends Model
 
         $noun = $this->pieceNoun();
 
-        $pieces = number_format($loose).' loose '.($loose === 1 ? $noun : $noun.'s');
+        // "3 loose tablets" where the form says what a piece is; plain
+        // "3 loose" otherwise, rather than the empty word "pieces".
+        $pieces = number_format($loose).' loose'.($noun === 'piece' ? '' : ' '.($loose === 1 ? $noun : $noun.'s'));
 
         return $packs === 0 ? $pieces : $whole.' and '.$pieces;
     }

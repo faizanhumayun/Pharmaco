@@ -37,10 +37,34 @@ class OrderController extends Controller
     {
         $this->authorize('viewOrders', $business);
 
+        $filters = [
+            // A reference or an invoice number, whichever is to hand.
+            'q' => trim((string) $request->string('q')),
+            'company' => $request->query('company'),
+            'status' => in_array($request->query('status'), array_column(OrderStatus::cases(), 'value'), true)
+                ? $request->query('status') : null,
+            // Written on a form first, or simply turned up.
+            'kind' => in_array($request->query('kind'), ['form', 'direct'], true) ? $request->query('kind') : null,
+            // Received, and whether its invoice has been entered.
+            'invoice' => in_array($request->query('invoice'), ['with', 'without'], true) ? $request->query('invoice') : null,
+            'from' => $this->dateOrNull($request->query('from')),
+            'to' => $this->dateOrNull($request->query('to')),
+        ];
+
         $orders = Order::forBusiness($business)
-            ->with(['company', 'creator', 'lines', 'receiptLines'])
-            ->when($request->query('company'), fn ($q, $id) => $q->where('company_id', $id))
-            ->when($request->query('status'), fn ($q, $status) => $q->where('status', $status))
+            ->with(['company', 'creator', 'lines', 'receiptLines', 'purchaseLine'])
+            ->when($filters['q'] !== '', fn ($q) => $q->where(fn ($w) => $w
+                ->where('reference', 'like', '%'.$filters['q'].'%')
+                ->orWhereHas('purchaseLine', fn ($p) => $p->where('invoice_no', 'like', '%'.$filters['q'].'%'))))
+            ->when($filters['company'], fn ($q, $id) => $q->where('company_id', $id))
+            ->when($filters['status'], fn ($q, $status) => $q->where('status', $status))
+            ->when($filters['kind'] === 'form', fn ($q) => $q->has('lines'))
+            ->when($filters['kind'] === 'direct', fn ($q) => $q->doesntHave('lines'))
+            ->when($filters['invoice'] === 'with', fn ($q) => $q->has('purchaseLine'))
+            ->when($filters['invoice'] === 'without', fn ($q) => $q
+                ->where('status', OrderStatus::Received)->doesntHave('purchaseLine'))
+            ->when($filters['from'], fn ($q, $d) => $q->whereDate('business_date', '>=', $d))
+            ->when($filters['to'], fn ($q, $d) => $q->whereDate('business_date', '<=', $d))
             ->orderByDesc('business_date')
             ->orderByDesc('id')
             ->paginate(25)
@@ -56,11 +80,14 @@ class OrderController extends Controller
             'outstanding' => $outstanding,
             'outstandingTotal' => Money::sum($outstanding->map(fn (Order $o) => $o->total())),
             'companies' => Company::forBusiness($business)->orderBy('name')->get(),
-            'filters' => [
-                'company' => $request->query('company'),
-                'status' => $request->query('status'),
-            ],
+            'filters' => $filters,
         ]);
+    }
+
+    /** A Y-m-d from the query string, or nothing when it is not one. */
+    private function dateOrNull(mixed $value): ?string
+    {
+        return is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : null;
     }
 
     public function create(Request $request, Business $business): View
@@ -96,9 +123,20 @@ class OrderController extends Controller
             ->with('status', "{$order->reference} saved as a draft. Check it, then send it.");
     }
 
-    public function show(Business $business, Order $order): View
+    public function show(Request $request, Business $business, Order $order): View|RedirectResponse
     {
         $this->authorize('viewOrders', $business);
+
+        /*
+         * A supply that has come in with its bill is read on the company's
+         * bill page — the same page whether it was ordered on a form or just
+         * turned up. "?form=1" still shows the order form itself.
+         */
+        $bill = $order->status === OrderStatus::Received ? $order->purchaseLine : null;
+
+        if ($bill?->company_id !== null && ! $request->boolean('form')) {
+            return redirect()->route('businesses.companies.bill', [$business, $bill->company_id, $bill]);
+        }
 
         return view('business.orders.show', [
             'business' => $business,

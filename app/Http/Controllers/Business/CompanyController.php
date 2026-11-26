@@ -11,7 +11,10 @@ use App\Models\CompanyProduct;
 use App\Http\Controllers\Controller;
 use App\Models\Business;
 use App\Models\Company;
+use App\Models\DailyEntry;
 use App\Models\LedgerEntry;
+use App\Models\PurchaseLine;
+use App\Enums\TransactionType;
 use App\Support\Money;
 use Illuminate\Contracts\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -65,6 +68,12 @@ class CompanyController extends Controller
         $sum = Money::sum($owed);
 
 
+        // Each company's goods in hand at purchase price — the same figures
+        // the company audit list shows.
+        $stockValues = app(\App\Domain\Stock\Audits\CompanyAuditSchedule::class)->for($business)
+            ->mapWithKeys(fn ($row) => [$row['company']->id => ['value' => $row['value'], 'products' => $row['products']]]);
+        $stockOf = fn (Company $c) => $stockValues->get($c->id, ['value' => Money::zero(), 'products' => 0]);
+
         // How many each of the two lists holds, before one is chosen.
         $allCount = $companies->count();
         $pendingCount = $companies->filter(fn (Company $c) => ! $owed[$c->id]->isZero())->count();
@@ -74,13 +83,14 @@ class CompanyController extends Controller
             $companies = $companies->filter(fn (Company $c) => ! $owed[$c->id]->isZero())->values();
         }
 
-        $sort = in_array($request->string('sort')->toString(), ['owed', 'purchased'], true)
+        $sort = in_array($request->string('sort')->toString(), ['owed', 'purchased', 'stock'], true)
             ? $request->string('sort')->toString()
             : 'name';
 
         $companies = match ($sort) {
             'owed' => $companies->sortByDesc(fn (Company $c) => (float) $owed[$c->id]->toDecimal())->values(),
             'purchased' => $companies->sortByDesc(fn (Company $c) => (float) $totals->get($c->id, CompanyPurchases::none())['billed']->toDecimal())->values(),
+            'stock' => $companies->sortByDesc(fn (Company $c) => (float) $stockOf($c)['value']->toDecimal())->values(),
             default => $companies,
         };
 
@@ -91,6 +101,9 @@ class CompanyController extends Controller
         $listedBilled = Money::sum($listedTotals->pluck('billed'));
         $listedPaid = Money::sum($listedTotals->pluck('paid'));
         $listedInvoices = (int) $listedTotals->sum('invoices');
+        $listedStock = Money::sum($companies->map(fn (Company $c) => $stockOf($c)['value']));
+        $listedStockProducts = (int) $companies->sum(fn (Company $c) => $stockOf($c)['products']);
+        $listedWithStock = $companies->filter(fn (Company $c) => $stockOf($c)['products'] > 0)->count();
 
         // A page at a time, once the list outgrows a screen.
         $page = \Illuminate\Pagination\LengthAwarePaginator::resolveCurrentPage();
@@ -115,6 +128,10 @@ class CompanyController extends Controller
             'listedBilled' => $listedBilled,
             'listedPaid' => $listedPaid,
             'listedInvoices' => $listedInvoices,
+            'listedStock' => $listedStock,
+            'listedStockProducts' => $listedStockProducts,
+            'listedWithStock' => $listedWithStock,
+            'stock' => $companies->mapWithKeys(fn (Company $c) => [$c->id => $stockOf($c)]),
             'allCount' => $allCount,
             'pendingCount' => $pendingCount,
             'balances' => $companies->mapWithKeys(fn (Company $c) => [
@@ -276,13 +293,15 @@ class CompanyController extends Controller
                 ->orderBy('business_date')->orderBy('id')->get()
             : collect();
 
+        $bills = $this->billsFor($company, $entries);
+
         $running = Money::zero();
 
-        $rows = $entries->map(function (LedgerEntry $entry) use (&$running) {
+        $rows = $entries->map(function (LedgerEntry $entry) use (&$running, $bills) {
             // Payables are credit-normal: a credit raises what is owed.
             $running = $running->plus($entry->credit)->minus($entry->debit);
 
-            return ['entry' => $entry, 'running' => $running];
+            return ['entry' => $entry, 'running' => $running, 'bill' => $bills($entry)];
         });
 
         // Newest first on the screen. The running balance was worked out oldest
@@ -293,6 +312,13 @@ class CompanyController extends Controller
         return view('business.companies.show', [
             'purchases' => app(CompanyPurchases::class)->totals($business)
                 ->get($company->id, CompanyPurchases::none()),
+            // What their goods have sold for at the counter, returns taken off.
+            'sales' => app(\App\Domain\Companies\CompanySales::class)->for($business, $company),
+            // Its last finished audit, and what that did to the stock value.
+            'lastAudit' => ($last = \App\Models\CompanyAudit::forBusiness($business)
+                ->where('company_id', $company->id)->done()->latest('id')->first())
+                ? ['audit' => $last, 'change' => app(\App\Domain\Stock\Audits\CompanyAuditReport::class)->change($last)]
+                : null,
             'productCount' => $company->products()->count(),
             // A list read but not yet applied is easy to forget about, so the
             // company's own page says so until it is dealt with.
@@ -307,5 +333,96 @@ class CompanyController extends Controller
                 ? $balances->asAt($business, $company->account->code)
                 : Money::zero(),
         ]);
+    }
+
+    /**
+     * One bill from this company: the invoice as it was entered on its day,
+     * and the goods it was for when it came in as a delivery.
+     */
+    public function bill(Request $request, Business $business, Company $company, PurchaseLine $purchaseLine): View
+    {
+        // The one page for a supply, ordered or not: whoever may see
+        // deliveries may see this, as they could the delivery page it stands for.
+        $this->authorize('viewOrders', $business);
+
+        abort_if($company->business_id !== $business->id, 403);
+        abort_if($purchaseLine->company_id !== $company->id, 404);
+
+        $purchaseLine->load(['dailyEntry', 'order.receiptLines', 'order.creator', 'order.receiver']);
+
+        abort_if($purchaseLine->dailyEntry?->business_id !== $business->id, 404);
+
+        $order = $purchaseLine->order?->loadLines();
+        $hasForm = $order !== null && $order->lines->isNotEmpty();
+
+        /*
+         * One row per product. Against an order form, each ordered line with
+         * what came for it, then anything sent unasked; without one, simply
+         * what arrived, in the order it was checked in.
+         */
+        $rows = match (true) {
+            $order === null => collect(),
+            $hasForm => $order->delivery(),
+            default => $order->receiptLines->sortBy('position')->values()->map(fn ($r) => [
+                'line' => null, 'receipt' => $r, 'ordered' => null, 'received' => $r->packs, 'difference' => 0,
+            ]),
+        };
+
+        return view('business.companies.bill', [
+            'business' => $business,
+            'company' => $company,
+            'bill' => $purchaseLine,
+            'order' => $order,
+            'hasForm' => $hasForm,
+            'rows' => $rows,
+            'canManage' => $request->user()->can('manageOrders', $business),
+        ]);
+    }
+
+    /**
+     * Finds the bill behind a statement entry.
+     *
+     * A purchase posts from its day's entry, one transaction per invoice, and
+     * names the invoice in its narration. So the day's bills from this company
+     * are looked up once, and an entry is matched to the one its narration
+     * names — or to the only one, when the day had just the one.
+     *
+     * @return \Closure(LedgerEntry): ?PurchaseLine
+     */
+    private function billsFor(Company $company, $entries): \Closure
+    {
+        $dayIds = $entries
+            ->map(fn (LedgerEntry $e) => $e->transaction)
+            ->filter(fn ($t) => $t->source_type === (new DailyEntry)->getMorphClass())
+            ->pluck('source_id')->unique()->values();
+
+        $lines = $dayIds->isEmpty()
+            ? collect()
+            : PurchaseLine::where('company_id', $company->id)
+                ->whereIn('daily_entry_id', $dayIds)
+                ->with('company')
+                ->get()
+                ->groupBy('daily_entry_id');
+
+        $types = [TransactionType::PurchaseCredit, TransactionType::PurchaseCash, TransactionType::CompanyPayment];
+
+        return function (LedgerEntry $entry) use ($lines, $types): ?PurchaseLine {
+            $t = $entry->transaction;
+
+            if (! in_array($t->type, $types, true) || $t->source_type !== (new DailyEntry)->getMorphClass()) {
+                return null;
+            }
+
+            $day = $lines->get($t->source_id);
+
+            if ($day === null) {
+                return null;
+            }
+
+            $named = trim((string) str($t->narration)->after(' — '));
+
+            return $day->first(fn (PurchaseLine $l) => $l->label() === $named)
+                ?? ($day->count() === 1 ? $day->first() : null);
+        };
     }
 }

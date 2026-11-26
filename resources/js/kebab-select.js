@@ -194,6 +194,9 @@ function enhance(select) {
     wrapper.className = ['relative', fullWidth ? 'block' : 'inline-block', 'align-middle', ...classes.filter(c => LAYOUT.test(c))].join(' ');
 
     const button = document.createElement('button');
+    // A page that walks its fields with Enter (data-step) walks this button,
+    // not the hidden select behind it.
+    if ('step' in select.dataset) button.dataset.step = '';
     button.type = 'button';
     button.setAttribute('aria-haspopup', 'listbox');
     button.setAttribute('aria-expanded', 'false');

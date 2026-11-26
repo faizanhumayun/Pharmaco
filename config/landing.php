@@ -150,7 +150,9 @@ return [
                 'title' => 'Stock that holds up',
                 'points' => [
                     'Stock cannot go below zero',
-                    'A few lines are counted each day',
+                    'Each company\'s rack counted batch by batch, with every expiry on the sheet',
+                    'A company\'s rack audited each month, with a report of what went missing',
+                    'Stock found short is booked as a loss, stock found over adds to stock value',
                     'Reorder levels produce a list of what to buy',
                 ],
             ],
@@ -176,6 +178,8 @@ return [
                 'title' => 'Company accounts',
                 'points' => [
                     'A running account per supplier',
+                    'Open any bill on the statement to see its items, batches and rates',
+                    'What each supplier\'s goods have sold for at the counter',
                     'Pay a supplier from its own page, in full or in part',
                     'What you owe is never one lump figure',
                 ],

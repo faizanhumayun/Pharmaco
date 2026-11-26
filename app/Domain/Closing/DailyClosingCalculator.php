@@ -62,6 +62,10 @@ class DailyClosingCalculator
             'expenses' => $expenses,
             // Two labelled figures, never one number called "profit".
             'net_profit' => $netProfit,
+            // Stock found short (positive, a loss) or over (negative, a gain)
+            // on counts and audits approved today, at cost. Already inside
+            // net profit; said on its own so the day explains itself.
+            'stock_variance' => $this->balances->movement($business, AccountCode::StockVariance, $date, $date),
 
             'collections' => $this->movementByType($business, $date, [TransactionType::Collection]),
             'company_payments' => $this->movementByType($business, $date, [TransactionType::CompanyPayment]),

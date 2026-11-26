@@ -54,6 +54,8 @@
     $gpShare = $figures['sales']->isPositive()
         ? number_format((float) $figures['gross_profit']->toDecimal() / (float) $figures['sales']->toDecimal() * 100, 1) . '% of sales'
         : 'No sales on this day';
+    // Short (positive) or over (negative) on approved counts today, at cost.
+    $stockVariance = $figures['stock_variance'] ?? \App\Support\Money::zero();
     $stockMove = $figures['closing_stock']->minus($figures['opening_stock']);
     $cashMove = $figures['closing_cash']->minus($figures['opening_cash']);
     $netMove = $figures['net_position']->minus($openingNetPosition);
@@ -75,13 +77,26 @@
                 'Start of day ' . $rs($figures['opening_payable']) . ' · + ' . $rs($figures['purchases_on_account']) . ' bought on credit · − ' . $rs($figures['company_payments']) . ' paid',
                 [$figures['payable_delta'], 'today'], 'up-bad'],
             ['Stock', $figures['closing_stock'],
-                'Last night ' . $rs($figures['opening_stock']) . ' · + ' . $rs($figures['purchases']) . ' bought · − ' . $rs($figures['cogs']) . ' sold at cost',
+                'Last night ' . $rs($figures['opening_stock']) . ' · + ' . $rs($figures['purchases']) . ' bought · − ' . $rs($figures['cogs']) . ' sold at cost'
+                    . ($stockVariance->isZero() ? '' : ($stockVariance->isPositive() ? ' · − ' . $rs($stockVariance) . ' short on counts' : ' · + ' . $rs($stockVariance->absolute()) . ' found on counts')),
                 [$stockMove, 'since last night'], 'neutral'],
         ],
-        'Expenses' => [
+        'Expenses' => array_values(array_filter([
             ['Expenses', $figures['expenses'], 'Spent on running the shop', null, null],
-            ['Net profit', $figures['net_profit'], 'Gross profit less expenses', null, $figures['net_profit']->isNegative() ? 'loss' : 'profit'],
-        ],
+            // Approved stock counts and company audits, at cost: a shortage is
+            // the business's loss, stock found over is a gain.
+            $stockVariance->isZero() ? null : [
+                $stockVariance->isPositive() ? 'Stock short on counts' : 'Stock found on counts',
+                $stockVariance->absolute(),
+                $stockVariance->isPositive() ? 'Lost at cost: comes off net profit' : 'Found at cost: added to stock and to net profit',
+                null,
+                $stockVariance->isPositive() ? 'loss' : 'profit',
+            ],
+            ['Net profit', $figures['net_profit'],
+                $stockVariance->isZero() ? 'Gross profit less expenses'
+                    : ($stockVariance->isPositive() ? 'Gross profit less expenses and stock short' : 'Gross profit less expenses, plus stock found'),
+                null, $figures['net_profit']->isNegative() ? 'loss' : 'profit'],
+        ])),
         'Money' => [
             ['Today\'s cash in the drawer', $drawerCash, 'The day\'s own cash: received less paid out. Counted at closing.', null, null],
             ['Cash with the owner', $figures['closing_cash'], 'Earlier days ' . $rs($carried) . ' · + today\'s drawer ' . $rs($drawerCash), [$cashMove, 'today'], 'up-good'],

@@ -340,7 +340,8 @@ function monthPicker() {
     panel.append(head, grid, foot);
     document.body.append(panel);
 
-    monthPanel = { panel, year: new Date().getFullYear(), input: null, button: null };
+    // cursor: the month the arrow keys are on ('YYYY-MM'), once a key has moved it.
+    monthPanel = { panel, year: new Date().getFullYear(), input: null, button: null, cursor: null };
 
     const draw = () => {
         const now = new Date();
@@ -358,6 +359,7 @@ function monthPicker() {
             item.innerHTML = '<span class="block text-sm font-medium">' + name + '</span>'
                 + '<span class="block font-mono text-[0.6875rem] tabular-nums opacity-70">' + pad(i + 1) + '</span>';
             item.className = 'rounded-md py-1.5 text-center '
+                + (value === monthPanel.cursor ? 'ring-2 ring-emerald-600 ring-offset-1 ' : '')
                 + (value === chosen
                     ? 'bg-emerald-700 text-white'
                     // Already gone by: still there to pick, but it says so.
@@ -473,6 +475,7 @@ function buildMonth(input) {
         picker.input = input;
         picker.button = button;
         picker.year = input.value ? Number(input.value.slice(0, 4)) : new Date().getFullYear() + 1;
+        picker.cursor = null;
         picker.draw();
         picker.panel.classList.remove('hidden');
         place(picker.panel, wrapper);
@@ -481,8 +484,41 @@ function buildMonth(input) {
         openPanel = { panel: picker.panel, button, wrap: wrapper, since: Date.now() };
     };
 
+    /*
+     * The calendar from the keyboard, while it is open: ← → a month, ↑ ↓ a
+     * row of four, Page Up / Page Down a year. Enter takes the month the keys
+     * are on and moves on as Enter always does; typing "08/27" still works.
+     */
+    const moveCursor = by => {
+        const picker = monthPanel;
+        const start = picker.cursor ?? input.value ?? '';
+        const [y, m] = (start || (picker.year + '-' + pad(new Date().getMonth() + 1))).split('-').map(Number);
+        const at = new Date(y, m - 1 + by, 1);
+        picker.cursor = at.getFullYear() + '-' + pad(at.getMonth() + 1);
+        picker.year = at.getFullYear();
+        picker.draw();
+    };
+
     text.addEventListener('keydown', event => {
-        if (event.key === 'ArrowDown' && event.altKey) { event.preventDefault(); button.click(); }
+        if (event.key === 'ArrowDown' && event.altKey) { event.preventDefault(); button.click(); return; }
+
+        if (isOpen()) {
+            const by = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -4, ArrowDown: 4, PageUp: -12, PageDown: 12 }[event.key];
+            if (by !== undefined) {
+                event.preventDefault();
+                event.stopPropagation();
+                moveCursor(by);
+                return;
+            }
+        }
+
+        // Enter takes the month the keys are on, then moves on as it always did.
+        if (event.key === 'Enter' && isOpen() && monthPanel.cursor) {
+            set(input, monthPanel.cursor);
+            sync();
+            text.value = monthWords(input.value);
+        }
+
         // Moving on (Enter on a page that walks its fields, or Tab) closes it.
         if ((event.key === 'Enter' || event.key === 'Tab') && isOpen()) close();
     });

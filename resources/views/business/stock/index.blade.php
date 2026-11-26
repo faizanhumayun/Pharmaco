@@ -9,9 +9,11 @@
             </div>
 
             <div class="flex flex-wrap items-stretch gap-3">
-                <div class="rounded-md bg-gray-100 px-3 py-2">
+                {{-- The books keep one stock figure for the business; for one
+                     company it is worked out from its goods at purchase price. --}}
+                <div class="rounded-md bg-gray-100 px-3 py-2" title="{{ $company ? 'Stock of ' . $company->name . ' at purchase price' : 'The stock figure in the books' }}">
                     <p class="text-xs uppercase tracking-wide text-gray-500">Stock value</p>
-                    <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ $bookValue->format() }}</p>
+                    <p class="mt-0.5 font-mono text-sm font-semibold tabular-nums text-gray-900">{{ ($company ? $heldValue : $bookValue)->format() }}</p>
                 </div>
                 <div class="rounded-md bg-gray-100 px-3 py-2">
                     <p class="text-xs uppercase tracking-wide text-gray-500">In stock</p>
@@ -136,15 +138,28 @@
             {{-- What is held, product by product — a page at a time, because a
                  whole catalogue in one table is a slow page and an unreadable one. --}}
             <div x-show="view === 'onhand'" class="flex min-h-0 flex-1 flex-col">
-                <x-filter-bar submit="Search" :active="$search !== ''" clear="{{ route('businesses.stock.index', [$business, 'period' => $periodKey]) }}">
+                <x-filter-bar submit="Search" :active="$search !== '' || $company" clear="{{ route('businesses.stock.index', [$business, 'period' => $periodKey]) }}">
                     <input type="hidden" name="period" value="{{ $periodKey }}">
                     <div>
                         <x-input-label for="q" value="Search products" />
                         <input id="q" name="q" type="search" value="{{ $search }}" placeholder="Search products"
                            class="mt-1 block w-64 rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
                     </div>
+                    <div>
+                        <x-input-label for="company" value="Company" />
+                        <select id="company" name="company"
+                                class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
+                            <option value="">All companies</option>
+                            @foreach ($companies as $option)
+                                <option value="{{ $option->id }}" @selected($company?->id === $option->id)>{{ $option->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
 
-                    <x-slot name="count">Showing {{ $onHand->firstItem() ?? 0 }}–{{ $onHand->lastItem() ?? 0 }} of {{ number_format($onHand->total()) }}</x-slot>
+                    <x-slot name="count">
+                        Showing {{ $onHand->firstItem() ?? 0 }}–{{ $onHand->lastItem() ?? 0 }} of {{ number_format($onHand->total()) }}
+                        @if ($search !== '' || $company) · worth {{ $matchingValue->format() }} at cost @endif
+                    </x-slot>
                 </x-filter-bar>
 
                 <div class="min-h-0 flex-1 overflow-auto">

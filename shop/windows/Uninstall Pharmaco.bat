@@ -14,6 +14,8 @@ schtasks /Delete /TN "Pharmaco Scheduler" /F >nul 2>&1
 netsh advfirewall firewall delete rule name="Pharmaco" >nul 2>&1
 del "%PUBLIC%\Desktop\Pharmaco.url" >nul 2>&1
 del "%PUBLIC%\Desktop\Pharmaco Till (prints directly).lnk" >nul 2>&1
+rem The "pharmaco" name for this computer, out of Windows' hosts file.
+powershell -NoProfile -Command "$h=\"$env:SystemRoot\System32\drivers\etc\hosts\"; (Get-Content $h) | Where-Object { $_ -notmatch '^\s*127\.0\.0\.1\s+pharmaco(\s|$)' } | Set-Content -Encoding ASCII $h" >nul 2>&1
 
 echo Pharmaco no longer starts by itself.
 echo The application and the books in C:\Pharmaco were not touched.

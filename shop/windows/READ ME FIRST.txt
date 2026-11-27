@@ -68,8 +68,9 @@ no internet is needed to install.
  4. It asks for two values: paste MIRROR_PUSH_URL and MIRROR_PUSH_TOKEN
     from Step 1. Or leave both empty to set up the online copy later.
  5. Wait for "Pharmaco is installed." It opens the browser at
-    http://localhost:8080 and prints the address the other computers
+    http://pharmaco:8080 and prints the address the other computers
     should use, for example http://192.168.1.20:8080. Write that down.
+    (http://localhost:8080 opens it too, on this computer.)
 
 What it set up:
   - Everything in C:\Pharmaco
@@ -82,6 +83,9 @@ What it set up:
     backups, listens for a pause from the back office, and restarts the
     server if it has stopped (after sleep, for example).
   - Port 8080 opened in the Windows firewall for the shop's network.
+  - The name "pharmaco" for this computer, so the browser opens
+    http://pharmaco:8080 (one line in Windows' hosts file). It works on
+    this computer only; others use the address with the numbers.
   - Desktop shortcuts: "Pharmaco", and "Pharmaco Till (prints directly)"
     when Chrome or Edge is installed.
 
@@ -90,7 +94,7 @@ What it set up:
 STEP 3  First sign-in and setting up the business
 ---------------------------------------------------------------------
 
- 1. Open http://localhost:8080/back-office/login and sign in with the
+ 1. Open http://pharmaco:8080/back-office/login and sign in with the
     built-in back-office login (the App Owner's).
  2. Change its password straight away (Profile). Every installation
     starts with the same one.

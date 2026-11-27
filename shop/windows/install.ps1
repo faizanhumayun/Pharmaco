@@ -14,6 +14,11 @@ $ErrorActionPreference = 'Stop'
 $Kit     = Split-Path -Parent $MyInvocation.MyCommand.Path
 $Target  = 'C:\Pharmaco'
 $Port    = 8080
+# The name the shop types instead of "localhost": http://pharmaco:8080.
+# Windows is told it means this computer, in its hosts file.
+$HostName = 'pharmaco'
+$Address  = "http://${HostName}:$Port"
+$Hosts    = "$env:SystemRoot\System32\drivers\etc\hosts"
 $DbPort  = 3307
 $DbName  = 'pharmaco'
 $Service = 'PharmacoDB'
@@ -126,7 +131,7 @@ try {
         $PushToken = Read-Host 'MIRROR_PUSH_TOKEN'
 
         Run $Php @("$Target\set-env.php", "$Target\app",
-            'APP_ENV=production', 'APP_DEBUG=false', "APP_URL=http://localhost:$Port", 'LOG_LEVEL=warning',
+            'APP_ENV=production', 'APP_DEBUG=false', "APP_URL=$Address", 'LOG_LEVEL=warning',
             'DB_HOST=127.0.0.1', "DB_PORT=$DbPort", "DB_DATABASE=$DbName", 'DB_USERNAME=root', "DB_PASSWORD=$DbPassword",
             "MIRROR_PUSH_URL=$PushUrl", "MIRROR_PUSH_TOKEN=$PushToken")
 
@@ -134,8 +139,19 @@ try {
     }
 
     # Marks this installation as a shop's own computer (also on an update
-    # from a kit made before the mark existed).
-    Run $Php @("$Target\set-env.php", "$Target\app", 'PHARMACO_SHOP=true')
+    # from a kit made before the mark existed), and gives it its own address
+    # (an update from a kit that used http://localhost moves it across).
+    Run $Php @("$Target\set-env.php", "$Target\app", 'PHARMACO_SHOP=true', "APP_URL=$Address")
+
+    # --- its own name: http://pharmaco:8080 ----------------------------------
+    # One line in Windows' hosts file says "pharmaco" is this computer. Written
+    # once; a line already there is left alone. localhost goes on working too.
+    Say "Naming this computer '$HostName' for the browser"
+    $lines = @(Get-Content -Path $Hosts -ErrorAction SilentlyContinue)
+    if (-not ($lines | Where-Object { $_ -match "^\s*127\.0\.0\.1\s+$HostName(\s|$)" })) {
+        Add-Content -Path $Hosts -Encoding ASCII -Value "`r`n127.0.0.1`t$HostName`t# Pharmaco"
+        Quietly 'ipconfig /flushdns'
+    }
 
     Say 'Preparing the books'
     Run $Php @('artisan', 'migrate', '--force', '--no-interaction')
@@ -181,7 +197,7 @@ try {
     Get-NetFirewallRule -DisplayName 'Pharmaco' -ErrorAction SilentlyContinue | Remove-NetFirewallRule
     New-NetFirewallRule -DisplayName 'Pharmaco' -Direction Inbound -Protocol TCP -LocalPort $Port -Action Allow | Out-Null
 
-    Set-Content -Path "$env:PUBLIC\Desktop\Pharmaco.url" -Encoding ASCII -Value @('[InternetShortcut]', "URL=http://localhost:$Port")
+    Set-Content -Path "$env:PUBLIC\Desktop\Pharmaco.url" -Encoding ASCII -Value @('[InternetShortcut]', "URL=$Address")
 
     # A second shortcut for the counter: the browser opened so that Print sends
     # the slip straight to the default printer, with no preview in between.
@@ -198,7 +214,7 @@ try {
     if ($Browser) {
         $Link = (New-Object -ComObject WScript.Shell).CreateShortcut("$env:PUBLIC\Desktop\Pharmaco Till (prints directly).lnk")
         $Link.TargetPath = $Browser
-        $Link.Arguments = "--kiosk-printing --user-data-dir=`"$Target\till-browser`" --no-first-run --start-maximized http://localhost:$Port"
+        $Link.Arguments = "--kiosk-printing --user-data-dir=`"$Target\till-browser`" --no-first-run --start-maximized $Address"
         $Link.IconLocation = "$Browser,0"
         $Link.Description = 'Pharmaco, with slips printed straight to the default printer'
         $Link.Save()
@@ -210,13 +226,13 @@ try {
     Start-Sleep -Seconds 4
 
     Write-Host "`nPharmaco is $(if ($Updating) { 'updated' } else { 'installed' })." -ForegroundColor Green
-    Write-Host "  On this computer:       http://localhost:$Port   (there is a Pharmaco shortcut on the desktop)"
+    Write-Host "  On this computer:       $Address   (there is a Pharmaco shortcut on the desktop; http://localhost:$Port works too)"
     if ($Browser) { Write-Host "  To print without a preview: open 'Pharmaco Till (prints directly)' on the desktop, and make the slip printer the default printer." }
     Write-Host "  From other computers:   $($addresses -join '   or   ')"
-    Write-Host "  Sign in at:             http://localhost:$Port/back-office/login"
+    Write-Host "  Sign in at:             $Address/back-office/login"
     Write-Host "`nThe books are in $Target\data. Backups are written to $Target\app\storage\app\private\mirror\out"
 
-    Start-Process "http://localhost:$Port"
+    Start-Process $Address
 }
 catch {
     Write-Host "`nSTOPPED: $($_.Exception.Message)" -ForegroundColor Red

@@ -84,8 +84,10 @@ with no internet and nothing else to set up first.
 3. Answer its two questions: the values from Part 1 (leave both empty to set
    up the online copy later). It does not ask for a login: the first (back
    office) login is built in, and is not shown on the screen.
-4. It finishes by opening `http://localhost:8080` and printing the address
-   other computers in the shop should use.
+4. It finishes by opening `http://pharmaco:8080` and printing the address
+   other computers in the shop should use. `pharmaco` is a name the installer
+   gives this computer in Windows' hosts file, so it works on this computer
+   only; `http://localhost:8080` opens it too.
 
 What it does: puts everything in `C:\Pharmaco`, creates the database as a
 Windows service (`PharmacoDB`), starts the application whenever the computer
@@ -120,7 +122,8 @@ installing another. MAMP must be started for Pharmaco to work.
 
 ### After installing (either system)
 
-1. Sign in at `http://localhost:8080/back-office/login` with the built-in
+1. Sign in at `http://pharmaco:8080/back-office/login` (Windows) or
+   `http://localhost:8080/back-office/login` (Mac) with the built-in
    back office login. Change its password straight away (Profile): every
    installation starts with the same one.
 2. Create the business, bring in its data and finalise the opening balance as
@@ -192,7 +195,8 @@ leaves the application folder and the database — the books — where they are.
 
 ## Part 3 — what each side sees
 
-- **The shop** uses `http://localhost:8080` (or the computer's IP address).
+- **The shop** uses `http://pharmaco:8080` on a Windows shop computer,
+  `http://localhost:8080` on a Mac (or the computer's IP address from others).
   Everything works without internet: the till, receiving stock, closing the
   day, reports.
 - **The owner** signs in at the platform's ordinary sign-in page with the

@@ -235,6 +235,7 @@ return [
             ['title' => 'Every number opens', 'body' => 'Each figure opens to the entries behind it.'],
             ['title' => 'Spreadsheet reports', 'body' => 'Reports for sales, purchases and stock, downloadable as spreadsheets.'],
             ['title' => 'Several businesses, one login', 'body' => 'Each business is fully separate.'],
+            ['title' => 'Bring your old POS across', 'body' => 'Products, suppliers and customers come over from the old POS database, and its history with them if wanted: every bill, delivery, refund and expense on its own date, each day closed.'],
             ['title' => 'Nothing to install', 'body' => 'Pharmaco runs in the browser.'],
             ['title' => 'Clear on any screen', 'body' => 'Strong colours make text, lines and colours easy to read on a dull or washed-out counter screen, set for each computer.'],
             ['title' => 'Works without internet', 'body' => 'A shop can run on its own computer and keep selling offline. The owner reads an up-to-date copy online, and support can pause a shop to fix its books and hand them straight back. If the shop\'s computer is lost or stolen, its books come back from the online copy.'],

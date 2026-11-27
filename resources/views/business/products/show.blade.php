@@ -131,6 +131,15 @@
 
             <x-panel title="Stock movements" description="All stock received and removed. Stock in hand is the total of these."
                      class="xl:flex xl:min-h-0 xl:flex-1 xl:flex-col">
+                @can('verifyStock', $business)
+                    <x-slot name="actions">
+                        <button type="button" x-data x-on:click="$dispatch('open-drawer', 'adjust-stock-{{ $product->id }}')"
+                                title="Count the shelf batch by batch, or add or remove stock with a reason"
+                                class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
+                            Adjust stock
+                        </button>
+                    </x-slot>
+                @endcan
                 <div class="max-h-96 overflow-auto xl:max-h-none xl:min-h-0 xl:flex-1">
                     <table class="min-w-full divide-y divide-gray-200 text-sm">
                         <thead class="sticky top-0 z-10 bg-gray-50">
@@ -180,56 +189,9 @@
 
                 @can('verifyStock', $business)
                     {{-- Corrections are movements too, so the running total and
-                         the history stay one thing. --}}
-                    {{-- What is added says when it expires, like a delivery. What
-                         is removed has no date to give, so the two fields only
-                         show while the quantity is a plus. --}}
-                    <form method="POST" action="{{ route('businesses.products.adjust-stock', [$business, $product]) }}"
-                          x-data="{ packs: @js(old('packs', '')) }"
-                          class="flex shrink-0 flex-wrap items-end gap-3 border-t border-gray-200 px-4 py-3 sm:px-6">
-                        @csrf
-                        <div>
-                            <x-input-label for="type" value="Manual stock adjustment" />
-                            <select id="type" name="type"
-                                    class="mt-1 block rounded-md border-gray-300 text-sm shadow-sm focus:border-emerald-600 focus:ring-emerald-600">
-                                <option value="adjustment">Adjustment</option>
-                                <option value="opening">Opening stock</option>
-                            </select>
-                        </div>
-
-                        <div>
-                            <x-input-label for="packs" :value="ucfirst($business->unit()->many()) . ' (− to remove)'" />
-                            <x-text-input id="packs" name="packs" type="number" step="1" required x-model="packs"
-                                          class="mt-1 block w-32 text-right font-mono" placeholder="e.g. -12" />
-                        </div>
-
-                        <div x-show="Number(packs) > 0" x-cloak>
-                            <x-input-label value="Expiry (required)" />
-                            <input type="month" data-must name="expires_on" value="{{ old('expires_on') }}"
-                                   :disabled="! (Number(packs) > 0)"
-                                   class="mt-1 block w-36 rounded-md border-gray-300 py-2 text-sm">
-                        </div>
-
-                        <div x-show="Number(packs) > 0" x-cloak>
-                            <x-input-label for="batch_no" value="Batch no." />
-                            <x-text-input id="batch_no" name="batch_no" type="text" maxlength="60" :value="old('batch_no')"
-                                          x-bind:disabled="! (Number(packs) > 0)"
-                                          class="mt-1 block w-32 font-mono uppercase" />
-                        </div>
-
-                        <div class="min-w-[14rem] flex-1">
-                            <x-input-label for="note" value="Reason" />
-                            <x-text-input id="note" name="note" type="text" class="mt-1 block w-full"
-                                          placeholder="e.g. Breakage, expiry write-off, opening count" :value="old('note')" />
-                        </div>
-
-                        <button class="rounded-md bg-gray-900 px-4 py-2 text-sm font-semibold text-white hover:bg-gray-800">
-                            Save
-                        </button>
-
-                        <x-input-error :messages="$errors->get('packs')" class="w-full" />
-                        <x-input-error :messages="$errors->get('expires_on')" class="w-full" />
-                    </form>
+                         the history stay one thing. Made in the stock drawer:
+                         a count by batch, or a quantity in or out. --}}
+                    <x-stock-adjust-drawer :business="$business" :product="$product" />
                 @endcan
             </x-panel>
             </div>

@@ -285,6 +285,9 @@ Route::middleware(['auth', 'business'])
         Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
         Route::post('products/{product}/stock', [ProductController::class, 'adjustStock'])
             ->name('products.adjust-stock');
+        // The shelf counted batch by batch, from the same drawer.
+        Route::post('products/{product}/count', [ProductController::class, 'countStock'])
+            ->name('products.count-stock');
 
         // What a business looks after itself: its details, and its counter.
         Route::get('settings', [SettingsController::class, 'edit'])->name('settings.edit');

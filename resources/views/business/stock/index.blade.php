@@ -61,7 +61,7 @@
                     <button type="button" x-on:click="view = 'deliveries'"
                             :class="view === 'deliveries' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
                             class="rounded-full px-3 py-1 text-xs font-medium">
-                        Deliveries ({{ $deliveries->count() }})
+                        Deliveries ({{ number_format($deliveryCount) }})
                     </button>
                     <button type="button" x-on:click="view = 'counts'"
                             :class="view === 'counts' ? 'bg-gray-900 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
@@ -131,6 +131,14 @@
                                 </td>
                             </tr>
                         @endforelse
+                        @if ($deliveryCount > $deliveries->count())
+                            <tr>
+                                <td colspan="7" class="px-6 py-3 text-center text-xs text-gray-500">
+                                    The newest {{ $deliveries->count() }} of {{ number_format($deliveryCount) }} are listed.
+                                    Every delivery is in the total above and on each order's page.
+                                </td>
+                            </tr>
+                        @endif
                     </tbody>
                 </table>
             </div>
@@ -181,7 +189,7 @@
                                             <div class="text-xs text-gray-500">{{ $row['product']->generic_name }}</div>
                                         @endif
                                     </td>
-                                    <td class="px-3 py-2 text-gray-600">{{ $row['product']->company?->name ?? '—' }}</td>
+                                    <td class="px-3 py-2 text-gray-600"><x-supplier-cell :product="$row['product']" :from="$suppliers->get($row['product']->id)" /></td>
                                     <td class="px-3 py-2 text-gray-600">{{ $row['product']->pack_size ?? '—' }}</td>
                                     <td class="px-3 py-2 text-right font-mono tabular-nums {{ $row['received'] > 0 ? 'text-emerald-700' : 'text-gray-400' }}">
                                         {{ $row['received'] > 0 ? '+' . number_format($row['received']) : '—' }}

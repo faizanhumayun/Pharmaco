@@ -78,6 +78,24 @@ class StockLedger
     }
 
     /**
+     * Whole packs and loose pieces together, from one reading of the
+     * movements — for lists that show both, which would otherwise sum every
+     * movement twice.
+     *
+     * @return array{0: Collection<int, int>, 1: Collection<int, int>}  packs, loose
+     */
+    public function heldByProduct(Business $business, ?string $asAt = null, ?array $only = null): array
+    {
+        $per = $this->unitsPerPack($business);
+        $pieces = $this->piecesByProduct($business, $asAt, $only);
+
+        $packs = $pieces->map(fn (int $n, int $id) => $this->wholePacks($n, $per[$id] ?? 1));
+        $loose = $pieces->map(fn (int $n, int $id) => $n - $packs[$id] * ($per[$id] ?? 1));
+
+        return [$packs, $loose];
+    }
+
+    /**
      * Everything held, counted in the smallest thing sold: pieces. For a
      * product that is never broken open, a piece and a pack are the same.
      *

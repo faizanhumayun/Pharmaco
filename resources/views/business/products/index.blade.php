@@ -14,7 +14,9 @@
         </div>
     </x-slot>
 
-    <div class="w-full px-4 py-8 sm:px-6 lg:px-8">
+    {{-- The page fills the screen and only the table scrolls, its headings
+         held at the top, like the stock held on the Stock page. --}}
+    <div class="w-full px-4 py-4 sm:px-6 lg:flex lg:h-[calc(100vh-9.5rem)] lg:flex-col lg:px-8 [&>*]:shrink-0">
         <x-flash />
 
         {{-- Sold past the count. The counter is allowed to do it — the medicine
@@ -44,7 +46,7 @@
             </div>
         @endif
 
-        <x-filter-bar submit="Filter" :active="array_filter($filters)" clear="{{ route('businesses.products.index', $business) }}" class="mb-6">
+        <x-filter-bar submit="Filter" :active="array_filter($filters)" clear="{{ route('businesses.products.index', $business) }}" class="mb-4">
             @if ($filters['short'])
                 <input type="hidden" name="short" value="1">
             @endif
@@ -100,10 +102,10 @@
             <x-slot name="count">{{ number_format($products->total()) }} of {{ number_format($total) }} products</x-slot>
         </x-filter-bar>
 
-        <x-panel>
-            <div class="overflow-x-auto">
+        <x-panel class="flex min-h-0 flex-col lg:!shrink lg:flex-1">
+            <div class="min-h-0 flex-1 overflow-auto">
                 <table class="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead class="bg-gray-50">
+                    <thead class="sticky top-0 z-10 bg-gray-50">
                         <tr>
                             @foreach ([
                                 ['Product', 'left'], ['Generic', 'left'], ['Pack', 'left'], ['Company', 'left'],
@@ -143,7 +145,9 @@
                                         <span class="text-xs text-gray-400">{{ $product->packType()?->label() ?? $product->pack_type }}</span>
                                     @endif
                                 </td>
-                                <td class="px-3 py-2 text-gray-600">{{ $product->company?->name ?? '—' }}</td>
+                                <td class="px-3 py-2 text-gray-600">
+                                    <x-supplier-cell :product="$product" :from="$suppliers->get($product->id)" />
+                                </td>
                                 <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $product->mrp?->format() ?? '—' }}</td>
                                 @unless ($business->sellsAtMrp())
                                     <td class="px-3 py-2 text-right font-mono tabular-nums text-gray-900">{{ $product->trade_price?->format() ?? '—' }}</td>
@@ -207,11 +211,26 @@
                             </tr>
                         @endforelse
                     </tbody>
+                    {{-- Totals of everything the filters match, held at the foot
+                         as on the Stock page. --}}
+                    @if ($footer['products'] > 0)
+                        <tfoot class="sticky bottom-0 bg-gray-50 shadow-[0_-1px_0_0_rgb(var(--line-rgb))]">
+                            <tr>
+                                <td colspan="{{ $business->sellsAtMrp() ? 8 : 9 }}" class="px-3 py-2 text-right text-sm font-semibold text-gray-900 sm:px-6">
+                                    {{ number_format($footer['products']) }} products · {{ number_format($footer['inStock']) }} in stock
+                                </td>
+                                <td class="px-3 py-2 font-mono text-base font-semibold tabular-nums text-gray-900">
+                                    {{ number_format($footer['packs']) }}
+                                </td>
+                                <td></td>
+                            </tr>
+                        </tfoot>
+                    @endif
                 </table>
             </div>
 
             @if ($products->hasPages())
-                <div class="border-t border-gray-200 px-4 py-3 sm:px-6">{{ $products->links() }}</div>
+                <div class="shrink-0 border-t border-gray-200 px-4 py-2 sm:px-6">{{ $products->links() }}</div>
             @endif
         </x-panel>
     </div>

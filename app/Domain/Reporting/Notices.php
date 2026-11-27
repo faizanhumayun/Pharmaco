@@ -30,6 +30,43 @@ class Notices
      */
     public function for(Business $business, User $user): array
     {
+        /*
+         * The bell is on every page, and working it out reads the whole
+         * ledger: for a business with a year of bills that is most of a
+         * second per page. So it is kept, keyed on the newest change to
+         * everything it reads — anything posted, entered, closed, sold,
+         * received or counted makes a new key and it is worked out afresh at
+         * once. The few minutes' limit is only a backstop. Nothing here is a
+         * stored balance: it is what the page last showed, never a figure
+         * anything else reads.
+         */
+        return \Illuminate\Support\Facades\Cache::remember(
+            'notices:'.$business->id.':'.$user->id.':'.$this->fingerprint($business),
+            now()->addMinutes(5),
+            fn () => $this->compute($business, $user),
+        );
+    }
+
+    private function fingerprint(Business $business): string
+    {
+        $latest = fn (string $model, string $column = 'updated_at') => (string) $model::forBusiness($business)->max($column);
+
+        return md5(implode('|', [
+            $business->today()->toDateString(),
+            (string) $business->updated_at,
+            $latest(\App\Models\Transaction::class, 'id'),
+            $latest(\App\Models\StockMovement::class, 'id'),
+            $latest(\App\Models\DailyEntry::class),
+            $latest(\App\Models\DailyClosing::class),
+            $latest(\App\Models\PosBill::class),
+            $latest(\App\Models\Order::class),
+            $latest(\App\Models\CompanyAudit::class),
+            $latest(\App\Models\StockVerification::class),
+        ]));
+    }
+
+    private function compute(Business $business, User $user): array
+    {
         $today = $business->today();
         $trial = $this->balances->trialBalance($business, $today);
         $position = $this->balances->position($business, $today);

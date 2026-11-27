@@ -36,8 +36,7 @@ class ProductController extends Controller
          * every product the books now say there is less than none of, which is
          * either a delivery never entered or a count that needs redoing.
          */
-        $onHand = $stock->onHandByProduct($business);
-        $looseOnHand = $stock->looseByProduct($business);
+        [$onHand, $looseOnHand] = $stock->heldByProduct($business);
         $belowZero = $onHand->filter(fn ($packs) => (int) $packs < 0)->keys();
 
         // Something on the shelf: a whole pack, or loose pieces of an open one.
@@ -51,9 +50,14 @@ class ProductController extends Controller
             ->when($request->query('company'), fn ($q, $id) => $q->where('company_id', $id))
             ->when($request->query('form'), fn ($q, $form) => $q->where('dosage_form', $form))
             ->unless($request->boolean('inactive'), fn ($q) => $q->active())
-            ->orderBy('brand_name')
-            ->paginate(50)
-            ->withQueryString();
+            ->orderBy('brand_name');
+
+        // Every product the filters match, not only this page, for the totals
+        // held at the foot of the list.
+        $matchingIds = (clone $products)->pluck('id');
+        $matchingInStock = $matchingIds->intersect($inStock);
+
+        $products = $products->paginate(50)->withQueryString();
 
         return view('business.products.index', [
             'business' => $business,
@@ -77,6 +81,14 @@ class ProductController extends Controller
             'onHand' => $onHand,
             'looseOnHand' => $looseOnHand,
             'belowZero' => $belowZero,
+            'footer' => [
+                'products' => $matchingIds->count(),
+                'inStock' => $matchingInStock->count(),
+                'packs' => (int) $matchingInStock->sum(fn ($id) => max(0, (int) ($onHand[$id] ?? 0))),
+            ],
+            // For a product more than one supplier has delivered: the one
+            // with the best rate, and how many others there are.
+            'suppliers' => app(\App\Domain\Stock\SupplierRates::class)->cheapestFirst($business, $products->getCollection()->modelKeys()),
         ]);
     }
 
@@ -301,5 +313,57 @@ class ProductController extends Controller
             $business->unit()->many(),
             app(StockLedger::class)->onHand($business, $product),
         ));
+    }
+
+    /**
+     * The shelf counted batch by batch, from the stock drawer — the same count
+     * a company audit makes for one product, approved at once: what is found
+     * short is a loss, what is found over goes back into stock, and a batch
+     * found that the records did not have goes onto the books under its date.
+     */
+    public function countStock(
+        Request $request,
+        Business $business,
+        CompanyProduct $product,
+        \App\Domain\Stock\Actions\RecordStockCount $counts,
+        \App\Domain\Stock\Actions\ResolveStockCount $resolve,
+    ): RedirectResponse {
+        $this->authorize('verifyStock', $business);
+
+        $validated = $request->validate([
+            'batches' => ['required', 'array', 'min:1', 'max:100'],
+            'batches.*.batch_no' => ['nullable', 'string', 'max:60'],
+            'batches.*.expires_on' => ['nullable', 'date_format:Y-m'],
+            'batches.*.packs' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'batches.*.loose' => ['nullable', 'integer', 'min:0', 'max:1000000'],
+            'batches.*.is_new' => ['nullable', 'boolean'],
+            'note' => ['required', 'string', 'max:255'],
+        ], [
+            'note.required' => 'Say why the stock is being changed.',
+            'batches.*.expires_on.date_format' => 'An expiry must be a month and a year.',
+        ]);
+
+        // A batch found on the shelf says when it expires, like a delivery.
+        foreach ($validated['batches'] as $i => $line) {
+            if (! empty($line['is_new']) && ((int) ($line['packs'] ?? 0) + (int) ($line['loose'] ?? 0)) > 0 && empty($line['expires_on'])) {
+                return back()->withInput()->withErrors(['count' => 'Enter the expiry printed on each batch found on the shelf.']);
+            }
+        }
+
+        try {
+            $count = \Illuminate\Support\Facades\DB::transaction(function () use ($counts, $resolve, $business, $product, $validated, $request) {
+                $count = $counts->handle($business, $product, null, $request->user(), $validated['note'], 0, $validated['batches']);
+
+                return $count->isOpen() ? $resolve->approve($count, $request->user(), $validated['note']) : $count;
+            });
+        } catch (RuntimeException $e) {
+            return back()->withInput()->withErrors(['count' => $e->getMessage()]);
+        }
+
+        $stock = app(StockLedger::class);
+
+        return back()->with('status', $count->status === \App\Models\StockCount::AGREED
+            ? 'The shelf matches the records. Nothing was changed.'
+            : sprintf('Stock counted. It is now %s.', $product->stockLabel($stock->onHand($business, $product), $stock->looseOnHand($business, $product))));
     }
 }

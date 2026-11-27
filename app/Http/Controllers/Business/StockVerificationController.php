@@ -50,7 +50,8 @@ class StockVerificationController extends Controller
         // Filtered to a company, the figures at the top are that company's:
         // its goods held, its deliveries, its goods sold.
         $scope = $company ? $held->filter(fn (array $row) => $row['product']->company_id === $company->id)->values() : $held;
-        $deliveries = $received->deliveries($business, $period['from'], $company?->id);
+        // The newest hundred are listed; the count and value cover them all.
+        $deliveries = $received->deliveries($business, $period['from'], $company?->id, 100);
         $productIds = $company
             ? \App\Models\CompanyProduct::forBusiness($business)->where('company_id', $company->id)->pluck('id')->all()
             : null;
@@ -86,11 +87,17 @@ class StockVerificationController extends Controller
             'period' => $period,
             'periodKey' => $request->query('period', 'all'),
             'deliveries' => $deliveries,
-            'receivedValue' => $received->value($deliveries),
+            'deliveryCount' => $received->deliveryCount($business, $period['from'], $company?->id),
+            'receivedValue' => $received->receivedValue($business, $period['from'], $company?->id),
             'soldValue' => $received->soldValue($business, $period['from'], $productIds),
 
             // What is held, product by product.
             'onHand' => $onHand,
+            // Delivered by several: the best rate first, the others on hover.
+            'suppliers' => app(\App\Domain\Stock\SupplierRates::class)->cheapestFirst(
+                $business,
+                $onHand->getCollection()->map(fn (array $row) => $row['product']->id)->all(),
+            ),
             'search' => $search,
             'companies' => $companies,
             'company' => $company,

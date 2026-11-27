@@ -39,16 +39,45 @@ class GoodsReceived
      *
      * @return Collection<int, Order>
      */
-    public function deliveries(Business $business, ?Carbon $from, ?int $companyId = null): Collection
+    public function deliveries(Business $business, ?Carbon $from, ?int $companyId = null, ?int $limit = null): Collection
+    {
+        return $this->received($business, $from, $companyId)
+            ->with(['company', 'receiptLines', 'receiver', 'purchaseLine.dailyEntry'])
+            ->orderByDesc('received_at')
+            ->orderByDesc('id')
+            ->when($limit, fn ($q) => $q->limit($limit))
+            ->get();
+    }
+
+    /** How many deliveries the period holds, however many are listed. */
+    public function deliveryCount(Business $business, ?Carbon $from, ?int $companyId = null): int
+    {
+        return $this->received($business, $from, $companyId)->count();
+    }
+
+    /**
+     * What every delivery in the period came to, without loading the
+     * deliveries themselves: a year of them is too many to hold at once.
+     */
+    public function receivedValue(Business $business, ?Carbon $from, ?int $companyId = null): Money
+    {
+        return OrderReceiptLine::query()
+            ->whereIn('order_id', $this->received($business, $from, $companyId)->select('id'))
+            ->select(['id', 'order_id', 'rate', 'packs', 'loose', 'units_per_pack', 'discount_percent'])
+            ->with('order:id,discount_percent')
+            ->get()
+            ->reduce(fn (Money $total, OrderReceiptLine $line) => $total->plus(
+                $line->amount($line->order->discount_percent)
+            ), Money::zero());
+    }
+
+    private function received(Business $business, ?Carbon $from, ?int $companyId)
     {
         return Order::forBusiness($business)
             ->where('status', OrderStatus::Received)
             ->when($from, fn ($q) => $q->where('received_at', '>=', $from))
             // One company's deliveries, when the page is filtered to it.
-            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
-            ->with(['company', 'receiptLines', 'receiver', 'purchaseLine.dailyEntry'])
-            ->orderByDesc('received_at')
-            ->get();
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId));
     }
 
     /**
@@ -73,14 +102,20 @@ class GoodsReceived
             ->whereIn('type', [\App\Enums\StockMovementType::Sale, \App\Enums\StockMovementType::SaleReturn])
             ->when($from, fn ($q) => $q->where('business_date', '>=', $from->toDateString()))
             ->when($only !== null, fn ($q) => $q->whereIn('company_product_id', $only))
+            // Summed per product and cost in the database: a pharmacy with a
+            // year of bills has a hundred thousand movements, far too many to
+            // load one by one. The sum is linear, so a group gives the same
+            // figure as its movements would separately.
+            ->groupBy('company_product_id', 'unit_cost')
+            ->selectRaw('company_product_id, unit_cost, SUM(packs) as packs, SUM(loose) as loose')
             ->with('product:id,units_per_pack')
             ->get()
-            ->reduce(function (Money $total, $movement) {
-                $per = max(1, (int) ($movement->product?->units_per_pack ?? 1));
+            ->reduce(function (Money $total, $group) {
+                $per = max(1, (int) ($group->product?->units_per_pack ?? 1));
                 // Sales are written as packs going out, so they are negative.
-                $packs = -($movement->packs + $movement->loose / $per);
+                $packs = -((int) $group->packs + (int) $group->loose / $per);
 
-                return $total->plus(($movement->unit_cost ?? Money::zero())->times($packs));
+                return $total->plus(($group->unit_cost ?? Money::zero())->times($packs));
             }, Money::zero());
     }
 
@@ -94,15 +129,14 @@ class GoodsReceived
      */
     public function onHand(Business $business, StockLedger $ledger, ?Carbon $from): Collection
     {
-        $held = $ledger->onHandByProduct($business);
-        // Pieces left in opened packs, to read beside the whole ones.
-        $loose = $ledger->looseByProduct($business);
+        // Whole packs, and the pieces left in opened ones, read together.
+        [$held, $loose] = $ledger->heldByProduct($business);
 
         if ($held->isEmpty()) {
             return collect();
         }
 
-        $received = $this->items($business, $from)->keyBy('product_id');
+        $received = $this->packsReceived($business, $from);
 
         $products = CompanyProduct::forBusiness($business)
             ->whereIn('id', $held->keys())
@@ -127,7 +161,7 @@ class GoodsReceived
                     'product' => $product,
                     'packs' => $packs,
                     'loose' => $looseHeld,
-                    'received' => (int) ($received->get($productId)['packs'] ?? 0),
+                    'received' => (int) ($received[$productId] ?? 0),
                     // At what a pack costs today, which is a sound enough
                     // estimate to check against the book value and is not a
                     // costing method — the ledger holds the value that counts.
@@ -140,6 +174,23 @@ class GoodsReceived
             ->filter()
             ->sortBy(fn (array $row) => mb_strtolower($row['product']->brand_name))
             ->values();
+    }
+
+    /**
+     * Packs received per product over the period, added up by the database.
+     *
+     * @return Collection<int, int>
+     */
+    public function packsReceived(Business $business, ?Carbon $from): Collection
+    {
+        return OrderReceiptLine::query()
+            ->whereIn('order_id', $this->received($business, $from, null)->select('id'))
+            ->whereNotNull('company_product_id')
+            ->where('packs', '>', 0)
+            ->groupBy('company_product_id')
+            ->selectRaw('company_product_id, SUM(packs) as packs')
+            ->pluck('packs', 'company_product_id')
+            ->map(fn ($n) => (int) $n);
     }
 
     /**
